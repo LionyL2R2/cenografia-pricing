@@ -80,12 +80,13 @@ label{font-size:12px;font-weight:600;color:var(--ink-soft);display:block;margin-
 input[type=number]{font-variant-numeric:tabular-nums}
 
 /* ---------- cards ---------- */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
-.card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;overflow:visible}
+.card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0}
 .card-head h2{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.2px;flex:1}
 .card-head .ic{width:28px;height:28px;border-radius:7px;background:var(--paper);display:flex;align-items:center;justify-content:center;flex:none}
 .card-head .ic svg{width:15px;height:15px;stroke:var(--ink)}
 .card-body{padding:16px}
+.card > .card-body:last-child{border-radius:0 0 var(--radius) var(--radius)}
 .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .field-grid .full{grid-column:1/-1}
 
@@ -104,10 +105,12 @@ input[type=number]{font-variant-numeric:tabular-nums}
   opacity:0;pointer-events:none;transition:opacity .15s;z-index:30;text-align:left;
 }
 .hint:hover::after{opacity:1}
+.hint:hover{z-index:5}
+.card-head .hint::after{bottom:auto;top:130%}
 
 /* ---------- seções e itens ---------- */
-.secao{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;background:#fff;overflow:hidden}
-.secao-head{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--paper);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.secao{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;background:#fff;overflow:visible}
+.secao-head{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--paper);border-bottom:1px solid var(--line);flex-wrap:wrap;border-radius:var(--radius) var(--radius) 0 0}
 .secao-head input.sec-nome{font-weight:700;max-width:260px;background:transparent;border-color:transparent;padding:6px 8px}
 .secao-head input.sec-nome:hover{border-color:var(--line);background:#fff}
 .secao-head select.sec-cat{width:auto;font-size:12.5px;padding:6px 8px}
@@ -129,7 +132,7 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .del-item{background:none;border:none;cursor:pointer;color:var(--ink-soft);padding:4px;border-radius:6px;display:flex}
 .del-item:hover{color:var(--erro);background:#FBEAE8}
 .del-item svg{width:15px;height:15px}
-.secao-foot{display:flex;gap:8px;padding:10px 12px;background:#FBFCFE;flex-wrap:wrap}
+.secao-foot{display:flex;gap:8px;padding:10px 12px;background:#FBFCFE;flex-wrap:wrap;border-radius:0 0 var(--radius) var(--radius)}
 .row-erro{outline:2px solid var(--erro);outline-offset:-2px;border-radius:6px}
 
 /* ---------- canhotos de nota (assinatura visual) ---------- */
