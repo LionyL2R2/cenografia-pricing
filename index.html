@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formação de Preço · Cenografia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#15233F;        /* azul estrutura */
+  --ink-soft:#5A6678;
+  --paper:#F2F4F7;      /* fundo frio, oficina limpa */
+  --card:#FFFFFF;
+  --line:#DDE3EC;
+  --obra:#E8740C;       /* laranja de obra / fita zebrada */
+  --servico:#2563EB;    /* azul nota de serviço */
+  --locacao:#0E9488;    /* verde nota de locação */
+  --erro:#D33B2F;
+  --ok:#1C8A4C;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.45;
+}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 80px}
+
+/* ---------- header ---------- */
+header.app{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:18px 0 22px;
+}
+.logo-mark{
+  width:46px;height:46px;border-radius:9px;background:var(--ink);
+  display:flex;align-items:center;justify-content:center;flex:none;
+  position:relative;overflow:hidden;
+}
+.logo-mark::after{ /* fita zebrada */
+  content:"";position:absolute;left:-10px;right:-10px;bottom:5px;height:7px;
+  background:repeating-linear-gradient(45deg,var(--obra) 0 7px,var(--ink) 7px 14px);
+}
+.logo-mark svg{width:24px;height:24px;stroke:#fff;margin-bottom:6px}
+h1{
+  font-family:'Archivo',sans-serif;
+  font-variation-settings:'wdth' 115;
+  font-weight:850;font-size:21px;letter-spacing:-.3px;line-height:1.1;
+}
+h1 span{color:var(--ink-soft);font-weight:500;font-variation-settings:'wdth' 100;font-size:15px;display:block;letter-spacing:0}
+.head-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ---------- buttons / inputs ---------- */
+.btn{
+  font:inherit;font-weight:600;font-size:13px;
+  border:1px solid var(--ink);background:var(--ink);color:#fff;
+  border-radius:8px;padding:8px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.btn svg{width:15px;height:15px;flex:none}
+.btn:hover{background:#0E1830}
+.btn.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+.btn.ghost:hover{border-color:var(--ink)}
+.btn.obra{background:var(--obra);border-color:var(--obra)}
+.btn.obra:hover{background:#C96208}
+.btn.mini{padding:5px 10px;font-size:12px;border-radius:7px}
+.btn.danger{background:#fff;color:var(--erro);border-color:var(--line)}
+.btn.danger:hover{border-color:var(--erro)}
+input,select,textarea{
+  font:inherit;font-size:14px;color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;background:#fff;width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--servico);outline-offset:1px;border-color:transparent}
+label{font-size:12px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:4px}
+input[type=number]{font-variant-numeric:tabular-nums}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.card-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.card-head h2{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.2px;flex:1}
+.card-head .ic{width:28px;height:28px;border-radius:7px;background:var(--paper);display:flex;align-items:center;justify-content:center;flex:none}
+.card-head .ic svg{width:15px;height:15px;stroke:var(--ink)}
+.card-body{padding:16px}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.field-grid .full{grid-column:1/-1}
+
+/* ---------- tooltip ---------- */
+.hint{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:15px;height:15px;border-radius:50%;
+  background:var(--line);color:var(--ink-soft);
+  font-size:10px;font-weight:700;cursor:help;position:relative;
+  vertical-align:1px;margin-left:5px;
+}
+.hint::after{
+  content:attr(data-tip);position:absolute;bottom:130%;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;font-size:11.5px;font-weight:500;line-height:1.4;
+  padding:7px 10px;border-radius:7px;width:max-content;max-width:230px;
+  opacity:0;pointer-events:none;transition:opacity .15s;z-index:30;text-align:left;
+}
+.hint:hover::after{opacity:1}
+
+/* ---------- seções e itens ---------- */
+.secao{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;background:#fff;overflow:hidden}
+.secao-head{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--paper);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.secao-head input.sec-nome{font-weight:700;max-width:260px;background:transparent;border-color:transparent;padding:6px 8px}
+.secao-head input.sec-nome:hover{border-color:var(--line);background:#fff}
+.secao-head select.sec-cat{width:auto;font-size:12.5px;padding:6px 8px}
+.item-grid-head,.item-row{
+  display:grid;gap:8px;align-items:center;padding:8px 12px;
+  grid-template-columns:minmax(140px,2.2fr) 110px 64px 110px 78px 110px 110px 120px 30px;
+}
+.item-grid-head{
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--ink-soft);border-bottom:1px solid var(--line);padding-top:11px;padding-bottom:7px;
+}
+.item-row{border-bottom:1px solid #EEF1F6}
+.item-row:last-child{border-bottom:none}
+.item-row .calc{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;text-align:right}
+.item-row .calc.imp{color:var(--ink-soft);font-weight:500}
+.item-row .calc.preco{color:var(--ink)}
+.item-row select.tipo-servico{color:var(--servico);font-weight:600}
+.item-row select.tipo-locacao{color:var(--locacao);font-weight:600}
+.del-item{background:none;border:none;cursor:pointer;color:var(--ink-soft);padding:4px;border-radius:6px;display:flex}
+.del-item:hover{color:var(--erro);background:#FBEAE8}
+.del-item svg{width:15px;height:15px}
+.secao-foot{display:flex;gap:8px;padding:10px 12px;background:#FBFCFE;flex-wrap:wrap}
+.row-erro{outline:2px solid var(--erro);outline-offset:-2px;border-radius:6px}
+
+/* ---------- canhotos de nota (assinatura visual) ---------- */
+.notas-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.nota-stub{
+  position:relative;border-radius:10px;padding:16px 16px 16px 26px;color:#fff;overflow:hidden;
+}
+.nota-stub.servico{background:linear-gradient(135deg,#1D4FD8,#2563EB)}
+.nota-stub.locacao{background:linear-gradient(135deg,#0B7A70,#0E9488)}
+.nota-stub::before{ /* picote do canhoto */
+  content:"";position:absolute;left:11px;top:8px;bottom:8px;
+  border-left:2px dashed rgba(255,255,255,.55);
+}
+.nota-stub .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.nota-stub .valor{font-family:'Archivo',sans-serif;font-weight:850;font-size:25px;letter-spacing:-.5px;margin:3px 0 8px;font-variant-numeric:tabular-nums}
+.nota-stub .linhas{font-size:12px;line-height:1.7;opacity:.92;font-variant-numeric:tabular-nums}
+.nota-stub .linhas b{font-weight:700}
+.total-geral{
+  background:var(--ink);color:#fff;border-radius:10px;padding:16px 18px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  position:relative;overflow:hidden;
+}
+.total-geral::after{
+  content:"";position:absolute;left:0;right:0;top:0;height:6px;
+  background:repeating-linear-gradient(45deg,var(--obra) 0 8px,transparent 8px 16px);
+}
+.total-geral .tl{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;opacity:.8}
+.total-geral .tv{font-family:'Archivo',sans-serif;font-weight:900;font-size:30px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.total-geral .sub{font-size:12px;opacity:.78;font-variant-numeric:tabular-nums}
+
+/* ---------- painel tributos ---------- */
+.trib-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.trib-box{border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+.trib-box .tl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
+.trib-box .dot{width:8px;height:8px;border-radius:50%}
+.trib-box .tv{font-family:'Archivo',sans-serif;font-weight:800;font-size:20px;margin-top:3px;font-variant-numeric:tabular-nums}
+.trib-box .ts{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+.trib-detalhe{font-size:12px;color:var(--ink-soft);margin-top:12px;line-height:1.6}
+
+/* ---------- dashboard ---------- */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.bar-row .bl{width:150px;font-size:12.5px;font-weight:600;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;height:20px;background:var(--paper);border-radius:6px;overflow:hidden;display:flex}
+.bar-fill{height:100%;border-radius:0}
+.bar-row .bv{width:120px;text-align:right;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+.split-bar{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:6px 0 4px}
+.split-bar div{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11.5px;font-weight:700;min-width:0;overflow:hidden;white-space:nowrap}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--ink-soft);margin-top:6px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* ---------- modais ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(13,22,40,.45);display:none;align-items:flex-start;justify-content:center;padding:30px 14px;z-index:50;overflow:auto}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:12px;max-width:560px;width:100%;padding:20px}
+.modal h3{font-family:'Archivo',sans-serif;font-weight:800;font-size:17px;margin-bottom:14px}
+.cat-row{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #EEF1F6;font-size:13px}
+.cat-row .cn{flex:1;font-weight:600}
+.cat-row .cm{color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff}
+.badge.servico{background:var(--servico)}
+.badge.locacao{background:var(--locacao)}
+
+/* ---------- avisos / toast ---------- */
+.aviso{background:#FDF1E7;border:1px solid #F4CBA4;color:#8A4A07;border-radius:9px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none}
+.aviso.show{display:block}
+#toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--ink);color:#fff;font-size:13px;font-weight:600;
+  padding:10px 18px;border-radius:30px;transition:transform .25s;z-index:60;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.rodape-fixo{font-size:12px;color:var(--ink-soft);text-align:center;margin-top:26px;line-height:1.6}
+.banner-exemplo{
+  background:var(--ink);color:#fff;border-radius:9px;padding:10px 14px;font-size:13px;
+  margin-bottom:14px;display:none;align-items:center;gap:10px;
+}
+.banner-exemplo.show{display:flex}
+.banner-exemplo b{color:#FFC07A}
+
+/* ---------- responsivo ---------- */
+@media(max-width:920px){
+  .item-grid-head{display:none}
+  .item-row{grid-template-columns:1fr 1fr;padding:12px}
+  .item-row>*{grid-column:auto}
+  .item-row .f-desc{grid-column:1/-1}
+  .item-row .calc{text-align:left;font-size:13.5px}
+  .item-row .calc::before{content:attr(data-l) " ";font-size:10.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;display:block}
+  .notas-grid{grid-template-columns:1fr}
+}
+
+/* ---------- impressão ---------- */
+#printArea{display:none}
+@media print{
+  body{background:#fff}
+  .wrap,#toast,.modal-bg{display:none !important}
+  #printArea{display:block;font-size:12.5px;color:#111;padding:0 4mm}
+  .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #15233F;padding-bottom:12px;margin-bottom:18px}
+  .p-head h1{font-family:'Archivo',sans-serif;font-size:20px;font-weight:900;letter-spacing:-.3px}
+  .p-head .emp{font-size:12px;line-height:1.55;color:#333}
+  .p-head .prop{text-align:right;font-size:12px;line-height:1.6}
+  .p-head .prop b{font-size:14px}
+  table.p-tab{width:100%;border-collapse:collapse;margin:10px 0 16px}
+  table.p-tab th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:2px solid #15233F;padding:6px 8px}
+  table.p-tab td{padding:7px 8px;border-bottom:1px solid #DDD;font-variant-numeric:tabular-nums}
+  table.p-tab td.r,table.p-tab th.r{text-align:right}
+  .p-sec{font-weight:700;background:#F0F2F6}
+  .p-tot{display:flex;justify-content:flex-end}
+  .p-tot table{font-size:13px;border-collapse:collapse;min-width:300px}
+  .p-tot td{padding:5px 10px;font-variant-numeric:tabular-nums}
+  .p-tot td:last-child{text-align:right;font-weight:600}
+  .p-tot tr.g td{border-top:2px solid #15233F;font-size:16px;font-weight:800;padding-top:8px}
+  .p-obs{margin-top:14px;font-size:12px;color:#333}
+  .p-foot{margin-top:26px;font-size:10.5px;color:#777;border-top:1px solid #DDD;padding-top:8px}
+  .p-trib{margin-top:16px;border:1px solid #BBB;border-radius:6px;padding:10px 12px;font-size:12px}
+  .p-trib b{display:block;margin-bottom:4px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="app">
+  <div class="logo-mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-7h6v7"/></svg>
+  </div>
+  <h1>Formação de Preço<span>Cenografia · cotação com impostos</span></h1>
+  <div class="head-actions">
+    <button class="btn ghost mini" onclick="abrirConfig()">⚙ Meus dados</button>
+    <button class="btn ghost mini" onclick="abrirCatalogo()">▤ Catálogo</button>
+    <button class="btn ghost mini" onclick="salvarOrcamento()">Salvar orçamento</button>
+    <select id="loadSel" onchange="carregarOrcamento(this.value)" style="width:auto;font-size:12.5px;padding:6px 9px">
+      <option value="">Abrir…</option>
+    </select>
+    <button class="btn obra mini" onclick="novoOrcamento()">+ Novo orçamento</button>
+  </div>
+</header>
+
+<div class="banner-exemplo" id="bannerExemplo">
+  <span>👋 Este é um <b>orçamento de exemplo</b> para você ver como o app funciona. Quando quiser, clique em <b>+ Novo orçamento</b> e crie o seu.</span>
+</div>
+
+<div class="aviso" id="avisoGuard">
+  ⚠ Em um ou mais itens, <b>imposto + margem chegou a 100% ou mais</b>. Assim não existe preço possível. Reduza a margem do item destacado em vermelho.
+</div>
+
+<!-- Dados do projeto -->
+<div class="card">
+  <div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+    <h2>Dados do orçamento</h2>
+  </div>
+  <div class="card-body">
+    <div class="field-grid">
+      <div><label>Nome do projeto</label><input id="p_nome" placeholder="Ex: Stand Expo Design 2026" oninput="metaInput()"></div>
+      <div><label>Número da proposta</label><input id="p_num" placeholder="001/2026" oninput="metaInput()"></div>
+      <div><label>Cliente</label><input id="p_cliente" placeholder="Nome ou empresa" oninput="metaInput()"></div>
+      <div><label>Data</label><input id="p_data" type="date" oninput="metaInput()"></div>
+      <div>
+        <label>Projeto KMF?
+          <span class="hint" data-tip="Marque quando o projeto for para a KMF Eventos. Você pode usar uma margem combinada só para eles.">?</span>
+        </label>
+        <div style="display:flex;gap:10px;align-items:center;height:37px">
+          <input type="checkbox" id="p_kmf" style="width:18px;height:18px" onchange="metaInput()">
+          <input type="number" id="p_margemKmf" placeholder="Margem KMF %" step="0.5" min="0" style="display:none" oninput="metaInput()">
+        </div>
+      </div>
+      <div><label>Margem padrão (%)
+        <span class="hint" data-tip="Quanto você quer ganhar sobre o preço de venda. Cada item pode ter a sua própria margem, se quiser.">?</span>
+      </label><input id="p_margem" type="number" step="0.5" min="0" value="20" oninput="metaInput()"></div>
+      <div class="full"><label>Observações</label><input id="p_obs" placeholder="Prazo, condições de pagamento, validade da proposta…" oninput="metaInput()"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Seções de itens -->
+<div id="secoes"></div>
+<div style="display:flex;gap:8px;margin-bottom:16px">
+  <button class="btn ghost" onclick="addSecao()">+ Nova seção</button>
+</div>
+
+<!-- Resumo: canhotos de nota -->
+<div class="card">
+  <div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 9h8M8 13h6"/></svg></span>
+    <h2>Resumo · como vai sair na nota
+      <span class="hint" data-tip="Serviço e locação saem em notas separadas, com impostos diferentes. Aqui você vê quanto vai em cada uma.">?</span>
+    </h2>
+  </div>
+  <div class="card-body">
+    <div class="notas-grid">
+      <div class="nota-stub servico">
+        <div class="eyebrow">Nota 1 · Serviço</div>
+        <div class="valor" id="r_serv_total">R$ 0,00</div>
+        <div class="linhas">
+          Custo: <b id="r_serv_custo">R$ 0,00</b><br>
+          Imposto embutido (<span id="lbl_serv_pct">16,33%</span>): <b id="r_serv_imp">R$ 0,00</b><br>
+          Sua margem: <b id="r_serv_marg">R$ 0,00</b>
+        </div>
+      </div>
+      <div class="nota-stub locacao">
+        <div class="eyebrow">Nota 2 · Locação</div>
+        <div class="valor" id="r_loc_total">R$ 0,00</div>
+        <div class="linhas">
+          Custo: <b id="r_loc_custo">R$ 0,00</b><br>
+          Imposto embutido (<span id="lbl_loc_pct">11,33%</span>): <b id="r_loc_imp">R$ 0,00</b><br>
+          Sua margem: <b id="r_loc_marg">R$ 0,00</b>
+        </div>
+      </div>
+    </div>
+    <div class="total-geral">
+      <div>
+        <div class="tl">Total da proposta</div>
+        <div class="tv" id="r_total">R$ 0,00</div>
+      </div>
+      <div style="text-align:right">
+        <div class="sub">Impostos totais: <b id="r_imp_total">R$ 0,00</b></div>
+        <div class="sub">Fica para você (margem): <b id="r_marg_total">R$ 0,00</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tributos -->
+<div class="card">
+  <div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+    <h2>Tributos a pagar desta cotação</h2>
+  </div>
+  <div class="card-body">
+    <div class="trib-grid">
+      <div class="trib-box">
+        <div class="tl"><span class="dot" style="background:var(--servico)"></span>Sobre serviço</div>
+        <div class="tv" id="t_serv">R$ 0,00</div>
+        <div class="ts">ISS 5% + PIS/COFINS + IRPJ/CSLL</div>
+      </div>
+      <div class="trib-box">
+        <div class="tl"><span class="dot" style="background:var(--locacao)"></span>Sobre locação</div>
+        <div class="tv" id="t_loc">R$ 0,00</div>
+        <div class="ts">Sem ISS · PIS/COFINS + IRPJ/CSLL</div>
+      </div>
+      <div class="trib-box">
+        <div class="tl"><span class="dot" style="background:var(--obra)"></span>Total de impostos</div>
+        <div class="tv" id="t_total">R$ 0,00</div>
+        <div class="ts" id="t_pct">— da proposta</div>
+      </div>
+    </div>
+    <div class="trib-detalhe" id="t_detalhe"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="card">
+  <div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span>
+    <h2>Composição do orçamento</h2>
+  </div>
+  <div class="card-body">
+    <label style="margin-bottom:6px">Serviço × Locação</label>
+    <div class="split-bar" id="splitBar"></div>
+    <div class="legend">
+      <span><i style="background:var(--servico)"></i>Serviço</span>
+      <span><i style="background:var(--locacao)"></i>Locação</span>
+    </div>
+    <div style="height:14px"></div>
+    <label style="margin-bottom:8px">Por categoria (preço final)</label>
+    <div id="catBars"></div>
+  </div>
+</div>
+
+<!-- Ações finais -->
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+  <button class="btn" onclick="imprimir('cliente')">🖨 Proposta para o cliente (PDF)</button>
+  <button class="btn ghost" onclick="imprimir('interna')">Versão interna completa (PDF)</button>
+  <button class="btn ghost" onclick="exportCSV()">Exportar Excel (CSV)</button>
+</div>
+
+<p class="rodape-fixo">
+  Os valores de impostos são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
+  Apuração oficial de tributos: <b>Pigatti Contabilidade</b>.
+</p>
+
+</div><!-- /wrap -->
+
+<!-- Modal config -->
+<div class="modal-bg" id="modalConfig">
+  <div class="modal">
+    <h3>Meus dados (aparecem na proposta)</h3>
+    <div class="field-grid">
+      <div class="full"><label>Nome da empresa / seu nome</label><input id="c_nome" placeholder="Silvio Cenografia"></div>
+      <div><label>CNPJ / CPF</label><input id="c_doc" placeholder="00.000.000/0001-00"></div>
+      <div><label>Telefone / WhatsApp</label><input id="c_tel" placeholder="(11) 90000-0000"></div>
+      <div><label>E-mail</label><input id="c_email" placeholder="contato@…"></div>
+      <div><label>Cidade</label><input id="c_cidade" placeholder="São Paulo · SP"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn ghost" onclick="fecharModais()">Cancelar</button>
+      <button class="btn" onclick="salvarConfig()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal catálogo -->
+<div class="modal-bg" id="modalCatalogo">
+  <div class="modal">
+    <h3>Catálogo de itens
+      <span class="hint" data-tip="Itens que você usa sempre (totem, montagem, adesivagem…). Cadastre uma vez e adicione nas cotações com um clique.">?</span>
+    </h3>
+    <div id="catLista" style="max-height:260px;overflow:auto;margin-bottom:14px"></div>
+    <div class="field-grid" style="grid-template-columns:2fr 1fr 1fr">
+      <div><label>Nome do item</label><input id="cat_nome" placeholder="Totem 2m"></div>
+      <div><label>Custo unit. (R$)</label><input id="cat_custo" type="number" step="0.01" min="0"></div>
+      <div><label>Tipo</label><select id="cat_tipo"><option value="locacao">Locação</option><option value="servico">Serviço</option></select></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn ghost" onclick="fecharModais()">Fechar</button>
+      <button class="btn" onclick="addCatalogoItem()">+ Adicionar ao catálogo</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="printArea"></div>
+<script>
+/* ============================================================
+   REGRAS TRIBUTÁRIAS — Lucro Presumido (editar aqui quando
+   a reforma tributária mudar as alíquotas)
+   ============================================================ */
+const TAX_RULES = {
+  servico: {
+    label: 'Serviço',
+    componentes: { 'ISS': 0.05, 'PIS': 0.0065, 'COFINS': 0.03, 'IRPJ': 0.048, 'CSLL': 0.0288 }
+  },
+  locacao: {
+    label: 'Locação',
+    componentes: { 'PIS': 0.0065, 'COFINS': 0.03, 'IRPJ': 0.048, 'CSLL': 0.0288 }
+  }
+};
+for (const k in TAX_RULES) {
+  TAX_RULES[k].total = Object.values(TAX_RULES[k].componentes).reduce((a,b)=>a+b,0);
+}
+
+const CATEGORIAS = ['Estrutura','Materiais','Impressão','Mão de obra','Transporte','Outros'];
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', catalog:'cen_v3_catalog', seen:'cen_v3_seen' };
+const fmt = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const uid = () => Math.random().toString(36).slice(2,9);
+
+let state = novoEstado();
+let catalog = lsGet(LS.catalog, []);
+let config  = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
+
+function novoEstado(){
+  return { meta:{nome:'',num:'',cliente:'',data:hoje(),obs:'',kmf:false,margemKmf:null,margem:20}, secoes:[] };
+}
+function hoje(){ return new Date().toISOString().slice(0,10); }
+function lsGet(k,fb){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fb; }catch(e){ return fb; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('show'),2400); }
+
+/* ---------- cálculo ---------- */
+function margemDoItem(item){
+  if (item.margem !== null && item.margem !== '' && !isNaN(item.margem)) return Number(item.margem);
+  if (state.meta.kmf && state.meta.margemKmf !== null && state.meta.margemKmf !== '' && !isNaN(state.meta.margemKmf)) return Number(state.meta.margemKmf);
+  return Number(state.meta.margem) || 0;
+}
+function calcItem(item){
+  const tax = TAX_RULES[item.tipo].total;
+  const mg  = margemDoItem(item)/100;
+  const custoTotal = (Number(item.qtd)||0) * (Number(item.custo)||0);
+  const denom = 1 - tax - mg;
+  if (denom <= 0.0001) return { custoTotal, erro:true, imposto:0, margemRS:0, preco:0, tax, mgPct:mg*100 };
+  const preco = custoTotal/denom;
+  return { custoTotal, erro:false, imposto:preco*tax, margemRS:preco*mg, preco, tax, mgPct:mg*100 };
+}
+function totais(){
+  const t = { servico:{custo:0,imposto:0,margem:0,preco:0}, locacao:{custo:0,imposto:0,margem:0,preco:0}, erro:false, porCategoria:{}, compServ:{}, compLoc:{} };
+  state.secoes.forEach(s=>{
+    s.items.forEach(it=>{
+      const c = calcItem(it);
+      if (c.erro){ t.erro=true; return; }
+      const g = t[it.tipo];
+      g.custo+=c.custoTotal; g.imposto+=c.imposto; g.margem+=c.margemRS; g.preco+=c.preco;
+      t.porCategoria[s.categoria] = (t.porCategoria[s.categoria]||0) + c.preco;
+      const comp = it.tipo==='servico'?t.compServ:t.compLoc;
+      for (const [nome,aliq] of Object.entries(TAX_RULES[it.tipo].componentes)){
+        comp[nome] = (comp[nome]||0) + c.preco*aliq;
+      }
+    });
+  });
+  return t;
+}
+
+/* ---------- render ---------- */
+function render(){
+  // meta
+  const m = state.meta;
+  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_data.value=m.data;
+  p_obs.value=m.obs; p_margem.value=m.margem; p_kmf.checked=m.kmf;
+  p_margemKmf.style.display = m.kmf?'block':'none';
+  p_margemKmf.value = m.margemKmf ?? '';
+  // seções
+  const box = document.getElementById('secoes');
+  box.innerHTML = '';
+  state.secoes.forEach(sec=>box.appendChild(renderSecao(sec)));
+  recalc();
+}
+function renderSecao(sec){
+  const d = document.createElement('div');
+  d.className='secao'; d.dataset.id=sec.id;
+  const catOpts = CATEGORIAS.map(c=>`<option ${c===sec.categoria?'selected':''}>${c}</option>`).join('');
+  d.innerHTML = `
+    <div class="secao-head">
+      <input class="sec-nome" value="${esc(sec.nome)}" placeholder="Nome da seção (ex: Totens)" oninput="secField('${sec.id}','nome',this.value)">
+      <select class="sec-cat" onchange="secField('${sec.id}','categoria',this.value)" title="Categoria para o gráfico de composição">${catOpts}</select>
+      <button class="btn danger mini" style="margin-left:auto" onclick="delSecao('${sec.id}')">Excluir seção</button>
+    </div>
+    <div class="item-grid-head">
+      <div>Item</div><div>Tipo de nota <span class="hint" data-tip="Serviço (montagem, execução) paga ISS. Locação (totem, mobiliário, estrutura alugada) sai em outra nota, sem ISS.">?</span></div>
+      <div>Qtd</div><div>Custo unit.</div><div>Margem %</div>
+      <div style="text-align:right">Custo total</div><div style="text-align:right">Imposto <span class="hint" data-tip="Quanto de imposto está embutido no preço final deste item.">?</span></div><div style="text-align:right">Preço final</div><div></div>
+    </div>
+    <div class="itens"></div>
+    <div class="secao-foot">
+      <button class="btn ghost mini" onclick="addItem('${sec.id}')">+ Item novo</button>
+      <button class="btn ghost mini" onclick="addDoCatalogo('${sec.id}')">+ Do catálogo</button>
+    </div>`;
+  const itens = d.querySelector('.itens');
+  sec.items.forEach(it=>itens.appendChild(renderItem(sec.id,it)));
+  return d;
+}
+function renderItem(secId,it){
+  const r = document.createElement('div');
+  r.className='item-row'; r.dataset.id=it.id;
+  r.innerHTML = `
+    <div class="f-desc"><input value="${esc(it.desc)}" placeholder="Descrição" oninput="itField('${secId}','${it.id}','desc',this.value)"></div>
+    <div><select class="tipo-${it.tipo}" onchange="itField('${secId}','${it.id}','tipo',this.value);this.className='tipo-'+this.value">
+      <option value="servico" ${it.tipo==='servico'?'selected':''}>Serviço</option>
+      <option value="locacao" ${it.tipo==='locacao'?'selected':''}>Locação</option>
+    </select></div>
+    <div><input type="number" min="0" step="1" value="${it.qtd}" oninput="itField('${secId}','${it.id}','qtd',this.value)"></div>
+    <div><input type="number" min="0" step="0.01" value="${it.custo}" placeholder="R$" oninput="itField('${secId}','${it.id}','custo',this.value)"></div>
+    <div><input type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="padrão" oninput="itField('${secId}','${it.id}','margem',this.value)"></div>
+    <div class="calc c-custo" data-l="Custo total">—</div>
+    <div class="calc imp c-imp" data-l="Imposto">—</div>
+    <div class="calc preco c-preco" data-l="Preço final">—</div>
+    <div><button class="del-item" title="Remover item" onclick="delItem('${secId}','${it.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>`;
+  return r;
+}
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+/* recalcula só os números, sem reconstruir o DOM (mantém o foco do usuário) */
+function recalc(){
+  let temErro=false;
+  state.secoes.forEach(sec=>{
+    const secEl = document.querySelector(`.secao[data-id="${sec.id}"]`);
+    if(!secEl) return;
+    sec.items.forEach(it=>{
+      const row = secEl.querySelector(`.item-row[data-id="${it.id}"]`);
+      if(!row) return;
+      const c = calcItem(it);
+      row.classList.toggle('row-erro', c.erro && c.custoTotal>0);
+      if (c.erro) temErro=true;
+      row.querySelector('.c-custo').textContent = fmt(c.custoTotal);
+      row.querySelector('.c-imp').textContent   = c.erro?'—':fmt(c.imposto);
+      row.querySelector('.c-preco').textContent = c.erro?'impossível':fmt(c.preco);
+    });
+  });
+  document.getElementById('avisoGuard').classList.toggle('show', temErro);
+
+  const t = totais();
+  r_serv_total.textContent=fmt(t.servico.preco); r_serv_custo.textContent=fmt(t.servico.custo);
+  r_serv_imp.textContent=fmt(t.servico.imposto); r_serv_marg.textContent=fmt(t.servico.margem);
+  r_loc_total.textContent=fmt(t.locacao.preco);  r_loc_custo.textContent=fmt(t.locacao.custo);
+  r_loc_imp.textContent=fmt(t.locacao.imposto);  r_loc_marg.textContent=fmt(t.locacao.margem);
+  const total=t.servico.preco+t.locacao.preco, imp=t.servico.imposto+t.locacao.imposto, marg=t.servico.margem+t.locacao.margem;
+  r_total.textContent=fmt(total); r_imp_total.textContent=fmt(imp); r_marg_total.textContent=fmt(marg);
+  t_serv.textContent=fmt(t.servico.imposto); t_loc.textContent=fmt(t.locacao.imposto); t_total.textContent=fmt(imp);
+  t_pct.textContent = total>0 ? (imp/total*100).toFixed(1).replace('.',',')+'% da proposta' : '— da proposta';
+
+  // detalhe por tributo
+  const det=[];
+  const junta={};
+  [t.compServ,t.compLoc].forEach(c=>{ for(const k in c){ junta[k]=(junta[k]||0)+c[k]; } });
+  for (const k of ['ISS','PIS','COFINS','IRPJ','CSLL']){ if(junta[k]) det.push(`${k}: <b>${fmt(junta[k])}</b>`); }
+  t_detalhe.innerHTML = det.length? 'Detalhe por tributo · '+det.join(' &nbsp;·&nbsp; ') : '';
+
+  // dashboard
+  const sb=document.getElementById('splitBar');
+  if(total>0){
+    const ps=t.servico.preco/total*100, pl=t.locacao.preco/total*100;
+    sb.innerHTML =
+      (ps>0?`<div style="width:${ps}%;background:var(--servico)">${ps>=14?ps.toFixed(0)+'%':''}</div>`:'')+
+      (pl>0?`<div style="width:${pl}%;background:var(--locacao)">${pl>=14?pl.toFixed(0)+'%':''}</div>`:'');
+  } else sb.innerHTML='<div style="width:100%;background:var(--line)"></div>';
+  const cb=document.getElementById('catBars'); cb.innerHTML='';
+  const cores=['#15233F','#2563EB','#0E9488','#E8740C','#7C5CC4','#B0395B'];
+  const cats=Object.entries(t.porCategoria).sort((a,b)=>b[1]-a[1]);
+  const max=cats.length?cats[0][1]:0;
+  cats.forEach(([cat,val],i)=>{
+    cb.insertAdjacentHTML('beforeend',
+      `<div class="bar-row"><div class="bl">${cat}</div>
+       <div class="bar-track"><div class="bar-fill" style="width:${max>0?val/max*100:0}%;background:${cores[i%cores.length]}"></div></div>
+       <div class="bv">${fmt(val)}</div></div>`);
+  });
+  if(!cats.length) cb.innerHTML='<div style="font-size:12.5px;color:var(--ink-soft)">Adicione itens para ver a composição.</div>';
+
+  autosave();
+}
+
+/* ---------- mutações ---------- */
+function metaInput(){
+  const m=state.meta;
+  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.data=p_data.value;
+  m.obs=p_obs.value; m.margem=p_margem.value; m.kmf=p_kmf.checked;
+  m.margemKmf = p_margemKmf.value===''?null:p_margemKmf.value;
+  p_margemKmf.style.display = m.kmf?'block':'none';
+  recalc();
+}
+function addSecao(nome='',categoria='Estrutura'){
+  const sec={id:uid(),nome,categoria,items:[]};
+  state.secoes.push(sec);
+  document.getElementById('secoes').appendChild(renderSecao(sec));
+  recalc();
+  return sec;
+}
+function delSecao(id){
+  if(!confirm('Excluir esta seção e todos os itens dela?'))return;
+  state.secoes=state.secoes.filter(s=>s.id!==id);
+  document.querySelector(`.secao[data-id="${id}"]`)?.remove();
+  recalc();
+}
+function secField(id,f,v){ const s=state.secoes.find(s=>s.id===id); if(s){ s[f]=v; if(f==='categoria')recalc(); } if(f==='nome')autosave(); }
+function addItem(secId,preset){
+  const s=state.secoes.find(s=>s.id===secId); if(!s)return;
+  const it=Object.assign({id:uid(),desc:'',tipo:'servico',qtd:1,custo:'',margem:null},preset||{});
+  s.items.push(it);
+  document.querySelector(`.secao[data-id="${secId}"] .itens`).appendChild(renderItem(secId,it));
+  recalc();
+}
+function delItem(secId,itId){
+  const s=state.secoes.find(s=>s.id===secId); if(!s)return;
+  s.items=s.items.filter(i=>i.id!==itId);
+  document.querySelector(`.secao[data-id="${secId}"] .item-row[data-id="${itId}"]`)?.remove();
+  recalc();
+}
+function itField(secId,itId,f,v){
+  const it=state.secoes.find(s=>s.id===secId)?.items.find(i=>i.id===itId); if(!it)return;
+  it[f] = (f==='margem' && v==='') ? null : v;
+  recalc();
+}
+
+/* ---------- persistência ---------- */
+let autoT;
+function autosave(){ clearTimeout(autoT); autoT=setTimeout(()=>lsSet(LS.auto,state),350); }
+function salvarOrcamento(){
+  const nome = prompt('Nome para salvar este orçamento:', state.meta.nome||'Orçamento');
+  if(!nome)return;
+  const b=lsGet(LS.budgets,{}); b[nome]=JSON.parse(JSON.stringify(state)); lsSet(LS.budgets,b);
+  montarLoadSel();
+  lbl_serv_pct.textContent=(TAX_RULES.servico.total*100).toFixed(2).replace('.',',')+'%';
+  lbl_loc_pct.textContent=(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%'; toast('Orçamento salvo: '+nome);
+}
+function carregarOrcamento(nome){
+  if(!nome)return;
+  const b=lsGet(LS.budgets,{});
+  if(b[nome]){ state=JSON.parse(JSON.stringify(b[nome])); render(); toast('Aberto: '+nome); }
+  document.getElementById('loadSel').value='';
+}
+function montarLoadSel(){
+  const sel=document.getElementById('loadSel');
+  const b=lsGet(LS.budgets,{});
+  sel.innerHTML='<option value="">Abrir…</option>'+Object.keys(b).map(n=>`<option>${esc(n)}</option>`).join('');
+}
+function novoOrcamento(){
+  if(!confirm('Começar um orçamento novo? (o atual continua salvo se você usou "Salvar orçamento")'))return;
+  state=novoEstado(); document.getElementById('bannerExemplo').classList.remove('show'); render(); toast('Novo orçamento em branco');
+}
+
+/* ---------- config / catálogo ---------- */
+function abrirConfig(){
+  c_nome.value=config.nome; c_doc.value=config.doc; c_tel.value=config.tel; c_email.value=config.email; c_cidade.value=config.cidade;
+  document.getElementById('modalConfig').classList.add('open');
+}
+function salvarConfig(){
+  config={nome:c_nome.value,doc:c_doc.value,tel:c_tel.value,email:c_email.value,cidade:c_cidade.value};
+  lsSet(LS.config,config); fecharModais(); toast('Dados salvos');
+}
+function abrirCatalogo(){ montarCatalogo(); document.getElementById('modalCatalogo').classList.add('open'); }
+function montarCatalogo(){
+  const el=document.getElementById('catLista');
+  if(!catalog.length){ el.innerHTML='<div style="font-size:13px;color:var(--ink-soft);padding:8px 0">Nenhum item ainda. Cadastre abaixo os itens que você usa sempre.</div>'; return; }
+  el.innerHTML=catalog.map((c,i)=>
+    `<div class="cat-row"><span class="cn">${esc(c.nome)}</span>
+     <span class="badge ${c.tipo}">${TAX_RULES[c.tipo].label}</span>
+     <span class="cm">${fmt(Number(c.custo)||0)}</span>
+     <button class="del-item" onclick="delCatalogoItem(${i})" title="Remover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`).join('');
+}
+function addCatalogoItem(){
+  const nome=cat_nome.value.trim(); if(!nome){toast('Dê um nome ao item');return;}
+  catalog.push({nome,custo:cat_custo.value||0,tipo:cat_tipo.value});
+  lsSet(LS.catalog,catalog); cat_nome.value='';cat_custo.value='';
+  montarCatalogo(); toast('Item adicionado ao catálogo');
+}
+function delCatalogoItem(i){ catalog.splice(i,1); lsSet(LS.catalog,catalog); montarCatalogo(); }
+function addDoCatalogo(secId){
+  if(!catalog.length){ toast('Catálogo vazio. Abra "Catálogo" no topo e cadastre seus itens.'); return; }
+  const lista=catalog.map((c,i)=>`${i+1}. ${c.nome} (${TAX_RULES[c.tipo].label} · ${fmt(Number(c.custo)||0)})`).join('\n');
+  const n=prompt('Digite o número do item do catálogo:\n\n'+lista);
+  const c=catalog[Number(n)-1];
+  if(c) addItem(secId,{desc:c.nome,custo:c.custo,tipo:c.tipo});
+}
+function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)fecharModais(); }));
+
+/* ---------- impressão ---------- */
+function imprimir(modo){
+  const t=totais();
+  if(t.erro){ toast('Corrija o item em vermelho antes de gerar a proposta'); return; }
+  const pa=document.getElementById('printArea');
+  const m=state.meta;
+  const interna = modo==='interna';
+  let linhas='';
+  state.secoes.forEach(sec=>{
+    const its=sec.items.filter(i=>(Number(i.qtd)||0)*(Number(i.custo)||0)>0 || i.desc);
+    if(!its.length)return;
+    const cols = interna?8:5;
+    linhas+=`<tr class="p-sec"><td colspan="${cols}">${esc(sec.nome||'Seção')}</td></tr>`;
+    its.forEach(it=>{
+      const c=calcItem(it);
+      const unit=(Number(it.qtd)||0)>0?c.preco/(Number(it.qtd)||1):0;
+      linhas+= interna
+       ? `<tr><td>${esc(it.desc)}</td><td>${TAX_RULES[it.tipo].label}</td><td class="r">${it.qtd}</td><td class="r">${fmt(Number(it.custo)||0)}</td><td class="r">${fmt(c.custoTotal)}</td><td class="r">${c.mgPct.toFixed(1)}% · ${fmt(c.margemRS)}</td><td class="r">${fmt(c.imposto)}</td><td class="r">${fmt(c.preco)}</td></tr>`
+       : `<tr><td>${esc(it.desc)}</td><td>${TAX_RULES[it.tipo].label}</td><td class="r">${it.qtd}</td><td class="r">${fmt(unit)}</td><td class="r">${fmt(c.preco)}</td></tr>`;
+    });
+  });
+  const cab = interna
+    ? '<tr><th>Item</th><th>Tipo</th><th class="r">Qtd</th><th class="r">Custo unit.</th><th class="r">Custo total</th><th class="r">Margem</th><th class="r">Imposto</th><th class="r">Preço final</th></tr>'
+    : '<tr><th>Descrição</th><th>Tipo</th><th class="r">Qtd</th><th class="r">Valor unit.</th><th class="r">Valor total</th></tr>';
+  const totalG=t.servico.preco+t.locacao.preco;
+  pa.innerHTML=`
+    <div class="p-head">
+      <div>
+        <h1>${esc(config.nome||'Proposta de Cenografia')}</h1>
+        <div class="emp">${esc(config.doc)}${config.doc?'<br>':''}${esc(config.tel)}${config.tel?' · ':''}${esc(config.email)}${(config.tel||config.email)?'<br>':''}${esc(config.cidade)}</div>
+      </div>
+      <div class="prop">
+        <b>${interna?'VERSÃO INTERNA':'PROPOSTA'} ${esc(m.num)}</b><br>
+        Projeto: ${esc(m.nome||'—')}<br>
+        Cliente: ${esc(m.cliente||'—')}<br>
+        Data: ${m.data?m.data.split('-').reverse().join('/'):'—'}
+      </div>
+    </div>
+    <table class="p-tab">${cab}${linhas}</table>
+    <div class="p-tot"><table>
+      <tr><td>Subtotal serviço (nota 1)</td><td>${fmt(t.servico.preco)}</td></tr>
+      <tr><td>Subtotal locação (nota 2)</td><td>${fmt(t.locacao.preco)}</td></tr>
+      ${interna?`<tr><td>Impostos embutidos</td><td>${fmt(t.servico.imposto+t.locacao.imposto)}</td></tr>
+      <tr><td>Margem total</td><td>${fmt(t.servico.margem+t.locacao.margem)}</td></tr>`:''}
+      <tr class="g"><td>Total</td><td>${fmt(totalG)}</td></tr>
+    </table></div>
+    ${m.obs?`<div class="p-obs"><b>Observações:</b> ${esc(m.obs)}</div>`:''}
+    ${interna?`<div class="p-trib"><b>Tributos estimados a pagar (Lucro Presumido)</b>
+      Serviço: ${fmt(t.servico.imposto)} · Locação: ${fmt(t.locacao.imposto)} · Total: ${fmt(t.servico.imposto+t.locacao.imposto)}<br>
+      Estimativa para formação de preço. Apuração oficial: Pigatti Contabilidade.</div>`:''}
+    <div class="p-foot">${interna?'Documento interno · não enviar ao cliente':'Proposta válida conforme condições descritas. ' + esc(config.nome||'')}</div>`;
+  window.print();
+}
+
+/* ---------- CSV ---------- */
+function exportCSV(){
+  const sep=';';
+  const rows=[['Seção','Categoria','Item','Tipo de nota','Qtd','Custo unit.','Custo total','Margem %','Margem R$','Imposto R$','Preço final'].join(sep)];
+  state.secoes.forEach(sec=>{
+    sec.items.forEach(it=>{
+      const c=calcItem(it);
+      rows.push([sec.nome,sec.categoria,it.desc,TAX_RULES[it.tipo].label,it.qtd,
+        num(it.custo),num(c.custoTotal),c.mgPct.toFixed(1).replace('.',','),
+        num(c.margemRS),num(c.imposto),num(c.preco)].join(sep));
+    });
+  });
+  const t=totais();
+  rows.push('');
+  rows.push(['TOTAL SERVIÇO (nota 1)','','','','','','','','',num(t.servico.imposto),num(t.servico.preco)].join(sep));
+  rows.push(['TOTAL LOCAÇÃO (nota 2)','','','','','','','','',num(t.locacao.imposto),num(t.locacao.preco)].join(sep));
+  rows.push(['TOTAL GERAL','','','','','','','','',num(t.servico.imposto+t.locacao.imposto),num(t.servico.preco+t.locacao.preco)].join(sep));
+  function num(v){ return (Number(v)||0).toFixed(2).replace('.',','); }
+  const blob=new Blob(['\ufeff'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(state.meta.nome||'orcamento')+'.csv';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ---------- onboarding ---------- */
+function exemplo(){
+  state=novoEstado();
+  state.meta.nome='Stand Feira Exemplo'; state.meta.num='000/2026'; state.meta.cliente='Cliente Exemplo Ltda';
+  state.meta.obs='Validade da proposta: 15 dias. Pagamento: 50% na aprovação, 50% na entrega.';
+  const s1=addSecaoData('Totens','Estrutura');
+  s1.items.push({id:uid(),desc:'Totem 2m em MDF adesivado',tipo:'locacao',qtd:3,custo:380,margem:null});
+  const s2=addSecaoData('Montagem','Mão de obra');
+  s2.items.push({id:uid(),desc:'Montagem e desmontagem (equipe)',tipo:'servico',qtd:1,custo:900,margem:null});
+  s2.items.push({id:uid(),desc:'Adesivagem aplicada no local',tipo:'servico',qtd:1,custo:450,margem:null});
+  render();
+  document.getElementById('bannerExemplo').classList.add('show');
+}
+function addSecaoData(nome,categoria){ const s={id:uid(),nome,categoria,items:[]}; state.secoes.push(s); return s; }
+
+/* ---------- init ---------- */
+(function init(){
+  montarLoadSel();
+  lbl_serv_pct.textContent=(TAX_RULES.servico.total*100).toFixed(2).replace('.',',')+'%';
+  lbl_loc_pct.textContent=(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%';
+  const visto=lsGet(LS.seen,false);
+  const auto=lsGet(LS.auto,null);
+  if(!visto){ lsSet(LS.seen,true); exemplo(); }
+  else if(auto){ state=auto; render(); }
+  else { state=novoEstado(); addSecao('Itens','Estrutura'); }
+})();
+</script>
+</body>
+</html>
