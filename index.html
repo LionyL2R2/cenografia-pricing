@@ -316,13 +316,13 @@ input[type=number]{font-variant-numeric:tabular-nums}
   <div class="card-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 9h8M8 13h6"/></svg></span>
     <h2>Resumo · como vai sair na nota
-      <span class="hint" data-tip="Serviço e locação saem em notas separadas, com impostos diferentes. Aqui você vê quanto vai em cada uma.">?</span>
+      <span class="hint" data-tip="Serviço sai em nota fiscal, locação sai em recibo, com impostos diferentes. Aqui você vê quanto vai em cada um.">?</span>
     </h2>
   </div>
   <div class="card-body">
     <div class="notas-grid">
       <div class="nota-stub servico">
-        <div class="eyebrow">Nota 1 · Serviço</div>
+        <div class="eyebrow">Nota Fiscal · Serviço</div>
         <div class="valor" id="r_serv_total">R$ 0,00</div>
         <div class="linhas">
           Custo: <b id="r_serv_custo">R$ 0,00</b><br>
@@ -784,7 +784,7 @@ function imprimir(modo){
     </div>
     <table class="p-tab">${cab}${linhas}</table>
     <div class="p-tot"><table>
-      <tr><td>Subtotal serviço (nota 1)</td><td>${fmt(t.servico.preco)}</td></tr>
+      <tr><td>Subtotal serviço (nota fiscal)</td><td>${fmt(t.servico.preco)}</td></tr>
       <tr><td>Subtotal locação (recibo)</td><td>${fmt(t.locacao.preco)}</td></tr>
       ${interna?`<tr><td>Impostos embutidos</td><td>${fmt(t.servico.imposto+t.locacao.imposto)}</td></tr>
       <tr><td>Margem total</td><td>${fmt(t.servico.margem+t.locacao.margem)}</td></tr>`:''}
@@ -812,8 +812,8 @@ function exportCSV(){
   });
   const t=totais();
   rows.push('');
-  rows.push(['TOTAL SERVIÇO (nota 1)','','','','','','','','',num(t.servico.imposto),num(t.servico.preco)].join(sep));
-  rows.push(['TOTAL LOCAÇÃO (nota 2)','','','','','','','','',num(t.locacao.imposto),num(t.locacao.preco)].join(sep));
+  rows.push(['TOTAL SERVIÇO (nota fiscal)','','','','','','','','',num(t.servico.imposto),num(t.servico.preco)].join(sep));
+  rows.push(['TOTAL LOCAÇÃO (recibo)','','','','','','','','',num(t.locacao.imposto),num(t.locacao.preco)].join(sep));
   rows.push(['TOTAL GERAL','','','','','','','','',num(t.servico.imposto+t.locacao.imposto),num(t.servico.preco+t.locacao.preco)].join(sep));
   function num(v){ return (Number(v)||0).toFixed(2).replace('.',','); }
   const blob=new Blob(['\ufeff'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
