@@ -210,8 +210,32 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .banner-exemplo.show{display:flex}
 .banner-exemplo b{color:#FFC07A}
 
+/* ---------- abas ---------- */
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--line);margin-bottom:18px}
+.tab{
+  font-family:'Archivo',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.2px;
+  background:none;border:none;cursor:pointer;color:var(--ink-soft);
+  padding:10px 14px;position:relative;
+}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--ink)}
+.tab.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-2px;height:3px;background:var(--obra);border-radius:2px 2px 0 0}
+
+/* ---------- tela início ---------- */
+.proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.proj-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:3px}
+.proj-card .pn{font-family:'Archivo',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.proj-card .pm{font-size:12.5px;color:var(--ink-soft)}
+.proj-card .pv{font-family:'Archivo',sans-serif;font-weight:850;font-size:20px;letter-spacing:-.4px;margin-top:4px;font-variant-numeric:tabular-nums}
+.proj-card .pa{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.proj-card.continuar{cursor:pointer;border-left:4px solid var(--obra);margin-bottom:16px}
+.proj-card.continuar:hover{border-color:var(--obra)}
+.badge.kmf{background:var(--obra)}
+.inicio-vazio{grid-column:1/-1;font-size:13px;color:var(--ink-soft);padding:18px;border:1px dashed var(--line);border-radius:var(--radius);background:var(--card)}
+
 /* ---------- responsivo ---------- */
 @media(max-width:920px){
+  .proj-grid{grid-template-columns:1fr}
   .item-grid-head{display:none}
   .item-row{grid-template-columns:1fr 1fr;padding:12px}
   .item-row>*{grid-column:auto}
@@ -267,6 +291,24 @@ input[type=number]{font-variant-numeric:tabular-nums}
     <button class="btn obra mini" onclick="novoOrcamento()">+ Novo orçamento</button>
   </div>
 </header>
+
+<nav class="tabs">
+  <button class="tab" id="tabInicio" onclick="irPara('inicio')">Início</button>
+  <button class="tab" id="tabOrcamento" onclick="irPara('orcamento')">Orçamento atual</button>
+</nav>
+
+<!-- Tela Início -->
+<div id="telaInicio" style="display:none">
+  <div id="cardContinuar"></div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+    <button class="btn obra" onclick="novoOrcamento()">+ Novo orçamento</button>
+    <label style="margin:0">Orçamentos salvos</label>
+  </div>
+  <div class="proj-grid" id="projGrid"></div>
+</div>
+
+<!-- Tela Orçamento atual -->
+<div id="telaOrcamento">
 
 <div class="banner-exemplo" id="bannerExemplo">
   <span>👋 Este é um <b>orçamento de exemplo</b> para você ver como o app funciona. Quando quiser, clique em <b>+ Novo orçamento</b> e crie o seu.</span>
@@ -407,6 +449,8 @@ input[type=number]{font-variant-numeric:tabular-nums}
   <button class="btn ghost" onclick="exportCSV()">Exportar Excel (CSV)</button>
 </div>
 
+</div><!-- /telaOrcamento -->
+
 <p class="rodape-fixo">
   Os valores de impostos são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
   Apuração oficial de tributos: <b>Pigatti Contabilidade</b>.
@@ -490,25 +534,25 @@ function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){}
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('show'),2400); }
 
 /* ---------- cálculo ---------- */
-function margemDoItem(item){
+function margemDoItem(item, st=state){
   if (item.margem !== null && item.margem !== '' && !isNaN(item.margem)) return Number(item.margem);
-  if (state.meta.kmf && state.meta.margemKmf !== null && state.meta.margemKmf !== '' && !isNaN(state.meta.margemKmf)) return Number(state.meta.margemKmf);
-  return Number(state.meta.margem) || 0;
+  if (st.meta.kmf && st.meta.margemKmf !== null && st.meta.margemKmf !== '' && !isNaN(st.meta.margemKmf)) return Number(st.meta.margemKmf);
+  return Number(st.meta.margem) || 0;
 }
-function calcItem(item){
+function calcItem(item, st=state){
   const tax = TAX_RULES[item.tipo].total;
-  const mg  = margemDoItem(item)/100;
+  const mg  = margemDoItem(item, st)/100;
   const custoTotal = (Number(item.qtd)||0) * (Number(item.custo)||0);
   const denom = 1 - tax - mg;
   if (denom <= 0.0001) return { custoTotal, erro:true, imposto:0, margemRS:0, preco:0, tax, mgPct:mg*100 };
   const preco = custoTotal/denom;
   return { custoTotal, erro:false, imposto:preco*tax, margemRS:preco*mg, preco, tax, mgPct:mg*100 };
 }
-function totais(){
+function totais(st=state){
   const t = { servico:{custo:0,imposto:0,margem:0,preco:0}, locacao:{custo:0,imposto:0,margem:0,preco:0}, erro:false, porCategoria:{}, compServ:{}, compLoc:{} };
-  state.secoes.forEach(s=>{
+  st.secoes.forEach(s=>{
     s.items.forEach(it=>{
-      const c = calcItem(it);
+      const c = calcItem(it, st);
       if (c.erro){ t.erro=true; return; }
       const g = t[it.tipo];
       g.custo+=c.custoTotal; g.imposto+=c.imposto; g.margem+=c.margemRS; g.preco+=c.preco;
@@ -687,7 +731,10 @@ function autosave(){ clearTimeout(autoT); autoT=setTimeout(()=>lsSet(LS.auto,sta
 function salvarOrcamento(){
   const nome = prompt('Nome para salvar este orçamento:', state.meta.nome||'Orçamento');
   if(!nome)return;
-  const b=lsGet(LS.budgets,{}); b[nome]=JSON.parse(JSON.stringify(state)); lsSet(LS.budgets,b);
+  const t=totais();
+  const copia=JSON.parse(JSON.stringify(state));
+  copia.snapshot={salvoEm:Date.now(),total:t.servico.preco+t.locacao.preco,cliente:state.meta.cliente||''};
+  const b=lsGet(LS.budgets,{}); b[nome]=copia; lsSet(LS.budgets,b);
   montarLoadSel();
   lbl_serv_pct.textContent=(TAX_RULES.servico.total*100).toFixed(2).replace('.',',')+'%';
   lbl_loc_pct.textContent=(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%'; toast('Orçamento salvo: '+nome);
@@ -695,7 +742,7 @@ function salvarOrcamento(){
 function carregarOrcamento(nome){
   if(!nome)return;
   const b=lsGet(LS.budgets,{});
-  if(b[nome]){ state=JSON.parse(JSON.stringify(b[nome])); render(); toast('Aberto: '+nome); }
+  if(b[nome]){ state=JSON.parse(JSON.stringify(b[nome])); delete state.snapshot; render(); irPara('orcamento'); toast('Aberto: '+nome); }
   document.getElementById('loadSel').value='';
 }
 function montarLoadSel(){
@@ -705,7 +752,7 @@ function montarLoadSel(){
 }
 function novoOrcamento(){
   if(!confirm('Começar um orçamento novo? (o atual continua salvo se você usou "Salvar orçamento")'))return;
-  state=novoEstado(); document.getElementById('bannerExemplo').classList.remove('show'); render(); toast('Novo orçamento em branco');
+  state=novoEstado(); document.getElementById('bannerExemplo').classList.remove('show'); render(); irPara('orcamento'); toast('Novo orçamento em branco');
 }
 
 /* ---------- config / catálogo ---------- */
@@ -743,6 +790,76 @@ function addDoCatalogo(secId){
 }
 function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)fecharModais(); }));
+
+/* ---------- abas / tela início ---------- */
+let inicioLista=[];
+function irPara(tela){
+  document.getElementById('telaInicio').style.display    = tela==='inicio'    ? 'block' : 'none';
+  document.getElementById('telaOrcamento').style.display = tela==='orcamento' ? 'block' : 'none';
+  document.getElementById('tabInicio').classList.toggle('active', tela==='inicio');
+  document.getElementById('tabOrcamento').classList.toggle('active', tela==='orcamento');
+  if(tela==='inicio') montarInicio();
+}
+function totalDe(st){ const t=totais(st); return t.servico.preco+t.locacao.preco; }
+function montarInicio(){
+  // rascunho atual (autosave)
+  const cc=document.getElementById('cardContinuar');
+  const totalAtual=totalDe(state);
+  const temRascunho=!!(state.meta.nome || state.meta.cliente || totalAtual>0);
+  cc.innerHTML = temRascunho ? `
+    <div class="proj-card continuar" onclick="irPara('orcamento')">
+      <div class="pn">Continuar de onde parei</div>
+      <div class="pm">${esc(state.meta.nome||'Sem nome')}${state.meta.cliente?' · '+esc(state.meta.cliente):''}</div>
+      <div class="pv">${fmt(totalAtual)}</div>
+    </div>` : '';
+  // orçamentos salvos
+  const b=lsGet(LS.budgets,{});
+  inicioLista=Object.entries(b).map(([nome,st])=>{
+    const snap=st.snapshot||{};
+    return {
+      nome,
+      cliente: snap.cliente!==undefined ? snap.cliente : (st.meta?.cliente||''),
+      total:   snap.total  !==undefined ? snap.total   : totalDe(st),
+      salvoEm: snap.salvoEm||0,
+      data: st.meta?.data||'',
+      kmf: !!st.meta?.kmf
+    };
+  }).sort((a,b)=>b.salvoEm-a.salvoEm);
+  const grid=document.getElementById('projGrid');
+  if(!inicioLista.length){
+    grid.innerHTML='<div class="inicio-vazio">Nenhum orçamento salvo ainda. Clique em <b>+ Novo orçamento</b> para criar o primeiro — e use <b>Salvar orçamento</b> para ele aparecer aqui.</div>';
+    return;
+  }
+  grid.innerHTML=inicioLista.map((p,i)=>`
+    <div class="proj-card">
+      <div class="pn">${esc(p.nome)}${p.kmf?'<span class="badge kmf">KMF</span>':''}</div>
+      <div class="pm">${esc(p.cliente||'—')}${p.data?' · '+p.data.split('-').reverse().join('/'):''}</div>
+      <div class="pv">${fmt(p.total)}</div>
+      <div class="pa">
+        <button class="btn mini" onclick="abrirProjeto(${i})">Abrir</button>
+        <button class="btn ghost mini" onclick="duplicarProjeto(${i})">Duplicar</button>
+        <button class="btn danger mini" onclick="excluirProjeto(${i})">Excluir</button>
+      </div>
+    </div>`).join('');
+}
+function abrirProjeto(i){ const p=inicioLista[i]; if(p) carregarOrcamento(p.nome); }
+function duplicarProjeto(i){
+  const p=inicioLista[i]; if(!p)return;
+  const b=lsGet(LS.budgets,{}); const orig=b[p.nome]; if(!orig)return;
+  let novo=p.nome+' (cópia)', n=2;
+  while(b[novo]) novo=p.nome+` (cópia ${n++})`;
+  const copia=JSON.parse(JSON.stringify(orig));
+  if(copia.meta) copia.meta.nome=novo;
+  copia.snapshot={salvoEm:Date.now(),total:p.total,cliente:p.cliente};
+  b[novo]=copia; lsSet(LS.budgets,b);
+  montarLoadSel(); montarInicio(); toast('Cópia criada: '+novo);
+}
+function excluirProjeto(i){
+  const p=inicioLista[i]; if(!p)return;
+  if(!confirm(`Excluir o orçamento "${p.nome}"?`))return;
+  const b=lsGet(LS.budgets,{}); delete b[p.nome]; lsSet(LS.budgets,b);
+  montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
+}
 
 /* ---------- impressão ---------- */
 function imprimir(modo){
@@ -845,9 +962,9 @@ function addSecaoData(nome,categoria){ const s={id:uid(),nome,categoria,items:[]
   lbl_loc_pct.textContent=(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%';
   const visto=lsGet(LS.seen,false);
   const auto=lsGet(LS.auto,null);
-  if(!visto){ lsSet(LS.seen,true); exemplo(); }
-  else if(auto){ state=auto; render(); }
-  else { state=novoEstado(); addSecao('Itens','Estrutura'); }
+  if(!visto){ lsSet(LS.seen,true); exemplo(); irPara('orcamento'); }
+  else if(auto){ state=auto; render(); irPara('inicio'); }
+  else { state=novoEstado(); addSecao('Itens','Estrutura'); irPara('inicio'); }
 })();
 </script>
 </body>
