@@ -334,7 +334,7 @@ input[type=number]{font-variant-numeric:tabular-nums}
       <div><label>Nome do projeto</label><input id="p_nome" placeholder="Ex: Stand Expo Design 2026" oninput="metaInput()"></div>
       <div><label>Número da proposta</label><input id="p_num" placeholder="001/2026" oninput="metaInput()"></div>
       <div><label>Cliente</label><input id="p_cliente" placeholder="Nome ou empresa" oninput="metaInput()"></div>
-      <div><label>Data</label><input id="p_data" type="date" oninput="metaInput()"></div>
+      <div><label>Data</label><input id="p_data" type="text" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="dataInput()"></div>
       <div>
         <label>Projeto KMF?
           <span class="hint" data-tip="Marque quando o projeto for para a KMF Eventos. Você pode usar uma margem combinada só para eles.">?</span>
@@ -575,7 +575,7 @@ function totais(st=state){
 function render(){
   // meta
   const m = state.meta;
-  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_data.value=m.data;
+  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_data.value=isoToBr(m.data);
   p_obs.value=m.obs; p_margem.value=m.margem; p_kmf.checked=m.kmf;
   p_margemKmf.style.display = m.kmf?'block':'none';
   p_margemKmf.value = m.margemKmf ?? '';
@@ -688,10 +688,37 @@ function recalc(){
   autosave();
 }
 
+/* ---------- data br <-> iso ---------- */
+function brToIso(str){
+  // dd/mm/aaaa -> aaaa-mm-dd; '' se incompleto ou inválido
+  const mt=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec((str||'').trim());
+  if(!mt) return '';
+  const d=+mt[1], mo=+mt[2], y=+mt[3];
+  const dt=new Date(y,mo-1,d);
+  if(dt.getFullYear()!==y||dt.getMonth()!==mo-1||dt.getDate()!==d) return '';
+  return `${mt[3]}-${mt[2]}-${mt[1]}`;
+}
+function isoToBr(str){
+  const mt=/^(\d{4})-(\d{2})-(\d{2})$/.exec((str||'').trim());
+  if(!mt) return str||'';
+  return `${mt[3]}/${mt[2]}/${mt[1]}`;
+}
+function dataInput(){
+  // máscara: aceita só números e insere as barras automaticamente
+  let v=p_data.value.replace(/\D/g,'').slice(0,8);
+  if(v.length>4) v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+  p_data.value=v;
+  // grava ISO no state; se inválido/incompleto mantém o que foi digitado sem sujar o state
+  if(v==='') state.meta.data='';
+  else { const iso=brToIso(v); if(iso) state.meta.data=iso; }
+  recalc();
+}
+
 /* ---------- mutações ---------- */
 function metaInput(){
   const m=state.meta;
-  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.data=p_data.value;
+  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value;
   m.obs=p_obs.value; m.margem=p_margem.value; m.kmf=p_kmf.checked;
   m.margemKmf = p_margemKmf.value===''?null:p_margemKmf.value;
   p_margemKmf.style.display = m.kmf?'block':'none';
