@@ -13,6 +13,7 @@
   --paper:#F2F4F7;      /* fundo frio, oficina limpa */
   --card:#FFFFFF;
   --line:#DDE3EC;
+  --campo-borda:#AEB8C7; /* borda visível dos campos de formulário */
   --obra:#E8740C;       /* laranja de obra / fita zebrada */
   --servico:#2563EB;    /* azul nota de serviço */
   --locacao:#0E9488;    /* verde nota de locação */
@@ -72,9 +73,10 @@ h1 span{color:var(--ink-soft);font-weight:500;font-variation-settings:'wdth' 100
 .btn.danger:hover{border-color:var(--erro)}
 input,select,textarea{
   font:inherit;font-size:14px;color:var(--ink);
-  border:1px solid var(--line);border-radius:8px;
-  padding:8px 10px;background:#fff;width:100%;
+  border:1px solid var(--campo-borda);border-radius:8px;
+  padding:8px 10px;background:#FBFCFD;width:100%;
 }
+input:hover,select:hover,textarea:hover{border-color:var(--ink-soft)}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--servico);outline-offset:1px;border-color:transparent}
 label{font-size:12px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:4px}
 input[type=number]{font-variant-numeric:tabular-nums}
