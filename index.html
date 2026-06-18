@@ -52,12 +52,10 @@ b,strong{font-weight:600}
 /* ---------- header ---------- */
 header.app{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 20px}
 .logo-mark{
-  width:46px;height:46px;border-radius:10px;background:var(--ink);
-  display:flex;align-items:center;justify-content:center;flex:none;box-shadow:var(--sh);
-  position:relative;overflow:hidden;
+  width:46px;height:46px;flex:none;
+  display:flex;align-items:center;justify-content:center;
 }
-.logo-mark .kmf{font-weight:800;font-size:15px;letter-spacing:.04em;color:#fff;line-height:1;margin-bottom:3px}
-.logo-mark::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--accent)} /* faixa laranja KMF */
+.logo-mark svg{width:100%;height:100%;display:block} /* triângulos vazados mostram o fundo do header */
 h1{font-weight:700;font-size:19px;letter-spacing:-.02em;line-height:1.15}
 h1 span{color:var(--ink-2);font-weight:400;font-size:13px;display:block;letter-spacing:0}
 .head-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -358,7 +356,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 
 <header class="app">
   <div class="logo-mark" title="KMF">
-    <span class="kmf">KMF</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 373.912" aria-label="KMF"><path d="M28 75.8 Q28 35.8 68 35.8 H285.7 Q325.7 35.8 325.7 75.8 V293.5 Q325.7 333.5 285.7 333.5 H68 Q28 333.5 28 293.5 Z M189.69 264.20 L189.69 105.18 L294.17 184.69 Z M59.56 264.20 L59.56 105.18 L164.02 184.69 Z" fill="#F47A20" fill-rule="evenodd"/></svg>
   </div>
   <h1>Formação de Preço<span>KMF · planilha de orçamento de cenografia</span></h1>
   <div class="head-actions">
@@ -410,11 +408,11 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
       <div><label>Número da proposta</label><input id="p_num" placeholder="001/2026" oninput="metaInput()"></div>
       <div><label>Data</label><input id="p_data" type="text" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="dataInput()"></div>
       <div class="adv-only"><label>Margem padrão (%)
-        <span class="hint" data-tip="Só no modo avançado: usada para calcular o Valor a partir do custo + imposto. Cada linha pode ter a sua própria margem.">?</span>
-      </label><input id="p_margem" type="number" step="0.5" min="0" value="20" oninput="metaInput()"></div>
+        <span class="hint" data-tip="Configuração global (0–100): pré-preenche cada novo orçamento e a margem de cada linha sem valor próprio. Mudar aqui vale dos próximos orçamentos em diante; os já salvos não mudam.">?</span>
+      </label><input id="p_margem" type="text" inputmode="decimal" placeholder="20" oninput="metaInput()" onblur="fmtPadraoInputs()"></div>
       <div class="adv-only"><label>Imposto padrão (%)
-        <span class="hint" data-tip="Imposto usado como valor inicial de cada nova linha no modo avançado. Cada linha pode ter o seu próprio. Atalhos: Serviço 16,33 · Locação 11,33.">?</span>
-      </label><input id="p_impostoPadrao" type="text" inputmode="decimal" placeholder="16,33" oninput="metaInput()" onblur="fmtPctInput(this)"></div>
+        <span class="hint" data-tip="Configuração global (0–100): valor inicial do Imposto % de cada nova linha. Mudar aqui vale dos próximos orçamentos em diante; os já salvos não mudam. Atalhos na linha: Serviço 16,33 · Locação 11,33.">?</span>
+      </label><input id="p_impostoPadrao" type="text" inputmode="decimal" placeholder="16,33" oninput="metaInput()" onblur="fmtPadraoInputs()"></div>
       <div class="full"><label>Observações</label><input id="p_obs" placeholder="Prazo, condições de pagamento, validade da proposta…" oninput="metaInput()"></div>
     </div>
   </div>
@@ -616,19 +614,28 @@ const CATEGORIAS = ['Pórtico','Trainel','Flâmula','Estande','Table Top','Totem
 const CAT_PRESETS = { 'Trainel':200, 'Flâmula':120, 'Adesivo':120 };
 /* imposto % de cada atalho, derivado das alíquotas (Serviço 16,33 · Locação 11,33) */
 function impostoDe(tipo){ const r=TAX_RULES[tipo]||TAX_RULES.servico; return round2(r.total*100); }
-const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', catalog:'cen_v3_catalog', seen:'cen_v3_seen' };
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', catalog:'cen_v3_catalog', seen:'cen_v3_seen', defaults:'cen_v3_defaults' };
 const fmt = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const n2  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid = () => Math.random().toString(36).slice(2,9);
 const round2 = v => Math.round((Number(v)||0)*100)/100;
 const IMPOSTO_PADRAO = impostoDe('servico'); // 16,33
+/* % válida 0–100 (rejeita lixo, ex.: 121.658) */
+function parsePct(s){ const n=parseMoney(s); return (n===null||isNaN(n)||n<0||n>100) ? null : n; }
+
+/* padrões GLOBAIS (margem e imposto) — salvos no localStorage, pré-preenchem todo
+   orçamento novo. Orçamentos já salvos guardam o seu próprio valor e não mudam. */
+let defaults = lsGet(LS.defaults, {margem:20, impostoPadrao:IMPOSTO_PADRAO});
+defaults.margem        = parsePct(defaults.margem)        !== null ? Number(defaults.margem)        : 20;
+defaults.impostoPadrao = parsePct(defaults.impostoPadrao) !== null ? Number(defaults.impostoPadrao) : IMPOSTO_PADRAO;
+function salvarDefaults(){ lsSet(LS.defaults, {margem:defaults.margem, impostoPadrao:defaults.impostoPadrao}); }
 
 let state   = novoEstado();
 let catalog = lsGet(LS.catalog, []);
 let config  = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 
 function novoEstado(){
-  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',margem:20,impostoPadrao:IMPOSTO_PADRAO,avancado:false,categoriasCustom:[]}, itens:[] };
+  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',margem:defaults.margem,impostoPadrao:defaults.impostoPadrao,avancado:false,categoriasCustom:[]}, itens:[] };
 }
 function novoItem(cat){
   return { id:uid(), categoria:cat||CATEGORIAS[0], desc:'', qtd:1, largura:'', altura:'', precoM2:'', valor:'', tipo:'servico', impostoPct:'', custo:'', margem:null };
@@ -848,7 +855,7 @@ function render(){
   const m = state.meta;
   p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_evento.value=m.evento||'';
   p_data.value=isoToBr(m.data); p_obs.value=m.obs;
-  p_margem.value=m.margem;
+  p_margem.value = pctBR(m.margem);
   p_impostoPadrao.value = pctBR(m.impostoPadrao);
   adv_toggle.checked = !!m.avancado;
   aplicarModoVis();
@@ -919,7 +926,7 @@ function linhaHTML(it){
     <td class="cell-m2 col-m2" data-m2="${it.id}" data-l="m²">—</td>
     <td class="col-m2preco col-preco simple-col" data-l="R$/m² (opcional)">
       <span class="m2preco-wrap">
-        <input class="in-num in-precom2" type="number" min="0" step="0.01" value="${esc(it.precoM2)}" placeholder="—" oninput="setItem('${it.id}','precoM2',this.value)">
+        <input class="in-num in-precom2" type="number" min="0" step="0.01" value="${esc(it.precoM2)}" placeholder="R$/m²" oninput="setItem('${it.id}','precoM2',this.value)">
         ${sug}
       </span>
     </td>
@@ -931,7 +938,7 @@ function linhaHTML(it){
       </span>
     </div></td>
     <td class="r adv-col col-custo" data-l="Custo un."><input class="in-num in-custo" type="text" inputmode="decimal" value="${esc(moneyInput(it.custo))}" placeholder="0,00" oninput="setItemMoney('${it.id}','custo',this.value)" onblur="fmtMoneyInput(this)"></td>
-    <td class="r adv-col col-marg" data-l="Margem %"><input class="in-num" type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="padrão" oninput="setItem('${it.id}','margem',this.value)"></td>
+    <td class="r adv-col col-marg" data-l="Margem %"><input class="in-num" type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="${esc(pctBR(state.meta.margem))}" title="Vazio = usa a margem padrão (${esc(pctBR(state.meta.margem))}%)" oninput="setItem('${it.id}','margem',this.value)"></td>
     <td class="r col-valor" data-l="Valor (R$)"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(valorNum))}" placeholder="0,00" ${adv?'readonly title="No modo avançado o Valor é calculado a partir do custo + imposto + margem"':''} oninput="setItemMoney('${it.id}','valor',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="col-acts" data-l="Linha"><div class="row-acts">
       <button class="ico-btn" aria-label="Mover para cima" title="Mover para cima" onclick="moveItem('${it.id}',-1)">↑</button>
@@ -1039,10 +1046,14 @@ function dataInput(){
 function metaInput(){
   const m=state.meta;
   m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.evento=p_evento.value;
-  m.obs=p_obs.value; m.margem=p_margem.value;
-  m.impostoPadrao = parseMoney(p_impostoPadrao.value);
+  m.obs=p_obs.value;
+  // margem/imposto padrão: validam 0–100 e viram configuração GLOBAL (próximos orçamentos)
+  const mg=parsePct(p_margem.value);        if(mg!==null){ m.margem=mg; defaults.margem=mg; salvarDefaults(); }
+  const ip=parsePct(p_impostoPadrao.value); if(ip!==null){ m.impostoPadrao=ip; defaults.impostoPadrao=ip; salvarDefaults(); }
   recalc();
 }
+/* ao sair do campo, reexibe o valor válido formatado (descarta lixo digitado) */
+function fmtPadraoInputs(){ p_margem.value=pctBR(state.meta.margem); p_impostoPadrao.value=pctBR(state.meta.impostoPadrao); }
 function setItem(id,f,v){
   const it=state.itens.find(i=>i.id===id); if(!it)return;
   it[f] = (f==='margem' && v==='') ? null : v;
