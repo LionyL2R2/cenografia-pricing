@@ -158,7 +158,6 @@ table.itab input.in-valor{font-weight:700;color:var(--ink)}
 .col-preco{width:118px}
 .col-tipo{width:108px}            /* cabe "Locação" sem cortar */
 .col-marg{width:78px}
-.col-rec{width:38px}
 .col-valor{width:120px}
 .col-acts{width:96px}
 table.itab td.col-tipo select{min-width:96px}   /* garante o texto completo da opção */
@@ -184,8 +183,13 @@ tr.grand td{background:var(--ink);color:#fff;font-weight:700;font-size:14px;padd
 tr.grand td.r{font-size:16px}
 .tab-vazia{padding:30px 18px;text-align:center;font-size:13.5px;color:var(--ink-2);border:1px dashed var(--line-2);border-radius:var(--r-sm)}
 .add-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-/* esconde colunas avançadas no modo simples */
+/* colunas por modo: avançadas só no avançado; R$/m² só no simples */
 table.itab:not(.adv) .adv-col{display:none}
+table.itab.adv .simple-col{display:none}
+.col-custo{width:118px}
+/* Valor derivado e somente leitura no modo avançado */
+table.itab .in-valor[readonly]{background:var(--surface-2);color:var(--ink);cursor:default;border-color:var(--line)}
+table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .hidden{display:none !important}
 
 /* ---------- total geral ---------- */
@@ -712,7 +716,58 @@ function grossupPreco(item, st=state){
 
 /* ---------- cálculo da linha ---------- */
 function m2De(it){ return (Number(it.qtd)||0) * (Number(it.largura)||0) * (Number(it.altura)||0); }
-function valorLinha(it){ const v=it.valor; return (v===''||v==null) ? 0 : (Number(v)||0); }
+function temPrecoM2(it){ return it.precoM2!=='' && it.precoM2!=null && !isNaN(it.precoM2) && Number(it.precoM2)>0; }
+
+/* margem da linha (%); se vazia, usa a margem padrão do orçamento */
+function margemLinha(it, st=state){
+  if(it.margem!==null && it.margem!=='' && !isNaN(it.margem)) return Number(it.margem);
+  return Number(st.meta.margem)||0;
+}
+function div1(p, frac){ const d=1-frac; return d>0.000001 ? p/d : p; } /* gross-up; se ≥100% trava no valor atual */
+
+/* MODO AVANÇADO — preço construído de baixo pra cima a partir do custo:
+   1) custo da linha = CUSTO UN. × Qtd
+   2) gross-up por imposto conforme TIPO (Serviço × Locação)
+   3) MARG % da linha (ou Margem padrão, se vazia)
+   4) margem KMF (%) POR CIMA, se "Projeto KMF" estiver marcado
+   O resultado é o Valor da linha (somente leitura no avançado). */
+function precoAvancado(it, st=state){
+  const tax = TAX_RULES[it.tipo] ? TAX_RULES[it.tipo].total : TAX_RULES.servico.total;
+  let p = (Number(it.custo)||0) * (Number(it.qtd)||0);                 // 1
+  p = div1(p, tax);                                                    // 2
+  p = div1(p, margemLinha(it, st)/100);                                // 3
+  if(st.meta.kmf) p = div1(p, (Number(st.meta.margemKmf)||0)/100);     // 4
+  return p;                                                            // 5
+}
+function margemImpossivel(st=state){
+  if(!st.meta.avancado) return false;
+  const lim = v => v!==null && v!=='' && !isNaN(v) && Number(v)>=100;
+  if(lim(st.meta.margem)) return true;
+  if(st.meta.kmf && lim(st.meta.margemKmf)) return true;
+  return st.itens.some(it=>lim(it.margem));
+}
+
+/* Valor da linha: derivado do custo no avançado; manual (ou R$/m²) no simples */
+function valorLinha(it, st=state){
+  if(st && st.meta && st.meta.avancado) return round2(precoAvancado(it, st));
+  const v=it.valor; return (v===''||v==null) ? 0 : (Number(v)||0);
+}
+
+/* ---------- dinheiro em padrão BR (112.320,00) ---------- */
+function moneyInput(v){
+  if(v===null||v===undefined||v==='') return '';
+  const n=Number(v); if(isNaN(n)) return '';
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function parseMoney(s){
+  if(s===null||s===undefined) return null;
+  s=String(s).trim().replace(/[^\d.,-]/g,'');
+  if(s==='') return null;
+  if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');        // vírgula = decimal · ponto = milhar
+  else if(/^-?\d{1,3}(\.\d{3})+$/.test(s)) s=s.replace(/\./g,'');     // só pontos de milhar (ex.: 112.320)
+  const n=Number(s);
+  return isNaN(n)?null:n;
+}
 
 /* totais: total e por categoria sempre; decomposição serviço/locação para o modo avançado */
 function totais(st=state){
@@ -723,7 +778,7 @@ function totais(st=state){
     compServ:{}, compLoc:{}, margemNegativa:false
   };
   (st.itens||[]).forEach(it=>{
-    const v = valorLinha(it);
+    const v = valorLinha(it, st);
     t.porCategoria[it.categoria] = (t.porCategoria[it.categoria]||0) + v;
     t.total += v;
     const tipo = TAX_RULES[it.tipo] ? it.tipo : 'servico';
@@ -804,7 +859,7 @@ function renderTabela(){
   let body='';
   catsPresentes().forEach(cat=>{
     itensDaCategoria(cat).forEach(it=> body += linhaHTML(it));
-    body += `<tr class="sub-row"><td colspan="11"><span class="sub-tag">${esc(cat)}</span> subtotal</td><td class="r" data-sub="${esc(cat)}">—</td><td></td></tr>`;
+    body += `<tr class="sub-row"><td colspan="10"><span class="sub-tag">${esc(cat)}</span> subtotal</td><td class="r" data-sub="${esc(cat)}">—</td><td></td></tr>`;
   });
   cont.innerHTML = `
     <div class="tab-scroll"><table class="itab${adv?' adv':''}">
@@ -815,16 +870,15 @@ function renderTabela(){
         <th class="r col-dim">Larg (m)</th>
         <th class="r col-dim">Alt (m)</th>
         <th class="r col-m2">m²</th>
-        <th class="r col-preco">R$/m²</th>
+        <th class="r col-preco simple-col">R$/m²</th>
         <th class="r adv-col col-tipo">Tipo</th>
-        <th class="r adv-col">Custo un.</th>
+        <th class="r adv-col col-custo">Custo un.</th>
         <th class="r adv-col col-marg">Marg %</th>
-        <th class="adv-col col-rec"></th>
         <th class="r col-valor">Valor (R$)</th>
         <th class="col-acts"></th>
       </tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr class="grand"><td colspan="11">Total geral</td><td class="r" id="cell-grand">—</td><td></td></tr></tfoot>
+      <tfoot><tr class="grand"><td colspan="10">Total geral</td><td class="r" id="cell-grand">—</td><td></td></tr></tfoot>
     </table></div>`;
 }
 
@@ -837,6 +891,8 @@ function linhaHTML(it){
   const sug = preset!=null
     ? `<button type="button" class="chip-sug" title="Usar R$/m² sugerido para ${esc(it.categoria)}" onclick="aplicarPreset('${it.id}',${preset})">${preset}</button>`
     : '';
+  const adv = !!state.meta.avancado;
+  const valorNum = adv ? valorLinha(it) : (it.valor===''||it.valor==null ? null : Number(it.valor));
   return `<tr data-id="${it.id}">
     <td class="col-cat" data-l="Categoria"><select class="sel-cat" onchange="catChange('${it.id}',this)">${catOpts}</select></td>
     <td data-l="Descrição"><input class="in-desc" value="${esc(it.desc)}" placeholder="Descrição do item" oninput="setItem('${it.id}','desc',this.value)"></td>
@@ -844,7 +900,7 @@ function linhaHTML(it){
     <td class="r col-dim" data-l="Largura (m)"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.largura)}" placeholder="—" oninput="setItem('${it.id}','largura',this.value)"></td>
     <td class="r col-dim" data-l="Altura (m)"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.altura)}" placeholder="—" oninput="setItem('${it.id}','altura',this.value)"></td>
     <td class="cell-m2 col-m2" data-m2="${it.id}" data-l="m²">—</td>
-    <td class="col-m2preco col-preco" data-l="R$/m² (opcional)">
+    <td class="col-m2preco col-preco simple-col" data-l="R$/m² (opcional)">
       <span class="m2preco-wrap">
         <input class="in-num in-precom2" type="number" min="0" step="0.01" value="${esc(it.precoM2)}" placeholder="—" oninput="setItem('${it.id}','precoM2',this.value)">
         ${sug}
@@ -854,10 +910,9 @@ function linhaHTML(it){
       <option value="servico" ${it.tipo==='servico'?'selected':''}>Serviço</option>
       <option value="locacao" ${it.tipo==='locacao'?'selected':''}>Locação</option>
     </select></td>
-    <td class="r adv-col" data-l="Custo un."><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.custo)}" placeholder="R$" oninput="setItem('${it.id}','custo',this.value)"></td>
+    <td class="r adv-col col-custo" data-l="Custo un."><input class="in-num in-custo" type="text" inputmode="decimal" value="${esc(moneyInput(it.custo))}" placeholder="0,00" oninput="setItemMoney('${it.id}','custo',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="r adv-col col-marg" data-l="Margem %"><input class="in-num" type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="padrão" oninput="setItem('${it.id}','margem',this.value)"></td>
-    <td class="adv-col col-rec" data-l="Calcular do custo"><button class="ico-btn" aria-label="Calcular o Valor a partir do custo, margem e imposto" title="Calcular o Valor a partir do custo + margem + imposto" onclick="calcDoCusto('${it.id}')">↻</button></td>
-    <td class="r col-valor" data-l="Valor (R$)"><input class="in-num in-valor" type="number" min="0" step="0.01" value="${esc(it.valor)}" placeholder="0,00" oninput="setItem('${it.id}','valor',this.value)"></td>
+    <td class="r col-valor" data-l="Valor (R$)"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(valorNum))}" placeholder="0,00" ${adv?'readonly title="No modo avançado o Valor é calculado a partir do custo + imposto + margem"':''} oninput="setItemMoney('${it.id}','valor',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="col-acts" data-l="Linha"><div class="row-acts">
       <button class="ico-btn" aria-label="Mover para cima" title="Mover para cima" onclick="moveItem('${it.id}',-1)">↑</button>
       <button class="ico-btn" aria-label="Mover para baixo" title="Mover para baixo" onclick="moveItem('${it.id}',1)">↓</button>
@@ -869,9 +924,14 @@ function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 /* recalcula números sem reconstruir as linhas (mantém o foco) */
 function recalc(){
+  const adv = !!state.meta.avancado;
   state.itens.forEach(it=>{
     const cell = document.querySelector(`.cell-m2[data-m2="${it.id}"]`);
-    if(cell) cell.textContent = n2(m2De(it));
+    if(cell) cell.textContent = n2(m2De(it));               // m² ao vivo: Qtd × Largura × Altura
+    if(adv){                                                 // Valor derivado (read-only) recalculado junto
+      const vin = document.querySelector(`tr[data-id="${it.id}"] .in-valor`);
+      if(vin) vin.value = moneyInput(valorLinha(it));
+    }
   });
   const t = totais();
   catsPresentes().forEach(cat=>{
@@ -899,10 +959,10 @@ function recalc(){
   for (const k of ['ISS','PIS','COFINS','IRPJ','CSLL']){ if(junta[k]) det.push(`${k}: <b>${fmt(junta[k])}</b>`); }
   t_detalhe.innerHTML = det.length ? 'Detalhe por tributo · '+det.join(' &nbsp;·&nbsp; ') : '';
 
-  // aviso de margem negativa (só avançado)
+  // aviso: no avançado, imposto + margem somando 100% ou mais torna o preço impossível
   const aviso = document.getElementById('avisoGuard');
-  if(state.meta.avancado && t.margemNegativa){
-    aviso.innerHTML = 'Atenção: em uma ou mais linhas, <b>custo + imposto ficou maior que o Valor</b> — a margem está negativa. Reveja o Valor dessas linhas.';
+  if(margemImpossivel()){
+    aviso.innerHTML = 'Atenção: uma margem (linha, padrão ou KMF) está em <b>100% ou mais</b>. Assim não existe preço possível — reduza a margem.';
     aviso.classList.add('show');
   } else { aviso.classList.remove('show'); }
 
@@ -971,12 +1031,14 @@ function setItem(id,f,v){
   if(f==='qtd'||f==='largura'||f==='altura'||f==='precoM2') aplicarPrecoM2(it);
   recalc();
 }
-/* quando R$/m² está preenchido, o Valor é recalculado (mas o campo Valor segue editável) */
+/* MODO SIMPLES: quando R$/m² está preenchido, o Valor = m² × R$/m² (mas segue editável).
+   No avançado o Valor é derivado do custo, então aqui não faz nada. */
 function aplicarPrecoM2(it){
-  if(it.precoM2!=='' && it.precoM2!=null && !isNaN(it.precoM2)){
+  if(state.meta.avancado) return;
+  if(temPrecoM2(it)){
     it.valor = round2(m2De(it) * (Number(it.precoM2)||0));
     const inp=document.querySelector(`tr[data-id="${it.id}"] .in-valor`);
-    if(inp) inp.value = it.valor;
+    if(inp) inp.value = moneyInput(it.valor);
   }
 }
 function aplicarPreset(id,val){
@@ -986,12 +1048,13 @@ function aplicarPreset(id,val){
   const pre=document.querySelector(`tr[data-id="${id}"] .in-precom2`); if(pre) pre.value=val;
   aplicarPrecoM2(it); recalc();
 }
-function calcDoCusto(id){
+/* campos de dinheiro (Custo, Valor): grava número, recalcula ao vivo, reformata BR no blur */
+function setItemMoney(id,f,v){
   const it=state.itens.find(i=>i.id===id); if(!it)return;
-  it.valor = round2(grossupPreco(it,state));
-  const inp=document.querySelector(`tr[data-id="${id}"] .in-valor`); if(inp) inp.value=it.valor;
-  recalc(); toast('Valor calculado a partir do custo');
+  it[f] = parseMoney(v);
+  recalc();
 }
+function fmtMoneyInput(el){ const n=parseMoney(el.value); el.value = (n==null?'':moneyInput(n)); }
 function addLinha(){
   const last = state.itens[state.itens.length-1];
   const cat = last ? last.categoria : CATEGORIAS[0];
