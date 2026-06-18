@@ -156,14 +156,16 @@ table.itab input.in-valor{font-weight:700;color:var(--ink)}
 .col-dim{width:84px}
 .col-m2{width:74px}
 .col-preco{width:118px}
-.col-tipo{width:108px}            /* cabe "Locação" sem cortar */
+.col-imposto{width:132px}
 .col-marg{width:78px}
 .col-valor{width:120px}
 .col-acts{width:96px}
-table.itab td.col-tipo select{min-width:96px}   /* garante o texto completo da opção */
 .cell-m2{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink-2);text-align:right;white-space:nowrap}
 .col-m2preco .m2preco-wrap{display:flex;align-items:center;gap:6px}
 .col-m2preco .in-precom2{min-width:0}
+.imp-wrap{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.imp-quick{display:flex;gap:4px;justify-content:flex-end}
+.imp-quick .chip-sug{padding:3px 8px}
 .chip-sug{
   flex:none;font:inherit;font-size:11.5px;font-weight:600;line-height:1;
   background:var(--accent-soft);color:var(--accent-d);border:1px solid #D5E2FB;
@@ -407,6 +409,9 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
       <div class="adv-only"><label>Margem padrão (%)
         <span class="hint" data-tip="Só no modo avançado: usada para calcular o Valor a partir do custo + imposto. Cada linha pode ter a sua própria margem.">?</span>
       </label><input id="p_margem" type="number" step="0.5" min="0" value="20" oninput="metaInput()"></div>
+      <div class="adv-only"><label>Imposto padrão (%)
+        <span class="hint" data-tip="Imposto usado como valor inicial de cada nova linha no modo avançado. Cada linha pode ter o seu próprio. Atalhos: Serviço 16,33 · Locação 11,33.">?</span>
+      </label><input id="p_impostoPadrao" type="text" inputmode="decimal" placeholder="16,33" oninput="metaInput()" onblur="fmtPctInput(this)"></div>
       <div class="adv-only">
         <label>Projeto KMF?
           <span class="hint" data-tip="Marque quando o projeto for para a KMF Eventos. Você pode usar uma margem combinada só para eles.">?</span>
@@ -615,21 +620,24 @@ for (const k in TAX_RULES) {
 /* Taxonomia real de cenografia. Cada categoria pode ter um preset de R$/m². */
 const CATEGORIAS = ['Pórtico','Trainel','Flâmula','Estande','Table Top','Totem','Adesivo','Coluna','Outros'];
 const CAT_PRESETS = { 'Trainel':200, 'Flâmula':120, 'Adesivo':120 };
+/* imposto % de cada atalho, derivado das alíquotas (Serviço 16,33 · Locação 11,33) */
+function impostoDe(tipo){ const r=TAX_RULES[tipo]||TAX_RULES.servico; return round2(r.total*100); }
 const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', catalog:'cen_v3_catalog', seen:'cen_v3_seen' };
 const fmt = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const n2  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid = () => Math.random().toString(36).slice(2,9);
 const round2 = v => Math.round((Number(v)||0)*100)/100;
+const IMPOSTO_PADRAO = impostoDe('servico'); // 16,33
 
 let state   = novoEstado();
 let catalog = lsGet(LS.catalog, []);
 let config  = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 
 function novoEstado(){
-  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',kmf:false,margemKmf:null,margem:20,avancado:false,categoriasCustom:[]}, itens:[] };
+  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',kmf:false,margemKmf:null,margem:20,impostoPadrao:IMPOSTO_PADRAO,avancado:false,categoriasCustom:[]}, itens:[] };
 }
 function novoItem(cat){
-  return { id:uid(), categoria:cat||CATEGORIAS[0], desc:'', qtd:1, largura:'', altura:'', precoM2:'', valor:'', tipo:'servico', custo:'', margem:null };
+  return { id:uid(), categoria:cat||CATEGORIAS[0], desc:'', qtd:1, largura:'', altura:'', precoM2:'', valor:'', tipo:'servico', impostoPct:'', custo:'', margem:null };
 }
 function hoje(){ return new Date().toISOString().slice(0,10); }
 function lsGet(k,fb){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fb; }catch(e){ return fb; } }
@@ -696,7 +704,13 @@ function catDaSecao(sec){
   const c=(sec.categoria||'').trim(); if(c) return c;
   return 'Outros';
 }
-function normItem(it){ return Object.assign(novoItem(), it||{}); }
+function normItem(raw){
+  const it = Object.assign(novoItem(), raw||{});
+  // orçamentos antigos tinham Tipo serviço/locação → converte para Imposto %
+  if(!raw || raw.impostoPct===undefined || raw.impostoPct===null || raw.impostoPct==='')
+    it.impostoPct = impostoDe(it.tipo==='locacao' ? 'locacao' : 'servico');
+  return it;
+}
 
 /* margem do item (modo avançado): item > KMF > padrão */
 function margemDoItem(item, st=state){
@@ -725,16 +739,22 @@ function margemLinha(it, st=state){
 }
 function div1(p, frac){ const d=1-frac; return d>0.000001 ? p/d : p; } /* gross-up; se ≥100% trava no valor atual */
 
+/* imposto % da linha (fração); se vazio, usa o Imposto padrão do orçamento */
+function impostoLinha(it, st=state){
+  const v = it.impostoPct;
+  if(v!==null && v!=='' && !isNaN(v)) return Number(v)/100;
+  return (Number(st.meta.impostoPadrao)||0)/100;
+}
+
 /* MODO AVANÇADO — preço construído de baixo pra cima a partir do custo:
    1) custo da linha = CUSTO UN. × Qtd
-   2) gross-up por imposto conforme TIPO (Serviço × Locação)
+   2) gross-up pelo Imposto % da linha (editável; atalhos Serviço/Locação)
    3) MARG % da linha (ou Margem padrão, se vazia)
    4) margem KMF (%) POR CIMA, se "Projeto KMF" estiver marcado
    O resultado é o Valor da linha (somente leitura no avançado). */
 function precoAvancado(it, st=state){
-  const tax = TAX_RULES[it.tipo] ? TAX_RULES[it.tipo].total : TAX_RULES.servico.total;
   let p = (Number(it.custo)||0) * (Number(it.qtd)||0);                 // 1
-  p = div1(p, tax);                                                    // 2
+  p = div1(p, impostoLinha(it, st));                                   // 2
   p = div1(p, margemLinha(it, st)/100);                                // 3
   if(st.meta.kmf) p = div1(p, (Number(st.meta.margemKmf)||0)/100);     // 4
   return p;                                                            // 5
@@ -768,6 +788,12 @@ function parseMoney(s){
   const n=Number(s);
   return isNaN(n)?null:n;
 }
+/* porcentagem em padrão BR, sem zeros à toa (ex.: 16,33 · 11,33 · 20) */
+function pctBR(v){
+  if(v===null||v===undefined||v==='') return '';
+  const n=Number(v); if(isNaN(n)) return '';
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
+}
 
 /* totais: total e por categoria sempre; decomposição serviço/locação para o modo avançado */
 function totais(st=state){
@@ -782,16 +808,18 @@ function totais(st=state){
     t.porCategoria[it.categoria] = (t.porCategoria[it.categoria]||0) + v;
     t.total += v;
     const tipo = TAX_RULES[it.tipo] ? it.tipo : 'servico';
-    const tax = TAX_RULES[tipo].total;
+    const tax = impostoLinha(it, st);            // imposto % digitado na linha (ou padrão)
     const custoTotal = (Number(it.qtd)||0) * (Number(it.custo)||0);
     const imposto = v*tax;
     const margem  = v - custoTotal - imposto;
     if (v>0 && margem < 0) t.margemNegativa = true;
     const g = t[tipo];
     g.preco+=v; g.custo+=custoTotal; g.imposto+=imposto; g.margem+=margem;
+    // distribui o imposto da linha entre os componentes do tipo, proporcionalmente
     const comp = tipo==='servico' ? t.compServ : t.compLoc;
+    const ruleTotal = TAX_RULES[tipo].total || 1;
     for (const [nome,aliq] of Object.entries(TAX_RULES[tipo].componentes)){
-      comp[nome] = (comp[nome]||0) + v*aliq;
+      comp[nome] = (comp[nome]||0) + imposto*(aliq/ruleTotal);
     }
   });
   return t;
@@ -831,6 +859,7 @@ function render(){
   p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_evento.value=m.evento||'';
   p_data.value=isoToBr(m.data); p_obs.value=m.obs;
   p_margem.value=m.margem; p_kmf.checked=m.kmf;
+  p_impostoPadrao.value = pctBR(m.impostoPadrao);
   p_margemKmf.style.display = m.kmf?'block':'none';
   p_margemKmf.value = m.margemKmf ?? '';
   adv_toggle.checked = !!m.avancado;
@@ -871,7 +900,7 @@ function renderTabela(){
         <th class="r col-dim">Alt (m)</th>
         <th class="r col-m2">m²</th>
         <th class="r col-preco simple-col">R$/m²</th>
-        <th class="r adv-col col-tipo">Tipo</th>
+        <th class="r adv-col col-imposto">Imposto %</th>
         <th class="r adv-col col-custo">Custo un.</th>
         <th class="r adv-col col-marg">Marg %</th>
         <th class="r col-valor">Valor (R$)</th>
@@ -906,10 +935,13 @@ function linhaHTML(it){
         ${sug}
       </span>
     </td>
-    <td class="r adv-col col-tipo" data-l="Tipo"><select class="sel-tipo" onchange="setItem('${it.id}','tipo',this.value)">
-      <option value="servico" ${it.tipo==='servico'?'selected':''}>Serviço</option>
-      <option value="locacao" ${it.tipo==='locacao'?'selected':''}>Locação</option>
-    </select></td>
+    <td class="r adv-col col-imposto" data-l="Imposto %"><div class="imp-wrap">
+      <input class="in-num in-imposto" type="text" inputmode="decimal" value="${esc(pctBR(it.impostoPct))}" placeholder="${esc(pctBR(state.meta.impostoPadrao))}" oninput="setItemImposto('${it.id}',this.value)" onblur="fmtPctInput(this)">
+      <span class="imp-quick">
+        <button type="button" class="chip-sug" title="Serviço — 16,33%" onclick="setImpostoPreset('${it.id}','servico')">Serv</button>
+        <button type="button" class="chip-sug" title="Locação — 11,33%" onclick="setImpostoPreset('${it.id}','locacao')">Loc</button>
+      </span>
+    </div></td>
     <td class="r adv-col col-custo" data-l="Custo un."><input class="in-num in-custo" type="text" inputmode="decimal" value="${esc(moneyInput(it.custo))}" placeholder="0,00" oninput="setItemMoney('${it.id}','custo',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="r adv-col col-marg" data-l="Margem %"><input class="in-num" type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="padrão" oninput="setItem('${it.id}','margem',this.value)"></td>
     <td class="r col-valor" data-l="Valor (R$)"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(valorNum))}" placeholder="0,00" ${adv?'readonly title="No modo avançado o Valor é calculado a partir do custo + imposto + margem"':''} oninput="setItemMoney('${it.id}','valor',this.value)" onblur="fmtMoneyInput(this)"></td>
@@ -1021,6 +1053,7 @@ function metaInput(){
   m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.evento=p_evento.value;
   m.obs=p_obs.value; m.margem=p_margem.value; m.kmf=p_kmf.checked;
   m.margemKmf = p_margemKmf.value===''?null:p_margemKmf.value;
+  m.impostoPadrao = parseMoney(p_impostoPadrao.value);
   p_margemKmf.style.display = m.kmf?'block':'none';
   recalc();
 }
@@ -1055,10 +1088,27 @@ function setItemMoney(id,f,v){
   recalc();
 }
 function fmtMoneyInput(el){ const n=parseMoney(el.value); el.value = (n==null?'':moneyInput(n)); }
+/* Imposto % por linha: grava número, recalcula ao vivo, reformata BR no blur */
+function setItemImposto(id,v){
+  const it=state.itens.find(i=>i.id===id); if(!it)return;
+  it.impostoPct = parseMoney(v);
+  recalc();
+}
+function fmtPctInput(el){ const n=parseMoney(el.value); el.value = (n==null?'':pctBR(n)); }
+/* atalhos Serviço (16,33) / Locação (11,33): preenchem o Imposto %, mas segue editável */
+function setImpostoPreset(id,tipo){
+  const it=state.itens.find(i=>i.id===id); if(!it)return;
+  it.tipo = tipo;
+  it.impostoPct = impostoDe(tipo);
+  const inp=document.querySelector(`tr[data-id="${id}"] .in-imposto`);
+  if(inp) inp.value = pctBR(it.impostoPct);
+  recalc();
+}
 function addLinha(){
   const last = state.itens[state.itens.length-1];
   const cat = last ? last.categoria : CATEGORIAS[0];
   const it = novoItem(cat);
+  it.impostoPct = (state.meta.impostoPadrao===''||state.meta.impostoPadrao==null) ? '' : Number(state.meta.impostoPadrao); // valor inicial do orçamento
   state.itens.push(it);
   renderTabela(); recalc();
   document.querySelector(`tr[data-id="${it.id}"] input[placeholder="Descrição"]`)?.focus();
@@ -1142,7 +1192,7 @@ function addDoCatalogo(){
   if(c){
     const last = state.itens[state.itens.length-1];
     const it = novoItem(last?last.categoria:CATEGORIAS[0]);
-    it.desc=c.nome; it.custo=c.custo; it.tipo=c.tipo;
+    it.desc=c.nome; it.custo=c.custo; it.tipo=c.tipo; it.impostoPct=impostoDe(c.tipo);
     state.itens.push(it);
     renderTabela(); recalc();
   }
@@ -1239,10 +1289,10 @@ function imprimir(modo){
       const m2=m2De(it);
       const m2txt = m2>0 ? n2(m2) : '—';
       if(interna){
-        const tax=TAX_RULES[it.tipo]?TAX_RULES[it.tipo].total:TAX_RULES.servico.total;
+        const tax=impostoLinha(it);
         const custoTotal=(Number(it.qtd)||0)*(Number(it.custo)||0);
         const imp=v*tax, marg=v-custoTotal-imp;
-        linhas+=`<tr><td>${esc(it.desc)}</td><td>${TAX_RULES[it.tipo]?TAX_RULES[it.tipo].label:'Serviço'}</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r">${fmt(custoTotal)}</td><td class="r">${fmt(imp)} · ${fmt(marg)}</td><td class="r">${fmt(v)}</td></tr>`;
+        linhas+=`<tr><td>${esc(it.desc)}</td><td class="r">${pctBR(tax*100)}%</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r">${fmt(custoTotal)}</td><td class="r">${fmt(imp)} · ${fmt(marg)}</td><td class="r">${fmt(v)}</td></tr>`;
       } else {
         linhas+=`<tr><td>${esc(it.desc)}</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r"></td><td class="r">${fmt(v)}</td></tr>`;
       }
@@ -1252,7 +1302,7 @@ function imprimir(modo){
       : `<tr class="p-subtot"><td colspan="4">Subtotal ${esc(cat)}</td><td class="r">${fmt(sub)}</td></tr>`;
   });
   const cab = interna
-    ? '<tr><th>Descrição</th><th>Tipo</th><th class="r">Qtd</th><th class="r">m²</th><th class="r">Custo total</th><th class="r">Imposto · Margem</th><th class="r">Valor</th></tr>'
+    ? '<tr><th>Descrição</th><th class="r">Imposto %</th><th class="r">Qtd</th><th class="r">m²</th><th class="r">Custo total</th><th class="r">Imposto · Margem</th><th class="r">Valor</th></tr>'
     : '<tr><th>Descrição</th><th class="r">Qtd</th><th class="r">m²</th><th class="r"></th><th class="r">Valor</th></tr>';
 
   pa.innerHTML=`
