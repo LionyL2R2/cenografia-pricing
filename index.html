@@ -110,32 +110,49 @@ input[type=number]{font-variant-numeric:tabular-nums}
 .hint:hover{z-index:5}
 .card-head .hint::after{bottom:auto;top:130%}
 
-/* ---------- seções e itens ---------- */
-.secao{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;background:#fff;overflow:visible}
-.secao-head{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--paper);border-bottom:1px solid var(--line);flex-wrap:wrap;border-radius:var(--radius) var(--radius) 0 0}
-.secao-head input.sec-nome{font-weight:700;max-width:260px;background:transparent;border-color:transparent;padding:6px 8px}
-.secao-head input.sec-nome:hover{border-color:var(--line);background:#fff}
-.secao-head select.sec-cat{width:auto;font-size:12.5px;padding:6px 8px}
-.item-grid-head,.item-row{
-  display:grid;gap:8px;align-items:center;padding:8px 12px;
-  grid-template-columns:minmax(140px,2.2fr) 110px 64px 110px 78px 110px 110px 120px 30px;
+/* ---------- barra de modo avançado ---------- */
+.modebar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:11px 16px;margin-bottom:16px;
 }
-.item-grid-head{
-  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--ink-soft);border-bottom:1px solid var(--line);padding-top:11px;padding-bottom:7px;
+.modebar .ml{font-weight:600;font-size:13px}
+.modebar .ms{font-size:12px;color:var(--ink-soft);flex:1;min-width:160px}
+.switch{position:relative;display:inline-block;width:44px;height:24px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch .sl{position:absolute;inset:0;background:var(--line);border-radius:24px;transition:.18s;cursor:pointer}
+.switch .sl::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s}
+.switch input:checked + .sl{background:var(--obra)}
+.switch input:checked + .sl::before{transform:translateX(20px)}
+
+/* ---------- tabela de itens ---------- */
+.tab-scroll{overflow-x:auto}
+table.itab{width:100%;border-collapse:collapse;font-size:13px}
+table.itab th{
+  font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--ink-soft);text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap;
 }
-.item-row{border-bottom:1px solid #EEF1F6}
-.item-row:last-child{border-bottom:none}
-.item-row .calc{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;text-align:right}
-.item-row .calc.imp{color:var(--ink-soft);font-weight:500}
-.item-row .calc.preco{color:var(--ink)}
-.item-row select.tipo-servico{color:var(--servico);font-weight:600}
-.item-row select.tipo-locacao{color:var(--locacao);font-weight:600}
-.del-item{background:none;border:none;cursor:pointer;color:var(--ink-soft);padding:4px;border-radius:6px;display:flex}
-.del-item:hover{color:var(--erro);background:#FBEAE8}
-.del-item svg{width:15px;height:15px}
-.secao-foot{display:flex;gap:8px;padding:10px 12px;background:#FBFCFE;flex-wrap:wrap;border-radius:0 0 var(--radius) var(--radius)}
-.row-erro{outline:2px solid var(--erro);outline-offset:-2px;border-radius:6px}
+table.itab th.r{text-align:right}
+table.itab td{padding:5px 8px;border-bottom:1px solid #EEF1F6;vertical-align:middle}
+table.itab td.r{text-align:right}
+table.itab input,table.itab select{padding:6px 8px;font-size:13px;background:#FBFCFD}
+table.itab input.in-num{text-align:right;font-variant-numeric:tabular-nums}
+table.itab input.in-valor{font-weight:700;color:var(--ink)}
+.cell-m2{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink-soft);text-align:right;white-space:nowrap}
+.col-m2preco{min-width:96px}
+.col-m2preco .preset-sel{margin-top:3px;font-size:11px;padding:3px 4px;color:var(--ink-soft)}
+tr.sub-row td{background:#FBFCFE;font-weight:700;border-bottom:2px solid var(--line);padding:8px;font-variant-numeric:tabular-nums}
+tr.sub-row td:first-child{color:var(--ink-soft);text-transform:none;font-family:'Archivo',sans-serif;letter-spacing:-.1px}
+tr.grand td{background:var(--ink);color:#fff;font-weight:800;font-family:'Archivo',sans-serif;font-size:15px;padding:11px 8px;font-variant-numeric:tabular-nums}
+.row-acts{display:flex;gap:1px;justify-content:flex-end}
+.ico-btn{background:none;border:none;cursor:pointer;color:var(--ink-soft);padding:4px 5px;border-radius:6px;font-size:14px;line-height:1;display:inline-flex;align-items:center}
+.ico-btn:hover{background:var(--paper);color:var(--ink)}
+.ico-btn.del:hover{color:var(--erro);background:#FBEAE8}
+.tab-vazia{padding:22px;text-align:center;font-size:13px;color:var(--ink-soft);border:1px dashed var(--line);border-radius:var(--radius)}
+.add-bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+/* esconde colunas avançadas quando o modo está desligado */
+table.itab:not(.adv) .adv-col{display:none}
+.hidden{display:none !important}
 
 /* ---------- canhotos de nota (assinatura visual) ---------- */
 .notas-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
@@ -241,13 +258,8 @@ input[type=number]{font-variant-numeric:tabular-nums}
 /* ---------- responsivo ---------- */
 @media(max-width:920px){
   .proj-grid{grid-template-columns:1fr}
-  .item-grid-head{display:none}
-  .item-row{grid-template-columns:1fr 1fr;padding:12px}
-  .item-row>*{grid-column:auto}
-  .item-row .f-desc{grid-column:1/-1}
-  .item-row .calc{text-align:left;font-size:13.5px}
-  .item-row .calc::before{content:attr(data-l) " ";font-size:10.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;display:block}
   .notas-grid{grid-template-columns:1fr}
+  table.itab{min-width:760px}
 }
 
 /* ---------- impressão ---------- */
@@ -265,7 +277,8 @@ input[type=number]{font-variant-numeric:tabular-nums}
   table.p-tab th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;text-align:left;border-bottom:2px solid #15233F;padding:6px 8px}
   table.p-tab td{padding:7px 8px;border-bottom:1px solid #DDD;font-variant-numeric:tabular-nums}
   table.p-tab td.r,table.p-tab th.r{text-align:right}
-  .p-sec{font-weight:700;background:#F0F2F6}
+  .p-sec td{font-weight:700;background:#F0F2F6}
+  .p-subtot td{font-weight:700;border-top:1px solid #BBB}
   .p-tot{display:flex;justify-content:flex-end}
   .p-tot table{font-size:13px;border-collapse:collapse;min-width:300px}
   .p-tot td{padding:5px 10px;font-variant-numeric:tabular-nums}
@@ -285,10 +298,10 @@ input[type=number]{font-variant-numeric:tabular-nums}
   <div class="logo-mark">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-7h6v7"/></svg>
   </div>
-  <h1>Formação de Preço<span>Cenografia · cotação com impostos</span></h1>
+  <h1>Formação de Preço<span>Cenografia · planilha de orçamento</span></h1>
   <div class="head-actions">
     <button class="btn ghost mini" onclick="abrirConfig()">⚙ Meus dados</button>
-    <button class="btn ghost mini" onclick="abrirCatalogo()">▤ Catálogo</button>
+    <button class="btn ghost mini adv-only" onclick="abrirCatalogo()">▤ Catálogo</button>
     <button class="btn ghost mini" onclick="salvarOrcamento()">Salvar orçamento</button>
     <select id="loadSel" onchange="carregarOrcamento(this.value)" style="width:auto;font-size:12.5px;padding:6px 9px">
       <option value="">Abrir…</option>
@@ -319,9 +332,7 @@ input[type=number]{font-variant-numeric:tabular-nums}
   <span>👋 Este é um <b>orçamento de exemplo</b> para você ver como o app funciona. Quando quiser, clique em <b>+ Novo orçamento</b> e crie o seu.</span>
 </div>
 
-<div class="aviso" id="avisoGuard">
-  ⚠ Em um ou mais itens, <b>imposto + margem chegou a 100% ou mais</b>. Assim não existe preço possível. Reduza a margem do item destacado em vermelho.
-</div>
+<div class="aviso" id="avisoGuard"></div>
 
 <!-- Dados do projeto -->
 <div class="card">
@@ -332,10 +343,14 @@ input[type=number]{font-variant-numeric:tabular-nums}
   <div class="card-body">
     <div class="field-grid">
       <div><label>Nome do projeto</label><input id="p_nome" placeholder="Ex: Stand Expo Design 2026" oninput="metaInput()"></div>
-      <div><label>Número da proposta</label><input id="p_num" placeholder="001/2026" oninput="metaInput()"></div>
       <div><label>Cliente</label><input id="p_cliente" placeholder="Nome ou empresa" oninput="metaInput()"></div>
+      <div><label>Nome do evento</label><input id="p_evento" placeholder="Ex: Feira ABF Franchising" oninput="metaInput()"></div>
+      <div><label>Número da proposta</label><input id="p_num" placeholder="001/2026" oninput="metaInput()"></div>
       <div><label>Data</label><input id="p_data" type="text" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="dataInput()"></div>
-      <div>
+      <div class="adv-only"><label>Margem padrão (%)
+        <span class="hint" data-tip="Só no modo avançado: usada para calcular o Valor a partir do custo + imposto. Cada linha pode ter a sua própria margem.">?</span>
+      </label><input id="p_margem" type="number" step="0.5" min="0" value="20" oninput="metaInput()"></div>
+      <div class="adv-only">
         <label>Projeto KMF?
           <span class="hint" data-tip="Marque quando o projeto for para a KMF Eventos. Você pode usar uma margem combinada só para eles.">?</span>
         </label>
@@ -344,22 +359,48 @@ input[type=number]{font-variant-numeric:tabular-nums}
           <input type="number" id="p_margemKmf" placeholder="Margem KMF %" step="0.5" min="0" style="display:none" oninput="metaInput()">
         </div>
       </div>
-      <div><label>Margem padrão (%)
-        <span class="hint" data-tip="Quanto você quer ganhar sobre o preço de venda. Cada item pode ter a sua própria margem, se quiser.">?</span>
-      </label><input id="p_margem" type="number" step="0.5" min="0" value="20" oninput="metaInput()"></div>
       <div class="full"><label>Observações</label><input id="p_obs" placeholder="Prazo, condições de pagamento, validade da proposta…" oninput="metaInput()"></div>
     </div>
   </div>
 </div>
 
-<!-- Seções de itens -->
-<div id="secoes"></div>
-<div style="display:flex;gap:8px;margin-bottom:16px">
-  <button class="btn ghost" onclick="addSecao()">+ Nova seção</button>
+<!-- Modo avançado -->
+<div class="modebar">
+  <label class="switch"><input type="checkbox" id="adv_toggle" onchange="toggleAvancado()"><span class="sl"></span></label>
+  <span class="ml">Modo avançado</span>
+  <span class="ms">Ligue para calcular impostos (nota fiscal × recibo), gross-up por custo, margem e versão interna. Desligado, o Valor de cada linha é o preço final puro.</span>
 </div>
 
-<!-- Resumo: canhotos de nota -->
+<!-- Tabela de itens -->
 <div class="card">
+  <div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span>
+    <h2>Itens do orçamento</h2>
+  </div>
+  <div class="card-body">
+    <div id="tabela"></div>
+    <div class="add-bar">
+      <button class="btn obra" onclick="addLinha()">+ Adicionar item</button>
+      <button class="btn ghost adv-only" onclick="addDoCatalogo()">+ Do catálogo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Total geral -->
+<div class="total-geral">
+  <div>
+    <div class="tl">Total geral</div>
+    <div class="tv" id="r_total">R$ 0,00</div>
+  </div>
+  <div style="text-align:right" class="adv-only">
+    <div class="sub">Impostos embutidos: <b id="r_imp_total">R$ 0,00</b></div>
+    <div class="sub">Margem (fica para você): <b id="r_marg_total">R$ 0,00</b></div>
+  </div>
+</div>
+<div style="height:16px"></div>
+
+<!-- Resumo: canhotos de nota (avançado) -->
+<div class="card adv-only">
   <div class="card-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 9h8M8 13h6"/></svg></span>
     <h2>Resumo · como vai sair na nota
@@ -387,21 +428,11 @@ input[type=number]{font-variant-numeric:tabular-nums}
         </div>
       </div>
     </div>
-    <div class="total-geral">
-      <div>
-        <div class="tl">Total da proposta</div>
-        <div class="tv" id="r_total">R$ 0,00</div>
-      </div>
-      <div style="text-align:right">
-        <div class="sub">Impostos totais: <b id="r_imp_total">R$ 0,00</b></div>
-        <div class="sub">Fica para você (margem): <b id="r_marg_total">R$ 0,00</b></div>
-      </div>
-    </div>
   </div>
 </div>
 
-<!-- Tributos -->
-<div class="card">
+<!-- Tributos (avançado) -->
+<div class="card adv-only">
   <div class="card-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
     <h2>Tributos a pagar desta cotação</h2>
@@ -435,14 +466,16 @@ input[type=number]{font-variant-numeric:tabular-nums}
     <h2>Composição do orçamento</h2>
   </div>
   <div class="card-body">
-    <label style="margin-bottom:6px">Serviço × Locação</label>
-    <div class="split-bar" id="splitBar"></div>
-    <div class="legend">
-      <span><i style="background:var(--servico)"></i>Serviço</span>
-      <span><i style="background:var(--locacao)"></i>Locação</span>
+    <div class="adv-only" id="splitWrap">
+      <label style="margin-bottom:6px">Serviço × Locação</label>
+      <div class="split-bar" id="splitBar"></div>
+      <div class="legend">
+        <span><i style="background:var(--servico)"></i>Serviço</span>
+        <span><i style="background:var(--locacao)"></i>Locação</span>
+      </div>
+      <div style="height:14px"></div>
     </div>
-    <div style="height:14px"></div>
-    <label style="margin-bottom:8px">Por categoria (preço final)</label>
+    <label style="margin-bottom:8px">Por categoria (valor)</label>
     <div id="catBars"></div>
   </div>
 </div>
@@ -450,14 +483,14 @@ input[type=number]{font-variant-numeric:tabular-nums}
 <!-- Ações finais -->
 <div style="display:flex;gap:8px;flex-wrap:wrap">
   <button class="btn" onclick="imprimir('cliente')">🖨 Proposta para o cliente (PDF)</button>
-  <button class="btn ghost" onclick="imprimir('interna')">Versão interna completa (PDF)</button>
+  <button class="btn ghost adv-only" onclick="imprimir('interna')">Versão interna completa (PDF)</button>
   <button class="btn ghost" onclick="exportCSV()">Exportar Excel (CSV)</button>
 </div>
 
 </div><!-- /telaOrcamento -->
 
 <p class="rodape-fixo">
-  Os valores de impostos são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
+  Os valores de impostos (modo avançado) são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
   Apuração oficial de tributos: <b>Pigatti Contabilidade</b>.
 </p>
 
@@ -505,7 +538,8 @@ input[type=number]{font-variant-numeric:tabular-nums}
 <script>
 /* ============================================================
    REGRAS TRIBUTÁRIAS — Lucro Presumido (editar aqui quando
-   a reforma tributária mudar as alíquotas)
+   a reforma tributária mudar as alíquotas). Usadas só no modo
+   avançado.
    ============================================================ */
 const TAX_RULES = {
   servico: {
@@ -522,164 +556,274 @@ for (const k in TAX_RULES) {
 }
 
 const CATEGORIAS = ['Estrutura','Materiais','Impressão','Mão de obra','Transporte','Outros'];
+const PRESETS_M2 = [{nome:'Trainel',valor:200},{nome:'Flâmula',valor:120},{nome:'Adesivo',valor:120}];
 const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', catalog:'cen_v3_catalog', seen:'cen_v3_seen' };
 const fmt = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const n2  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid = () => Math.random().toString(36).slice(2,9);
+const round2 = v => Math.round((Number(v)||0)*100)/100;
 
-let state = novoEstado();
+let state   = novoEstado();
 let catalog = lsGet(LS.catalog, []);
 let config  = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 
 function novoEstado(){
-  return { meta:{nome:'',num:'',cliente:'',data:hoje(),obs:'',kmf:false,margemKmf:null,margem:20}, secoes:[] };
+  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',kmf:false,margemKmf:null,margem:20,avancado:false}, itens:[] };
+}
+function novoItem(cat){
+  return { id:uid(), categoria:cat||CATEGORIAS[0], desc:'', qtd:1, largura:'', altura:'', precoM2:'', valor:'', tipo:'servico', custo:'', margem:null };
 }
 function hoje(){ return new Date().toISOString().slice(0,10); }
 function lsGet(k,fb){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fb; }catch(e){ return fb; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('show'),2400); }
 
-/* ---------- cálculo ---------- */
+/* ============================================================
+   MIGRAÇÃO / COMPATIBILIDADE
+   Aceita orçamentos antigos (modelo de seções) e novos (lista
+   de itens). Preenche campos novos com default e nunca zera o
+   que já existia: o Valor de itens antigos vem do preço final
+   que era calculado pelo gross-up, preservando os totais.
+   ============================================================ */
+function migrar(raw){
+  if(!raw || typeof raw!=='object') return novoEstado();
+  const st = JSON.parse(JSON.stringify(raw));
+  const dm = novoEstado().meta;
+  st.meta = Object.assign({}, dm, st.meta||{});
+  if(typeof st.meta.avancado!=='boolean') st.meta.avancado=false;
+
+  if(Array.isArray(st.itens)){
+    st.itens = st.itens.map(normItem);
+  } else if(Array.isArray(st.secoes)){
+    const itens=[];
+    st.secoes.forEach(sec=>{
+      const cat = CATEGORIAS.includes(sec.categoria) ? sec.categoria : 'Outros';
+      (sec.items||[]).forEach(it=>{
+        const preco = grossupPreco(it, st); // preço final antigo
+        itens.push(normItem({
+          id: it.id || uid(),
+          categoria: cat,
+          desc: it.desc || (sec.nome ? sec.nome : ''),
+          qtd: it.qtd!==undefined ? it.qtd : 1,
+          largura:'', altura:'', precoM2:'',
+          valor: round2(preco),
+          tipo: it.tipo || 'servico',
+          custo: it.custo!==undefined ? it.custo : '',
+          margem: it.margem===undefined ? null : it.margem
+        }));
+      });
+    });
+    st.itens = itens;
+  } else {
+    st.itens = [];
+  }
+  delete st.secoes;
+  return st;
+}
+function normItem(it){ return Object.assign(novoItem(), it||{}); }
+
+/* margem do item (modo avançado): item > KMF > padrão */
 function margemDoItem(item, st=state){
   if (item.margem !== null && item.margem !== '' && !isNaN(item.margem)) return Number(item.margem);
   if (st.meta.kmf && st.meta.margemKmf !== null && st.meta.margemKmf !== '' && !isNaN(st.meta.margemKmf)) return Number(st.meta.margemKmf);
   return Number(st.meta.margem) || 0;
 }
-function calcItem(item, st=state){
-  const tax = TAX_RULES[item.tipo].total;
+/* gross-up: preço final a partir do custo + imposto + margem (usado na migração e no botão ↻) */
+function grossupPreco(item, st=state){
+  const tax = TAX_RULES[item.tipo] ? TAX_RULES[item.tipo].total : TAX_RULES.servico.total;
   const mg  = margemDoItem(item, st)/100;
   const custoTotal = (Number(item.qtd)||0) * (Number(item.custo)||0);
   const denom = 1 - tax - mg;
-  if (denom <= 0.0001) return { custoTotal, erro:true, imposto:0, margemRS:0, preco:0, tax, mgPct:mg*100 };
-  const preco = custoTotal/denom;
-  return { custoTotal, erro:false, imposto:preco*tax, margemRS:preco*mg, preco, tax, mgPct:mg*100 };
+  if (denom <= 0.0001) return custoTotal; // sem preço possível: devolve ao menos o custo
+  return custoTotal/denom;
 }
+
+/* ---------- cálculo da linha ---------- */
+function m2De(it){ return (Number(it.qtd)||0) * (Number(it.largura)||0) * (Number(it.altura)||0); }
+function valorLinha(it){ const v=it.valor; return (v===''||v==null) ? 0 : (Number(v)||0); }
+
+/* totais: total e por categoria sempre; decomposição serviço/locação para o modo avançado */
 function totais(st=state){
-  const t = { servico:{custo:0,imposto:0,margem:0,preco:0}, locacao:{custo:0,imposto:0,margem:0,preco:0}, erro:false, porCategoria:{}, compServ:{}, compLoc:{} };
-  st.secoes.forEach(s=>{
-    s.items.forEach(it=>{
-      const c = calcItem(it, st);
-      if (c.erro){ t.erro=true; return; }
-      const g = t[it.tipo];
-      g.custo+=c.custoTotal; g.imposto+=c.imposto; g.margem+=c.margemRS; g.preco+=c.preco;
-      t.porCategoria[s.categoria] = (t.porCategoria[s.categoria]||0) + c.preco;
-      const comp = it.tipo==='servico'?t.compServ:t.compLoc;
-      for (const [nome,aliq] of Object.entries(TAX_RULES[it.tipo].componentes)){
-        comp[nome] = (comp[nome]||0) + c.preco*aliq;
-      }
-    });
+  const t = {
+    total:0, porCategoria:{},
+    servico:{custo:0,imposto:0,margem:0,preco:0},
+    locacao:{custo:0,imposto:0,margem:0,preco:0},
+    compServ:{}, compLoc:{}, margemNegativa:false
+  };
+  (st.itens||[]).forEach(it=>{
+    const v = valorLinha(it);
+    t.porCategoria[it.categoria] = (t.porCategoria[it.categoria]||0) + v;
+    t.total += v;
+    const tipo = TAX_RULES[it.tipo] ? it.tipo : 'servico';
+    const tax = TAX_RULES[tipo].total;
+    const custoTotal = (Number(it.qtd)||0) * (Number(it.custo)||0);
+    const imposto = v*tax;
+    const margem  = v - custoTotal - imposto;
+    if (v>0 && margem < 0) t.margemNegativa = true;
+    const g = t[tipo];
+    g.preco+=v; g.custo+=custoTotal; g.imposto+=imposto; g.margem+=margem;
+    const comp = tipo==='servico' ? t.compServ : t.compLoc;
+    for (const [nome,aliq] of Object.entries(TAX_RULES[tipo].componentes)){
+      comp[nome] = (comp[nome]||0) + v*aliq;
+    }
   });
   return t;
 }
 
-/* ---------- render ---------- */
+/* ---------- categorias presentes (na ordem padrão + extras) ---------- */
+function catsPresentes(){
+  const out = CATEGORIAS.filter(c => state.itens.some(i=>i.categoria===c));
+  state.itens.forEach(i=>{ if(!out.includes(i.categoria)) out.push(i.categoria); });
+  return out;
+}
+function itensDaCategoria(cat){ return state.itens.filter(i=>i.categoria===cat); }
+
+/* ============================================================
+   RENDER
+   ============================================================ */
 function render(){
-  // meta
   const m = state.meta;
-  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_data.value=isoToBr(m.data);
-  p_obs.value=m.obs; p_margem.value=m.margem; p_kmf.checked=m.kmf;
+  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_evento.value=m.evento||'';
+  p_data.value=isoToBr(m.data); p_obs.value=m.obs;
+  p_margem.value=m.margem; p_kmf.checked=m.kmf;
   p_margemKmf.style.display = m.kmf?'block':'none';
   p_margemKmf.value = m.margemKmf ?? '';
-  // seções
-  const box = document.getElementById('secoes');
-  box.innerHTML = '';
-  state.secoes.forEach(sec=>box.appendChild(renderSecao(sec)));
+  adv_toggle.checked = !!m.avancado;
+  aplicarModoVis();
+  renderTabela();
   recalc();
 }
-function renderSecao(sec){
-  const d = document.createElement('div');
-  d.className='secao'; d.dataset.id=sec.id;
-  const catOpts = CATEGORIAS.map(c=>`<option ${c===sec.categoria?'selected':''}>${c}</option>`).join('');
-  d.innerHTML = `
-    <div class="secao-head">
-      <input class="sec-nome" value="${esc(sec.nome)}" placeholder="Nome da seção (ex: Totens)" oninput="secField('${sec.id}','nome',this.value)">
-      <select class="sec-cat" onchange="secField('${sec.id}','categoria',this.value)" title="Categoria para o gráfico de composição">${catOpts}</select>
-      <button class="btn danger mini" style="margin-left:auto" onclick="delSecao('${sec.id}')">Excluir seção</button>
-    </div>
-    <div class="item-grid-head">
-      <div>Item</div><div>Tipo (nota/recibo) <span class="hint" data-tip="Serviço (montagem, execução) sai em nota fiscal e paga ISS. Locação (totem, mobiliário, estrutura) sai em recibo de locação, sem ISS.">?</span></div>
-      <div>Qtd</div><div>Custo unit.</div><div>Margem %</div>
-      <div style="text-align:right">Custo total</div><div style="text-align:right">Imposto <span class="hint" data-tip="Quanto de imposto está embutido no preço final deste item.">?</span></div><div style="text-align:right">Preço final</div><div></div>
-    </div>
-    <div class="itens"></div>
-    <div class="secao-foot">
-      <button class="btn ghost mini" onclick="addItem('${sec.id}')">+ Item novo</button>
-      <button class="btn ghost mini" onclick="addDoCatalogo('${sec.id}')">+ Do catálogo</button>
-    </div>`;
-  const itens = d.querySelector('.itens');
-  sec.items.forEach(it=>itens.appendChild(renderItem(sec.id,it)));
-  return d;
+
+function aplicarModoVis(){
+  const on = !!state.meta.avancado;
+  document.querySelectorAll('.adv-only').forEach(el=>el.classList.toggle('hidden', !on));
 }
-function renderItem(secId,it){
-  const r = document.createElement('div');
-  r.className='item-row'; r.dataset.id=it.id;
-  r.innerHTML = `
-    <div class="f-desc"><input value="${esc(it.desc)}" placeholder="Descrição" oninput="itField('${secId}','${it.id}','desc',this.value)"></div>
-    <div><select class="tipo-${it.tipo}" onchange="itField('${secId}','${it.id}','tipo',this.value);this.className='tipo-'+this.value">
+function toggleAvancado(){
+  state.meta.avancado = adv_toggle.checked;
+  aplicarModoVis(); renderTabela(); recalc(); autosave();
+  toast(state.meta.avancado ? 'Modo avançado ligado' : 'Modo simples');
+}
+
+function renderTabela(){
+  const cont = document.getElementById('tabela');
+  if(!state.itens.length){
+    cont.innerHTML = '<div class="tab-vazia">Nenhum item ainda. Clique em <b>+ Adicionar item</b> para começar.</div>';
+    return;
+  }
+  const adv = !!state.meta.avancado;
+  let body='';
+  catsPresentes().forEach(cat=>{
+    itensDaCategoria(cat).forEach(it=> body += linhaHTML(it));
+    body += `<tr class="sub-row"><td colspan="11">Subtotal · ${esc(cat)}</td><td class="r" data-sub="${esc(cat)}">—</td><td></td></tr>`;
+  });
+  cont.innerHTML = `
+    <div class="tab-scroll"><table class="itab${adv?' adv':''}">
+      <thead><tr>
+        <th>Categoria</th>
+        <th>Descrição</th>
+        <th class="r">Qtd</th>
+        <th class="r">Larg (m)</th>
+        <th class="r">Alt (m)</th>
+        <th class="r">m²</th>
+        <th class="r">R$/m²</th>
+        <th class="r adv-col">Tipo</th>
+        <th class="r adv-col">Custo un.</th>
+        <th class="r adv-col">Marg %</th>
+        <th class="adv-col"></th>
+        <th class="r">Valor (R$)</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr class="grand"><td colspan="11">TOTAL GERAL</td><td class="r" id="cell-grand">—</td><td></td></tr></tfoot>
+    </table></div>`;
+}
+
+function linhaHTML(it){
+  const catOpts = CATEGORIAS.map(c=>`<option ${c===it.categoria?'selected':''}>${c}</option>`).join('')
+                + (CATEGORIAS.includes(it.categoria)?'':`<option selected>${esc(it.categoria)}</option>`);
+  const presetOpts = `<option value="">preset…</option>` + PRESETS_M2.map(p=>`<option value="${p.valor}">${esc(p.nome)} ${p.valor}</option>`).join('');
+  return `<tr data-id="${it.id}">
+    <td><select onchange="setItem('${it.id}','categoria',this.value)">${catOpts}</select></td>
+    <td><input value="${esc(it.desc)}" placeholder="Descrição" oninput="setItem('${it.id}','desc',this.value)"></td>
+    <td class="r"><input class="in-num" type="number" min="0" step="1" value="${esc(it.qtd)}" oninput="setItem('${it.id}','qtd',this.value)"></td>
+    <td class="r"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.largura)}" placeholder="—" oninput="setItem('${it.id}','largura',this.value)"></td>
+    <td class="r"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.altura)}" placeholder="—" oninput="setItem('${it.id}','altura',this.value)"></td>
+    <td class="cell-m2" data-m2="${it.id}">—</td>
+    <td class="r col-m2preco">
+      <input class="in-num in-precom2" type="number" min="0" step="0.01" value="${esc(it.precoM2)}" placeholder="opcional" oninput="setItem('${it.id}','precoM2',this.value)">
+      <select class="preset-sel" onchange="aplicarPreset('${it.id}',this.value,this)">${presetOpts}</select>
+    </td>
+    <td class="r adv-col"><select onchange="setItem('${it.id}','tipo',this.value)">
       <option value="servico" ${it.tipo==='servico'?'selected':''}>Serviço</option>
       <option value="locacao" ${it.tipo==='locacao'?'selected':''}>Locação</option>
-    </select></div>
-    <div><input type="number" min="0" step="1" value="${it.qtd}" oninput="itField('${secId}','${it.id}','qtd',this.value)"></div>
-    <div><input type="number" min="0" step="0.01" value="${it.custo}" placeholder="R$" oninput="itField('${secId}','${it.id}','custo',this.value)"></div>
-    <div><input type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="padrão" oninput="itField('${secId}','${it.id}','margem',this.value)"></div>
-    <div class="calc c-custo" data-l="Custo total">—</div>
-    <div class="calc imp c-imp" data-l="Imposto">—</div>
-    <div class="calc preco c-preco" data-l="Preço final">—</div>
-    <div><button class="del-item" title="Remover item" onclick="delItem('${secId}','${it.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button></div>`;
-  return r;
+    </select></td>
+    <td class="r adv-col"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.custo)}" placeholder="R$" oninput="setItem('${it.id}','custo',this.value)"></td>
+    <td class="r adv-col"><input class="in-num" type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="padrão" oninput="setItem('${it.id}','margem',this.value)"></td>
+    <td class="adv-col"><button class="ico-btn" title="Calcular o Valor a partir do custo + margem + imposto" onclick="calcDoCusto('${it.id}')">↻</button></td>
+    <td class="r"><input class="in-num in-valor" type="number" min="0" step="0.01" value="${esc(it.valor)}" placeholder="0,00" oninput="setItem('${it.id}','valor',this.value)"></td>
+    <td><div class="row-acts">
+      <button class="ico-btn" title="Mover para cima" onclick="moveItem('${it.id}',-1)">↑</button>
+      <button class="ico-btn" title="Mover para baixo" onclick="moveItem('${it.id}',1)">↓</button>
+      <button class="ico-btn del" title="Remover linha" onclick="delItem('${it.id}')">✕</button>
+    </div></td>
+  </tr>`;
 }
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
-/* recalcula só os números, sem reconstruir o DOM (mantém o foco do usuário) */
+/* recalcula números sem reconstruir as linhas (mantém o foco) */
 function recalc(){
-  let temErro=false;
-  state.secoes.forEach(sec=>{
-    const secEl = document.querySelector(`.secao[data-id="${sec.id}"]`);
-    if(!secEl) return;
-    sec.items.forEach(it=>{
-      const row = secEl.querySelector(`.item-row[data-id="${it.id}"]`);
-      if(!row) return;
-      const c = calcItem(it);
-      row.classList.toggle('row-erro', c.erro && c.custoTotal>0);
-      if (c.erro) temErro=true;
-      row.querySelector('.c-custo').textContent = fmt(c.custoTotal);
-      row.querySelector('.c-imp').textContent   = c.erro?'—':fmt(c.imposto);
-      row.querySelector('.c-preco').textContent = c.erro?'impossível':fmt(c.preco);
-    });
+  state.itens.forEach(it=>{
+    const cell = document.querySelector(`.cell-m2[data-m2="${it.id}"]`);
+    if(cell) cell.textContent = n2(m2De(it));
   });
-  document.getElementById('avisoGuard').classList.toggle('show', temErro);
-
   const t = totais();
+  catsPresentes().forEach(cat=>{
+    const c = document.querySelector(`[data-sub="${esc(cat)}"]`);
+    if(c) c.textContent = fmt(t.porCategoria[cat]||0);
+  });
+  const g = document.getElementById('cell-grand'); if(g) g.textContent = fmt(t.total);
+
+  r_total.textContent = fmt(t.total);
+  r_imp_total.textContent = fmt(t.servico.imposto + t.locacao.imposto);
+  r_marg_total.textContent = fmt(t.servico.margem + t.locacao.margem);
+
+  // resumo notas
   r_serv_total.textContent=fmt(t.servico.preco); r_serv_custo.textContent=fmt(t.servico.custo);
   r_serv_imp.textContent=fmt(t.servico.imposto); r_serv_marg.textContent=fmt(t.servico.margem);
   r_loc_total.textContent=fmt(t.locacao.preco);  r_loc_custo.textContent=fmt(t.locacao.custo);
   r_loc_imp.textContent=fmt(t.locacao.imposto);  r_loc_marg.textContent=fmt(t.locacao.margem);
-  const total=t.servico.preco+t.locacao.preco, imp=t.servico.imposto+t.locacao.imposto, marg=t.servico.margem+t.locacao.margem;
-  r_total.textContent=fmt(total); r_imp_total.textContent=fmt(imp); r_marg_total.textContent=fmt(marg);
-  t_serv.textContent=fmt(t.servico.imposto); t_loc.textContent=fmt(t.locacao.imposto); t_total.textContent=fmt(imp);
-  t_pct.textContent = total>0 ? (imp/total*100).toFixed(1).replace('.',',')+'% da proposta' : '— da proposta';
 
-  // detalhe por tributo
-  const det=[];
-  const junta={};
+  // tributos
+  const imp = t.servico.imposto + t.locacao.imposto;
+  t_serv.textContent=fmt(t.servico.imposto); t_loc.textContent=fmt(t.locacao.imposto); t_total.textContent=fmt(imp);
+  t_pct.textContent = t.total>0 ? (imp/t.total*100).toFixed(1).replace('.',',')+'% da proposta' : '— da proposta';
+  const det=[], junta={};
   [t.compServ,t.compLoc].forEach(c=>{ for(const k in c){ junta[k]=(junta[k]||0)+c[k]; } });
   for (const k of ['ISS','PIS','COFINS','IRPJ','CSLL']){ if(junta[k]) det.push(`${k}: <b>${fmt(junta[k])}</b>`); }
-  t_detalhe.innerHTML = det.length? 'Detalhe por tributo · '+det.join(' &nbsp;·&nbsp; ') : '';
+  t_detalhe.innerHTML = det.length ? 'Detalhe por tributo · '+det.join(' &nbsp;·&nbsp; ') : '';
+
+  // aviso de margem negativa (só avançado)
+  const aviso = document.getElementById('avisoGuard');
+  if(state.meta.avancado && t.margemNegativa){
+    aviso.innerHTML = '⚠ Em uma ou mais linhas, <b>custo + imposto ficou maior que o Valor</b> — a margem está negativa. Reveja o Valor dessas linhas.';
+    aviso.classList.add('show');
+  } else { aviso.classList.remove('show'); }
 
   // dashboard
   const sb=document.getElementById('splitBar');
-  if(total>0){
-    const ps=t.servico.preco/total*100, pl=t.locacao.preco/total*100;
+  if(t.total>0){
+    const ps=t.servico.preco/t.total*100, pl=t.locacao.preco/t.total*100;
     sb.innerHTML =
       (ps>0?`<div style="width:${ps}%;background:var(--servico)">${ps>=14?ps.toFixed(0)+'%':''}</div>`:'')+
       (pl>0?`<div style="width:${pl}%;background:var(--locacao)">${pl>=14?pl.toFixed(0)+'%':''}</div>`:'');
   } else sb.innerHTML='<div style="width:100%;background:var(--line)"></div>';
   const cb=document.getElementById('catBars'); cb.innerHTML='';
   const cores=['#15233F','#2563EB','#0E9488','#E8740C','#7C5CC4','#B0395B'];
-  const cats=Object.entries(t.porCategoria).sort((a,b)=>b[1]-a[1]);
+  const cats=Object.entries(t.porCategoria).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const max=cats.length?cats[0][1]:0;
   cats.forEach(([cat,val],i)=>{
     cb.insertAdjacentHTML('beforeend',
-      `<div class="bar-row"><div class="bl">${cat}</div>
+      `<div class="bar-row"><div class="bl">${esc(cat)}</div>
        <div class="bar-track"><div class="bar-fill" style="width:${max>0?val/max*100:0}%;background:${cores[i%cores.length]}"></div></div>
        <div class="bv">${fmt(val)}</div></div>`);
   });
@@ -690,7 +834,6 @@ function recalc(){
 
 /* ---------- data br <-> iso ---------- */
 function brToIso(str){
-  // dd/mm/aaaa -> aaaa-mm-dd; '' se incompleto ou inválido
   const mt=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec((str||'').trim());
   if(!mt) return '';
   const d=+mt[1], mo=+mt[2], y=+mt[3];
@@ -704,57 +847,75 @@ function isoToBr(str){
   return `${mt[3]}/${mt[2]}/${mt[1]}`;
 }
 function dataInput(){
-  // máscara: aceita só números e insere as barras automaticamente
   let v=p_data.value.replace(/\D/g,'').slice(0,8);
   if(v.length>4) v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
   else if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
   p_data.value=v;
-  // grava ISO no state; se inválido/incompleto mantém o que foi digitado sem sujar o state
   if(v==='') state.meta.data='';
   else { const iso=brToIso(v); if(iso) state.meta.data=iso; }
-  recalc();
+  autosave();
 }
 
-/* ---------- mutações ---------- */
+/* ============================================================
+   MUTAÇÕES
+   ============================================================ */
 function metaInput(){
   const m=state.meta;
-  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value;
+  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.evento=p_evento.value;
   m.obs=p_obs.value; m.margem=p_margem.value; m.kmf=p_kmf.checked;
   m.margemKmf = p_margemKmf.value===''?null:p_margemKmf.value;
   p_margemKmf.style.display = m.kmf?'block':'none';
   recalc();
 }
-function addSecao(nome='',categoria='Estrutura'){
-  const sec={id:uid(),nome,categoria,items:[]};
-  state.secoes.push(sec);
-  document.getElementById('secoes').appendChild(renderSecao(sec));
-  recalc();
-  return sec;
-}
-function delSecao(id){
-  if(!confirm('Excluir esta seção e todos os itens dela?'))return;
-  state.secoes=state.secoes.filter(s=>s.id!==id);
-  document.querySelector(`.secao[data-id="${id}"]`)?.remove();
-  recalc();
-}
-function secField(id,f,v){ const s=state.secoes.find(s=>s.id===id); if(s){ s[f]=v; if(f==='categoria')recalc(); } if(f==='nome')autosave(); }
-function addItem(secId,preset){
-  const s=state.secoes.find(s=>s.id===secId); if(!s)return;
-  const it=Object.assign({id:uid(),desc:'',tipo:'servico',qtd:1,custo:'',margem:null},preset||{});
-  s.items.push(it);
-  document.querySelector(`.secao[data-id="${secId}"] .itens`).appendChild(renderItem(secId,it));
-  recalc();
-}
-function delItem(secId,itId){
-  const s=state.secoes.find(s=>s.id===secId); if(!s)return;
-  s.items=s.items.filter(i=>i.id!==itId);
-  document.querySelector(`.secao[data-id="${secId}"] .item-row[data-id="${itId}"]`)?.remove();
-  recalc();
-}
-function itField(secId,itId,f,v){
-  const it=state.secoes.find(s=>s.id===secId)?.items.find(i=>i.id===itId); if(!it)return;
+function setItem(id,f,v){
+  const it=state.itens.find(i=>i.id===id); if(!it)return;
   it[f] = (f==='margem' && v==='') ? null : v;
+  if(f==='categoria'){ renderTabela(); recalc(); return; }
+  if(f==='qtd'||f==='largura'||f==='altura'||f==='precoM2') aplicarPrecoM2(it);
   recalc();
+}
+/* quando R$/m² está preenchido, o Valor é recalculado (mas o campo Valor segue editável) */
+function aplicarPrecoM2(it){
+  if(it.precoM2!=='' && it.precoM2!=null && !isNaN(it.precoM2)){
+    it.valor = round2(m2De(it) * (Number(it.precoM2)||0));
+    const inp=document.querySelector(`tr[data-id="${it.id}"] .in-valor`);
+    if(inp) inp.value = it.valor;
+  }
+}
+function aplicarPreset(id,val,sel){
+  sel.selectedIndex=0;
+  if(val==='') return;
+  const it=state.itens.find(i=>i.id===id); if(!it)return;
+  it.precoM2 = val;
+  const pre=document.querySelector(`tr[data-id="${id}"] .in-precom2`); if(pre) pre.value=val;
+  aplicarPrecoM2(it); recalc();
+}
+function calcDoCusto(id){
+  const it=state.itens.find(i=>i.id===id); if(!it)return;
+  it.valor = round2(grossupPreco(it,state));
+  const inp=document.querySelector(`tr[data-id="${id}"] .in-valor`); if(inp) inp.value=it.valor;
+  recalc(); toast('Valor calculado a partir do custo');
+}
+function addLinha(){
+  const last = state.itens[state.itens.length-1];
+  const cat = last ? last.categoria : CATEGORIAS[0];
+  const it = novoItem(cat);
+  state.itens.push(it);
+  renderTabela(); recalc();
+  document.querySelector(`tr[data-id="${it.id}"] input[placeholder="Descrição"]`)?.focus();
+}
+function delItem(id){
+  state.itens = state.itens.filter(i=>i.id!==id);
+  renderTabela(); recalc();
+}
+function moveItem(id,dir){
+  const idx = state.itens.findIndex(i=>i.id===id); if(idx<0)return;
+  const cat = state.itens[idx].categoria;
+  let j=idx+dir;
+  while(j>=0 && j<state.itens.length && state.itens[j].categoria!==cat) j+=dir;
+  if(j<0||j>=state.itens.length) return;
+  [state.itens[idx],state.itens[j]]=[state.itens[j],state.itens[idx]];
+  renderTabela(); recalc();
 }
 
 /* ---------- persistência ---------- */
@@ -765,16 +926,14 @@ function salvarOrcamento(){
   if(!nome)return;
   const t=totais();
   const copia=JSON.parse(JSON.stringify(state));
-  copia.snapshot={salvoEm:Date.now(),total:t.servico.preco+t.locacao.preco,cliente:state.meta.cliente||''};
+  copia.snapshot={salvoEm:Date.now(),total:t.total,cliente:state.meta.cliente||'',evento:state.meta.evento||''};
   const b=lsGet(LS.budgets,{}); b[nome]=copia; lsSet(LS.budgets,b);
-  montarLoadSel();
-  lbl_serv_pct.textContent=(TAX_RULES.servico.total*100).toFixed(2).replace('.',',')+'%';
-  lbl_loc_pct.textContent=(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%'; toast('Orçamento salvo: '+nome);
+  montarLoadSel(); toast('Orçamento salvo: '+nome);
 }
 function carregarOrcamento(nome){
   if(!nome)return;
   const b=lsGet(LS.budgets,{});
-  if(b[nome]){ state=JSON.parse(JSON.stringify(b[nome])); delete state.snapshot; render(); irPara('orcamento'); toast('Aberto: '+nome); }
+  if(b[nome]){ state=migrar(b[nome]); delete state.snapshot; render(); irPara('orcamento'); toast('Aberto: '+nome); }
   document.getElementById('loadSel').value='';
 }
 function montarLoadSel(){
@@ -784,7 +943,10 @@ function montarLoadSel(){
 }
 function novoOrcamento(){
   if(!confirm('Começar um orçamento novo? (o atual continua salvo se você usou "Salvar orçamento")'))return;
-  state=novoEstado(); document.getElementById('bannerExemplo').classList.remove('show'); render(); irPara('orcamento'); toast('Novo orçamento em branco');
+  state=novoEstado();
+  state.itens.push(novoItem('Estrutura'));
+  document.getElementById('bannerExemplo').classList.remove('show');
+  render(); irPara('orcamento'); toast('Novo orçamento em branco');
 }
 
 /* ---------- config / catálogo ---------- */
@@ -804,7 +966,7 @@ function montarCatalogo(){
     `<div class="cat-row"><span class="cn">${esc(c.nome)}</span>
      <span class="badge ${c.tipo}">${TAX_RULES[c.tipo].label}</span>
      <span class="cm">${fmt(Number(c.custo)||0)}</span>
-     <button class="del-item" onclick="delCatalogoItem(${i})" title="Remover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`).join('');
+     <button class="del-item ico-btn del" onclick="delCatalogoItem(${i})" title="Remover">✕</button></div>`).join('');
 }
 function addCatalogoItem(){
   const nome=cat_nome.value.trim(); if(!nome){toast('Dê um nome ao item');return;}
@@ -813,12 +975,18 @@ function addCatalogoItem(){
   montarCatalogo(); toast('Item adicionado ao catálogo');
 }
 function delCatalogoItem(i){ catalog.splice(i,1); lsSet(LS.catalog,catalog); montarCatalogo(); }
-function addDoCatalogo(secId){
+function addDoCatalogo(){
   if(!catalog.length){ toast('Catálogo vazio. Abra "Catálogo" no topo e cadastre seus itens.'); return; }
   const lista=catalog.map((c,i)=>`${i+1}. ${c.nome} (${TAX_RULES[c.tipo].label} · ${fmt(Number(c.custo)||0)})`).join('\n');
   const n=prompt('Digite o número do item do catálogo:\n\n'+lista);
   const c=catalog[Number(n)-1];
-  if(c) addItem(secId,{desc:c.nome,custo:c.custo,tipo:c.tipo});
+  if(c){
+    const last = state.itens[state.itens.length-1];
+    const it = novoItem(last?last.categoria:CATEGORIAS[0]);
+    it.desc=c.nome; it.custo=c.custo; it.tipo=c.tipo;
+    state.itens.push(it);
+    renderTabela(); recalc();
+  }
 }
 function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)fecharModais(); }));
@@ -832,25 +1000,24 @@ function irPara(tela){
   document.getElementById('tabOrcamento').classList.toggle('active', tela==='orcamento');
   if(tela==='inicio') montarInicio();
 }
-function totalDe(st){ const t=totais(st); return t.servico.preco+t.locacao.preco; }
+function totalDe(raw){ return totais(migrar(raw)).total; }
 function montarInicio(){
-  // rascunho atual (autosave)
   const cc=document.getElementById('cardContinuar');
-  const totalAtual=totalDe(state);
+  const totalAtual=totais(state).total;
   const temRascunho=!!(state.meta.nome || state.meta.cliente || totalAtual>0);
   cc.innerHTML = temRascunho ? `
     <div class="proj-card continuar" onclick="irPara('orcamento')">
       <div class="pn">Continuar de onde parei</div>
-      <div class="pm">${esc(state.meta.nome||'Sem nome')}${state.meta.cliente?' · '+esc(state.meta.cliente):''}</div>
+      <div class="pm">${esc(state.meta.nome||'Sem nome')}${state.meta.cliente?' · '+esc(state.meta.cliente):''}${state.meta.evento?' · '+esc(state.meta.evento):''}</div>
       <div class="pv">${fmt(totalAtual)}</div>
     </div>` : '';
-  // orçamentos salvos
   const b=lsGet(LS.budgets,{});
   inicioLista=Object.entries(b).map(([nome,st])=>{
     const snap=st.snapshot||{};
     return {
       nome,
       cliente: snap.cliente!==undefined ? snap.cliente : (st.meta?.cliente||''),
+      evento:  snap.evento !==undefined ? snap.evento  : (st.meta?.evento||''),
       total:   snap.total  !==undefined ? snap.total   : totalDe(st),
       salvoEm: snap.salvoEm||0,
       data: st.meta?.data||'',
@@ -865,7 +1032,7 @@ function montarInicio(){
   grid.innerHTML=inicioLista.map((p,i)=>`
     <div class="proj-card">
       <div class="pn">${esc(p.nome)}${p.kmf?'<span class="badge kmf">KMF</span>':''}</div>
-      <div class="pm">${esc(p.cliente||'—')}${p.data?' · '+p.data.split('-').reverse().join('/'):''}</div>
+      <div class="pm">${esc(p.cliente||'—')}${p.evento?' · '+esc(p.evento):''}${p.data?' · '+isoToBr(p.data):''}</div>
       <div class="pv">${fmt(p.total)}</div>
       <div class="pa">
         <button class="btn mini" onclick="abrirProjeto(${i})">Abrir</button>
@@ -882,7 +1049,7 @@ function duplicarProjeto(i){
   while(b[novo]) novo=p.nome+` (cópia ${n++})`;
   const copia=JSON.parse(JSON.stringify(orig));
   if(copia.meta) copia.meta.nome=novo;
-  copia.snapshot={salvoEm:Date.now(),total:p.total,cliente:p.cliente};
+  copia.snapshot={salvoEm:Date.now(),total:p.total,cliente:p.cliente,evento:p.evento};
   b[novo]=copia; lsSet(LS.budgets,b);
   montarLoadSel(); montarInicio(); toast('Cópia criada: '+novo);
 }
@@ -893,31 +1060,42 @@ function excluirProjeto(i){
   montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
 }
 
-/* ---------- impressão ---------- */
+/* ============================================================
+   IMPRESSÃO
+   ============================================================ */
 function imprimir(modo){
+  const interna = modo==='interna';
   const t=totais();
-  if(t.erro){ toast('Corrija o item em vermelho antes de gerar a proposta'); return; }
   const pa=document.getElementById('printArea');
   const m=state.meta;
-  const interna = modo==='interna';
+  const nCols = interna ? 7 : 5;
   let linhas='';
-  state.secoes.forEach(sec=>{
-    const its=sec.items.filter(i=>(Number(i.qtd)||0)*(Number(i.custo)||0)>0 || i.desc);
+  catsPresentes().forEach(cat=>{
+    const its=itensDaCategoria(cat).filter(it=> valorLinha(it)>0 || it.desc);
     if(!its.length)return;
-    const cols = interna?8:5;
-    linhas+=`<tr class="p-sec"><td colspan="${cols}">${esc(sec.nome||'Seção')}</td></tr>`;
+    linhas+=`<tr class="p-sec"><td colspan="${nCols}">${esc(cat)}</td></tr>`;
+    let sub=0;
     its.forEach(it=>{
-      const c=calcItem(it);
-      const unit=(Number(it.qtd)||0)>0?c.preco/(Number(it.qtd)||1):0;
-      linhas+= interna
-       ? `<tr><td>${esc(it.desc)}</td><td>${TAX_RULES[it.tipo].label}</td><td class="r">${it.qtd}</td><td class="r">${fmt(Number(it.custo)||0)}</td><td class="r">${fmt(c.custoTotal)}</td><td class="r">${c.mgPct.toFixed(1)}% · ${fmt(c.margemRS)}</td><td class="r">${fmt(c.imposto)}</td><td class="r">${fmt(c.preco)}</td></tr>`
-       : `<tr><td>${esc(it.desc)}</td><td>${TAX_RULES[it.tipo].label}</td><td class="r">${it.qtd}</td><td class="r">${fmt(unit)}</td><td class="r">${fmt(c.preco)}</td></tr>`;
+      const v=valorLinha(it); sub+=v;
+      const m2=m2De(it);
+      const m2txt = m2>0 ? n2(m2) : '—';
+      if(interna){
+        const tax=TAX_RULES[it.tipo]?TAX_RULES[it.tipo].total:TAX_RULES.servico.total;
+        const custoTotal=(Number(it.qtd)||0)*(Number(it.custo)||0);
+        const imp=v*tax, marg=v-custoTotal-imp;
+        linhas+=`<tr><td>${esc(it.desc)}</td><td>${TAX_RULES[it.tipo]?TAX_RULES[it.tipo].label:'Serviço'}</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r">${fmt(custoTotal)}</td><td class="r">${fmt(imp)} · ${fmt(marg)}</td><td class="r">${fmt(v)}</td></tr>`;
+      } else {
+        linhas+=`<tr><td>${esc(it.desc)}</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r"></td><td class="r">${fmt(v)}</td></tr>`;
+      }
     });
+    linhas+= interna
+      ? `<tr class="p-subtot"><td colspan="6">Subtotal ${esc(cat)}</td><td class="r">${fmt(sub)}</td></tr>`
+      : `<tr class="p-subtot"><td colspan="4">Subtotal ${esc(cat)}</td><td class="r">${fmt(sub)}</td></tr>`;
   });
   const cab = interna
-    ? '<tr><th>Item</th><th>Tipo</th><th class="r">Qtd</th><th class="r">Custo unit.</th><th class="r">Custo total</th><th class="r">Margem</th><th class="r">Imposto</th><th class="r">Preço final</th></tr>'
-    : '<tr><th>Descrição</th><th>Tipo</th><th class="r">Qtd</th><th class="r">Valor unit.</th><th class="r">Valor total</th></tr>';
-  const totalG=t.servico.preco+t.locacao.preco;
+    ? '<tr><th>Descrição</th><th>Tipo</th><th class="r">Qtd</th><th class="r">m²</th><th class="r">Custo total</th><th class="r">Imposto · Margem</th><th class="r">Valor</th></tr>'
+    : '<tr><th>Descrição</th><th class="r">Qtd</th><th class="r">m²</th><th class="r"></th><th class="r">Valor</th></tr>';
+
   pa.innerHTML=`
     <div class="p-head">
       <div>
@@ -927,17 +1105,18 @@ function imprimir(modo){
       <div class="prop">
         <b>${interna?'VERSÃO INTERNA':'PROPOSTA'} ${esc(m.num)}</b><br>
         Projeto: ${esc(m.nome||'—')}<br>
+        ${m.evento?'Evento: '+esc(m.evento)+'<br>':''}
         Cliente: ${esc(m.cliente||'—')}<br>
-        Data: ${m.data?m.data.split('-').reverse().join('/'):'—'}
+        Data: ${m.data?isoToBr(m.data):'—'}
       </div>
     </div>
     <table class="p-tab">${cab}${linhas}</table>
     <div class="p-tot"><table>
-      <tr><td>Subtotal serviço (nota fiscal)</td><td>${fmt(t.servico.preco)}</td></tr>
+      ${interna?`<tr><td>Subtotal serviço (nota fiscal)</td><td>${fmt(t.servico.preco)}</td></tr>
       <tr><td>Subtotal locação (recibo)</td><td>${fmt(t.locacao.preco)}</td></tr>
-      ${interna?`<tr><td>Impostos embutidos</td><td>${fmt(t.servico.imposto+t.locacao.imposto)}</td></tr>
+      <tr><td>Impostos embutidos</td><td>${fmt(t.servico.imposto+t.locacao.imposto)}</td></tr>
       <tr><td>Margem total</td><td>${fmt(t.servico.margem+t.locacao.margem)}</td></tr>`:''}
-      <tr class="g"><td>Total</td><td>${fmt(totalG)}</td></tr>
+      <tr class="g"><td>Total</td><td>${fmt(t.total)}</td></tr>
     </table></div>
     ${m.obs?`<div class="p-obs"><b>Observações:</b> ${esc(m.obs)}</div>`:''}
     ${interna?`<div class="p-trib"><b>Tributos estimados a pagar (Lucro Presumido)</b>
@@ -947,25 +1126,23 @@ function imprimir(modo){
   window.print();
 }
 
-/* ---------- CSV ---------- */
+/* ============================================================
+   CSV
+   ============================================================ */
 function exportCSV(){
   const sep=';';
-  const rows=[['Seção','Categoria','Item','Tipo (nota/recibo)','Qtd','Custo unit.','Custo total','Margem %','Margem R$','Imposto R$','Preço final'].join(sep)];
-  state.secoes.forEach(sec=>{
-    sec.items.forEach(it=>{
-      const c=calcItem(it);
-      rows.push([sec.nome,sec.categoria,it.desc,TAX_RULES[it.tipo].label,it.qtd,
-        num(it.custo),num(c.custoTotal),c.mgPct.toFixed(1).replace('.',','),
-        num(c.margemRS),num(c.imposto),num(c.preco)].join(sep));
-    });
-  });
+  const num = v => (Number(v)||0).toFixed(2).replace('.',',');
+  const rows=[['Categoria','Descrição','Qtd','Largura (m)','Altura (m)','m²','Valor (R$)'].join(sep)];
   const t=totais();
-  rows.push('');
-  rows.push(['TOTAL SERVIÇO (nota fiscal)','','','','','','','','',num(t.servico.imposto),num(t.servico.preco)].join(sep));
-  rows.push(['TOTAL LOCAÇÃO (recibo)','','','','','','','','',num(t.locacao.imposto),num(t.locacao.preco)].join(sep));
-  rows.push(['TOTAL GERAL','','','','','','','','',num(t.servico.imposto+t.locacao.imposto),num(t.servico.preco+t.locacao.preco)].join(sep));
-  function num(v){ return (Number(v)||0).toFixed(2).replace('.',','); }
-  const blob=new Blob(['\ufeff'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  catsPresentes().forEach(cat=>{
+    itensDaCategoria(cat).forEach(it=>{
+      rows.push([cat,it.desc,it.qtd,num(it.largura),num(it.altura),num(m2De(it)),num(valorLinha(it))].join(sep));
+    });
+    rows.push([cat+' — subtotal','','','','','',num(t.porCategoria[cat]||0)].join(sep));
+    rows.push('');
+  });
+  rows.push(['TOTAL GERAL','','','','','',num(t.total)].join(sep));
+  const blob=new Blob(['﻿'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=(state.meta.nome||'orcamento')+'.csv';
@@ -975,28 +1152,31 @@ function exportCSV(){
 /* ---------- onboarding ---------- */
 function exemplo(){
   state=novoEstado();
-  state.meta.nome='Stand Feira Exemplo'; state.meta.num='000/2026'; state.meta.cliente='Cliente Exemplo Ltda';
+  state.meta.nome='Stand Feira Exemplo'; state.meta.num='000/2026';
+  state.meta.cliente='Cliente Exemplo Ltda'; state.meta.evento='Expo Design 2026';
   state.meta.obs='Validade da proposta: 15 dias. Pagamento: 50% na aprovação, 50% na entrega.';
-  const s1=addSecaoData('Totens','Estrutura');
-  s1.items.push({id:uid(),desc:'Totem 2m em MDF adesivado',tipo:'locacao',qtd:3,custo:380,margem:null});
-  const s2=addSecaoData('Montagem','Mão de obra');
-  s2.items.push({id:uid(),desc:'Montagem e desmontagem (equipe)',tipo:'servico',qtd:1,custo:900,margem:null});
-  s2.items.push({id:uid(),desc:'Adesivagem aplicada no local',tipo:'servico',qtd:1,custo:450,margem:null});
+  const mk=(o)=>Object.assign(novoItem(o.categoria),o);
+  state.itens=[
+    mk({categoria:'Estrutura', desc:'Trainel de fundo de palco', qtd:1, largura:8, altura:3, precoM2:200, valor:round2(8*3*200)}),
+    mk({categoria:'Impressão', desc:'Flâmulas decorativas', qtd:10, largura:0.5, altura:1.5, precoM2:120, valor:round2(10*0.5*1.5*120)}),
+    mk({categoria:'Impressão', desc:'Adesivo de piso', qtd:1, largura:3, altura:2, precoM2:120, valor:round2(3*2*120)}),
+    mk({categoria:'Mão de obra', desc:'Montagem e desmontagem (equipe)', qtd:1, valor:1500, tipo:'servico'}),
+    mk({categoria:'Materiais', desc:'Mobiliário (locação)', qtd:4, valor:1200, tipo:'locacao'})
+  ];
   render();
   document.getElementById('bannerExemplo').classList.add('show');
 }
-function addSecaoData(nome,categoria){ const s={id:uid(),nome,categoria,items:[]}; state.secoes.push(s); return s; }
 
 /* ---------- init ---------- */
 (function init(){
   montarLoadSel();
   lbl_serv_pct.textContent=(TAX_RULES.servico.total*100).toFixed(2).replace('.',',')+'%';
-  lbl_loc_pct.textContent=(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%';
+  lbl_loc_pct.textContent =(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%';
   const visto=lsGet(LS.seen,false);
   const auto=lsGet(LS.auto,null);
   if(!visto){ lsSet(LS.seen,true); exemplo(); irPara('orcamento'); }
-  else if(auto){ state=auto; render(); irPara('inicio'); }
-  else { state=novoEstado(); addSecao('Itens','Estrutura'); irPara('inicio'); }
+  else if(auto){ state=migrar(auto); render(); irPara('inicio'); }
+  else { state=novoEstado(); state.itens.push(novoItem('Estrutura')); render(); irPara('inicio'); }
 })();
 </script>
 </body>
