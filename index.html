@@ -8,26 +8,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* base clara, sóbria */
-  --bg:#F4F6FA;
+  /* identidade KMF — base clara, preto estrutural, laranja de acento */
+  --bg:#F5F6F8;
   --surface:#FFFFFF;
-  --surface-2:#F8FAFC;     /* linhas zebra / subtotais */
-  --ink:#0F172A;           /* texto principal */
-  --ink-2:#51607A;         /* texto secundário / labels */
-  --ink-soft:#51607A;      /* alias legado */
-  --ink-3:#9AA6B8;         /* muted / placeholder */
-  --line:#E5E9F0;          /* divisórias */
-  --line-2:#CFD6E2;        /* borda de campo */
-  --campo-borda:#CBD3DF;   /* alias legado */
-  /* cor de destaque única */
-  --accent:#2563EB;
-  --accent-d:#1D4ED8;
-  --accent-2:#1E3A8A;
-  --accent-soft:#EEF3FE;
-  /* funcionais (apenas modo avançado, mantidos discretos) */
-  --servico:#2563EB;
-  --locacao:#0E9488;
-  --obra:#2563EB;          /* alias legado → destaque */
+  --surface-2:#F6F7F9;     /* linhas zebra / subtotais */
+  --ink:#15181C;           /* preto: texto, header, total, títulos */
+  --ink-2:#5A6573;         /* texto secundário / labels */
+  --ink-soft:#5A6573;      /* alias legado */
+  --ink-3:#98A2B0;         /* muted / placeholder */
+  --line:#E5E7EC;          /* divisórias */
+  --line-2:#CBD0D8;        /* borda de campo */
+  --campo-borda:#CBD0D8;   /* alias legado */
+  /* cor de destaque única: LARANJA KMF (AA com texto branco — 5,2:1) */
+  --accent:#C2410C;
+  --accent-d:#9A3412;      /* hover */
+  --accent-2:#7C2D12;      /* laranja profundo (detalhes) */
+  --accent-soft:#FDEEE3;   /* laranja bem claro: chips, ícones, focus */
+  /* funcionais (apenas modo avançado) dentro da paleta KMF */
+  --servico:#1F2933;       /* escuro */
+  --locacao:#C2410C;       /* laranja */
+  --obra:#C2410C;          /* alias legado → destaque */
   --erro:#DC2626;
   --ok:#0F9D58;
   --r:12px; --r-sm:8px; --r-xs:6px;
@@ -52,10 +52,12 @@ b,strong{font-weight:600}
 /* ---------- header ---------- */
 header.app{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 20px}
 .logo-mark{
-  width:42px;height:42px;border-radius:10px;background:var(--accent);
+  width:46px;height:46px;border-radius:10px;background:var(--ink);
   display:flex;align-items:center;justify-content:center;flex:none;box-shadow:var(--sh);
+  position:relative;overflow:hidden;
 }
-.logo-mark svg{width:22px;height:22px;stroke:#fff}
+.logo-mark .kmf{font-weight:800;font-size:15px;letter-spacing:.04em;color:#fff;line-height:1;margin-bottom:3px}
+.logo-mark::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--accent)} /* faixa laranja KMF */
 h1{font-weight:700;font-size:19px;letter-spacing:-.02em;line-height:1.15}
 h1 span{color:var(--ink-2);font-weight:400;font-size:13px;display:block;letter-spacing:0}
 .head-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -168,7 +170,7 @@ table.itab input.in-valor{font-weight:700;color:var(--ink)}
 .imp-quick .chip-sug{padding:3px 8px}
 .chip-sug{
   flex:none;font:inherit;font-size:11.5px;font-weight:600;line-height:1;
-  background:var(--accent-soft);color:var(--accent-d);border:1px solid #D5E2FB;
+  background:var(--accent-soft);color:var(--accent-d);border:1px solid #F4D2BC;
   border-radius:20px;padding:5px 9px;cursor:pointer;font-variant-numeric:tabular-nums;white-space:nowrap;
 }
 .chip-sug:hover{background:#E0EBFD;border-color:#BFD3F9}
@@ -196,10 +198,12 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 
 /* ---------- total geral ---------- */
 .total-geral{
-  background:linear-gradient(100deg,var(--accent-2),var(--accent));color:#fff;
+  background:var(--ink);color:#fff;
   border-radius:var(--r);padding:18px 22px;box-shadow:var(--sh);
   display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  position:relative;overflow:hidden;
 }
+.total-geral::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--accent)} /* acento laranja KMF */
 .total-geral .tl{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
 .total-geral .tv{font-weight:800;font-size:30px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1;margin-top:2px}
 .total-geral .sub{font-size:12.5px;opacity:.9;font-variant-numeric:tabular-nums}
@@ -208,8 +212,8 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 /* ---------- resumo notas (avançado) ---------- */
 .notas-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .nota-stub{position:relative;border-radius:var(--r-sm);padding:16px 18px;color:#fff;overflow:hidden;border:1px solid transparent}
-.nota-stub.servico{background:#1E40AF}
-.nota-stub.locacao{background:#0F766E}
+.nota-stub.servico{background:var(--servico)}
+.nota-stub.locacao{background:var(--locacao)}
 .nota-stub .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
 .nota-stub .valor{font-weight:800;font-size:24px;letter-spacing:-.02em;margin:4px 0 9px;font-variant-numeric:tabular-nums}
 .nota-stub .linhas{font-size:12.5px;line-height:1.75;opacity:.95;font-variant-numeric:tabular-nums}
@@ -247,7 +251,6 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;color:#fff;letter-spacing:.02em;text-transform:uppercase}
 .badge.servico{background:var(--servico)}
 .badge.locacao{background:var(--locacao)}
-.badge.kmf{background:var(--accent)}
 
 /* ---------- avisos / toast ---------- */
 .aviso{background:#FEF6EC;border:1px solid #F3D6A8;color:#92580B;border-radius:var(--r-sm);padding:11px 15px;font-size:13px;margin-bottom:16px;display:none}
@@ -255,7 +258,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:11px 20px;border-radius:30px;transition:transform .25s ease;z-index:60;box-shadow:var(--sh-2)}
 #toast.show{transform:translateX(-50%) translateY(0)}
 .rodape-fixo{font-size:12px;color:var(--ink-2);text-align:center;margin-top:26px;line-height:1.7}
-.banner-exemplo{background:var(--accent-soft);border:1px solid #D5E2FB;color:var(--accent-2);border-radius:var(--r-sm);padding:11px 15px;font-size:13px;margin-bottom:16px;display:none;align-items:center;gap:10px}
+.banner-exemplo{background:var(--accent-soft);border:1px solid #F4D2BC;color:var(--accent-2);border-radius:var(--r-sm);padding:11px 15px;font-size:13px;margin-bottom:16px;display:none;align-items:center;gap:10px}
 .banner-exemplo.show{display:flex}
 .banner-exemplo b{font-weight:700}
 
@@ -263,7 +266,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px}
 .tab{font-weight:600;font-size:14px;letter-spacing:-.01em;background:none;border:none;cursor:pointer;color:var(--ink-2);padding:11px 14px;position:relative;border-radius:var(--r-xs) var(--r-xs) 0 0}
 .tab:hover{color:var(--ink);background:var(--surface-2)}
-.tab.active{color:var(--accent)}
+.tab.active{color:var(--ink)}
 .tab.active::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px 2px 0 0}
 
 /* ---------- tela início ---------- */
@@ -272,7 +275,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .proj-card:hover{box-shadow:var(--sh-2)}
 .proj-card .pn{font-weight:700;font-size:15px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .proj-card .pm{font-size:12.5px;color:var(--ink-2)}
-.proj-card .pv{font-weight:800;font-size:22px;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--accent-2)}
+.proj-card .pv{font-weight:800;font-size:22px;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .proj-card .pa{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
 .proj-card.continuar{cursor:pointer;border-left:3px solid var(--accent);margin-bottom:18px}
 .proj-card.continuar:hover{border-color:var(--accent)}
@@ -327,22 +330,22 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   body{background:#fff}
   .wrap,#toast,.modal-bg{display:none !important}
   #printArea{display:block;font-size:12.5px;color:#111;padding:0 4mm}
-  .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1E3A8A;padding-bottom:12px;margin-bottom:18px}
+  .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #15181C;padding-bottom:12px;margin-bottom:18px}
   .p-head h1{font-size:20px;font-weight:800;letter-spacing:-.01em}
   .p-head .emp{font-size:12px;line-height:1.55;color:#333}
   .p-head .prop{text-align:right;font-size:12px;line-height:1.6}
   .p-head .prop b{font-size:14px}
   table.p-tab{width:100%;border-collapse:collapse;margin:10px 0 16px}
-  table.p-tab th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:2px solid #1E3A8A;padding:6px 8px}
+  table.p-tab th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:2px solid #15181C;padding:6px 8px}
   table.p-tab td{padding:7px 8px;border-bottom:1px solid #DDD;font-variant-numeric:tabular-nums}
   table.p-tab td.r,table.p-tab th.r{text-align:right}
-  .p-sec td{font-weight:700;background:#EEF3FE}
+  .p-sec td{font-weight:700;background:#FDEEE3}
   .p-subtot td{font-weight:700;border-top:1px solid #BBB}
   .p-tot{display:flex;justify-content:flex-end}
   .p-tot table{font-size:13px;border-collapse:collapse;min-width:300px}
   .p-tot td{padding:5px 10px;font-variant-numeric:tabular-nums}
   .p-tot td:last-child{text-align:right;font-weight:600}
-  .p-tot tr.g td{border-top:2px solid #1E3A8A;font-size:16px;font-weight:800;padding-top:8px}
+  .p-tot tr.g td{border-top:2px solid #15181C;font-size:16px;font-weight:800;padding-top:8px}
   .p-obs{margin-top:14px;font-size:12px;color:#333}
   .p-foot{margin-top:26px;font-size:10.5px;color:#777;border-top:1px solid #DDD;padding-top:8px}
   .p-trib{margin-top:16px;border:1px solid #BBB;border-radius:6px;padding:10px 12px;font-size:12px}
@@ -354,10 +357,10 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 <div class="wrap">
 
 <header class="app">
-  <div class="logo-mark">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-7h6v7"/></svg>
+  <div class="logo-mark" title="KMF">
+    <span class="kmf">KMF</span>
   </div>
-  <h1>Formação de Preço<span>Cenografia · planilha de orçamento</span></h1>
+  <h1>Formação de Preço<span>KMF · planilha de orçamento de cenografia</span></h1>
   <div class="head-actions">
     <button class="btn ghost mini" onclick="abrirConfig()">Meus dados</button>
     <button class="btn ghost mini adv-only" onclick="abrirCatalogo()">Catálogo</button>
@@ -412,15 +415,6 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
       <div class="adv-only"><label>Imposto padrão (%)
         <span class="hint" data-tip="Imposto usado como valor inicial de cada nova linha no modo avançado. Cada linha pode ter o seu próprio. Atalhos: Serviço 16,33 · Locação 11,33.">?</span>
       </label><input id="p_impostoPadrao" type="text" inputmode="decimal" placeholder="16,33" oninput="metaInput()" onblur="fmtPctInput(this)"></div>
-      <div class="adv-only">
-        <label>Projeto KMF?
-          <span class="hint" data-tip="Marque quando o projeto for para a KMF Eventos. Você pode usar uma margem combinada só para eles.">?</span>
-        </label>
-        <div style="display:flex;gap:10px;align-items:center;height:37px">
-          <input type="checkbox" id="p_kmf" style="width:18px;height:18px" onchange="metaInput()">
-          <input type="number" id="p_margemKmf" placeholder="Margem KMF %" step="0.5" min="0" style="display:none" oninput="metaInput()">
-        </div>
-      </div>
       <div class="full"><label>Observações</label><input id="p_obs" placeholder="Prazo, condições de pagamento, validade da proposta…" oninput="metaInput()"></div>
     </div>
   </div>
@@ -634,7 +628,7 @@ let catalog = lsGet(LS.catalog, []);
 let config  = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 
 function novoEstado(){
-  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',kmf:false,margemKmf:null,margem:20,impostoPadrao:IMPOSTO_PADRAO,avancado:false,categoriasCustom:[]}, itens:[] };
+  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',margem:20,impostoPadrao:IMPOSTO_PADRAO,avancado:false,categoriasCustom:[]}, itens:[] };
 }
 function novoItem(cat){
   return { id:uid(), categoria:cat||CATEGORIAS[0], desc:'', qtd:1, largura:'', altura:'', precoM2:'', valor:'', tipo:'servico', impostoPct:'', custo:'', margem:null };
@@ -712,10 +706,9 @@ function normItem(raw){
   return it;
 }
 
-/* margem do item (modo avançado): item > KMF > padrão */
+/* margem do item (modo avançado): item > padrão */
 function margemDoItem(item, st=state){
   if (item.margem !== null && item.margem !== '' && !isNaN(item.margem)) return Number(item.margem);
-  if (st.meta.kmf && st.meta.margemKmf !== null && st.meta.margemKmf !== '' && !isNaN(st.meta.margemKmf)) return Number(st.meta.margemKmf);
   return Number(st.meta.margem) || 0;
 }
 /* gross-up: preço final a partir do custo + imposto + margem (usado na migração e no botão ↻) */
@@ -750,20 +743,17 @@ function impostoLinha(it, st=state){
    1) custo da linha = CUSTO UN. × Qtd
    2) gross-up pelo Imposto % da linha (editável; atalhos Serviço/Locação)
    3) MARG % da linha (ou Margem padrão, se vazia)
-   4) margem KMF (%) POR CIMA, se "Projeto KMF" estiver marcado
    O resultado é o Valor da linha (somente leitura no avançado). */
 function precoAvancado(it, st=state){
   let p = (Number(it.custo)||0) * (Number(it.qtd)||0);                 // 1
   p = div1(p, impostoLinha(it, st));                                   // 2
   p = div1(p, margemLinha(it, st)/100);                                // 3
-  if(st.meta.kmf) p = div1(p, (Number(st.meta.margemKmf)||0)/100);     // 4
-  return p;                                                            // 5
+  return p;
 }
 function margemImpossivel(st=state){
   if(!st.meta.avancado) return false;
   const lim = v => v!==null && v!=='' && !isNaN(v) && Number(v)>=100;
   if(lim(st.meta.margem)) return true;
-  if(st.meta.kmf && lim(st.meta.margemKmf)) return true;
   return st.itens.some(it=>lim(it.margem));
 }
 
@@ -858,10 +848,8 @@ function render(){
   const m = state.meta;
   p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_evento.value=m.evento||'';
   p_data.value=isoToBr(m.data); p_obs.value=m.obs;
-  p_margem.value=m.margem; p_kmf.checked=m.kmf;
+  p_margem.value=m.margem;
   p_impostoPadrao.value = pctBR(m.impostoPadrao);
-  p_margemKmf.style.display = m.kmf?'block':'none';
-  p_margemKmf.value = m.margemKmf ?? '';
   adv_toggle.checked = !!m.avancado;
   aplicarModoVis();
   renderTabela();
@@ -994,7 +982,7 @@ function recalc(){
   // aviso: no avançado, imposto + margem somando 100% ou mais torna o preço impossível
   const aviso = document.getElementById('avisoGuard');
   if(margemImpossivel()){
-    aviso.innerHTML = 'Atenção: uma margem (linha, padrão ou KMF) está em <b>100% ou mais</b>. Assim não existe preço possível — reduza a margem.';
+    aviso.innerHTML = 'Atenção: uma margem (da linha ou padrão) está em <b>100% ou mais</b>. Assim não existe preço possível — reduza a margem.';
     aviso.classList.add('show');
   } else { aviso.classList.remove('show'); }
 
@@ -1007,7 +995,7 @@ function recalc(){
       (pl>0?`<div style="width:${pl}%;background:var(--locacao)">${pl>=14?pl.toFixed(0)+'%':''}</div>`:'');
   } else sb.innerHTML='<div style="width:100%;background:var(--line)"></div>';
   const cb=document.getElementById('catBars'); cb.innerHTML='';
-  const cores=['#2563EB','#1E40AF','#3B82F6','#60A5FA','#1D4ED8','#0E9488','#64748B','#93C5FD','#475569'];
+  const cores=['#C2410C','#9A3412','#E2731C','#7C2D12','#1F2933','#6B7280','#EF9A5F','#374151','#9AA2AC'];
   const cats=Object.entries(t.porCategoria).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const max=cats.length?cats[0][1]:0;
   cats.forEach(([cat,val],i)=>{
@@ -1051,10 +1039,8 @@ function dataInput(){
 function metaInput(){
   const m=state.meta;
   m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.evento=p_evento.value;
-  m.obs=p_obs.value; m.margem=p_margem.value; m.kmf=p_kmf.checked;
-  m.margemKmf = p_margemKmf.value===''?null:p_margemKmf.value;
+  m.obs=p_obs.value; m.margem=p_margem.value;
   m.impostoPadrao = parseMoney(p_impostoPadrao.value);
-  p_margemKmf.style.display = m.kmf?'block':'none';
   recalc();
 }
 function setItem(id,f,v){
@@ -1229,8 +1215,7 @@ function montarInicio(){
       evento:  snap.evento !==undefined ? snap.evento  : (st.meta?.evento||''),
       total:   snap.total  !==undefined ? snap.total   : totalDe(st),
       salvoEm: snap.salvoEm||0,
-      data: st.meta?.data||'',
-      kmf: !!st.meta?.kmf
+      data: st.meta?.data||''
     };
   }).sort((a,b)=>b.salvoEm-a.salvoEm);
   const grid=document.getElementById('projGrid');
@@ -1240,7 +1225,7 @@ function montarInicio(){
   }
   grid.innerHTML=inicioLista.map((p,i)=>`
     <div class="proj-card">
-      <div class="pn">${esc(p.nome)}${p.kmf?'<span class="badge kmf">KMF</span>':''}</div>
+      <div class="pn">${esc(p.nome)}</div>
       <div class="pm">${esc(p.cliente||'—')}${p.evento?' · '+esc(p.evento):''}${p.data?' · '+isoToBr(p.data):''}</div>
       <div class="pv">${fmt(p.total)}</div>
       <div class="pa">
