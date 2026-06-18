@@ -280,6 +280,26 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .proj-card.continuar:hover{border-color:var(--accent)}
 .inicio-vazio{grid-column:1/-1;font-size:13px;color:var(--ink-2);padding:20px;border:1px dashed var(--line-2);border-radius:var(--r);background:var(--surface)}
 
+/* ---------- cards de setor (novo modelo de entrada) ---------- */
+.sector .card-head{cursor:pointer;user-select:none}
+.sector .card-head:hover{background:var(--surface-2)}
+.badge-sub{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);padding:5px 12px;border-radius:20px;white-space:nowrap}
+.sector .chev{flex:none;color:var(--ink-3);font-size:11px;transition:transform .18s ease;width:14px;text-align:center}
+.sector.collapsed .chev{transform:rotate(-90deg)}
+.sector.collapsed .card-body{display:none}
+.subhead{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-2);margin:22px 0 12px;display:flex;align-items:center;gap:8px}
+.subhead:first-child{margin-top:0}
+.subhead .sh-sub{margin-left:auto;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-transform:none;letter-spacing:0}
+.col-unid{width:130px}
+.col-tot{width:124px}
+.cell-tot{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap}
+.trib-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.trib-aviso{background:#FEF6EC;border:1px solid #F3D6A8;color:#92580B;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin-top:10px;line-height:1.5}
+.fin-nota{font-size:12px;color:var(--ink-2);margin-top:12px;line-height:1.6}
+.banner-migrado{background:var(--accent-soft);border:1px solid #F4D2BC;color:var(--accent-2);border-radius:var(--r-sm);padding:11px 15px;font-size:13px;margin-bottom:16px;display:none;line-height:1.5}
+.banner-migrado.show{display:block}
+.banner-migrado b{font-weight:700}
+
 /* ---------- responsivo: tabela vira cartões ≤ 759px ---------- */
 @media(max-width:759px){
   body{overflow-x:hidden}
@@ -300,6 +320,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   table.itab td input,table.itab td select{flex:1;width:auto;min-width:0;font-size:16px}  /* 16px evita zoom no iOS; min-width:0 deixa encolher */
   .m2preco-wrap{min-width:0}
   table.itab td.cell-m2{justify-content:flex-start;font-size:14px;color:var(--ink)}
+  table.itab td.cell-tot{justify-content:flex-start;font-size:15px;color:var(--ink)}
   .col-m2preco .m2preco-wrap{flex:1}
   .row-acts{justify-content:flex-start;gap:4px}
   .ico-btn{min-width:40px;min-height:40px;border:1px solid var(--line)}
@@ -362,7 +383,6 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   <h1>Formação de Preço<span>KMF · planilha de orçamento de cenografia</span></h1>
   <div class="head-actions">
     <button class="btn ghost mini" onclick="abrirConfig()">Meus dados</button>
-    <button class="btn ghost mini adv-only" onclick="abrirCatalogo()">Catálogo</button>
     <button class="btn ghost mini" onclick="salvarOrcamento()">Salvar orçamento</button>
     <select id="loadSel" onchange="carregarOrcamento(this.value)" style="width:auto;font-size:12.5px;padding:6px 9px">
       <option value="">Abrir…</option>
@@ -393,159 +413,204 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   <span>Este é um <b>orçamento de exemplo</b> para você ver como o app funciona. Quando quiser, clique em <b>+ Novo orçamento</b> e crie o seu.</span>
 </div>
 
+<div class="banner-migrado" id="bannerMigrado">
+  <b>Orçamento migrado.</b> Este orçamento vinha do formato antigo. Os itens foram preservados em <b>Materiais</b> (un. · qtd 1 · valor final), e o custo total bate com o total anterior. Reorganize entre os setores quando quiser.
+</div>
+
 <div class="aviso" id="avisoGuard"></div>
 
-<!-- Dados do projeto -->
-<div class="card">
-  <div class="card-head">
+<!-- 1 · DADOS DO PROJETO -->
+<div class="card sector" data-sec="dados">
+  <div class="card-head" onclick="toggleSec('dados')" role="button">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
-    <h2>Dados do orçamento</h2>
+    <h2>Dados do projeto</h2>
+    <span class="chev">▾</span>
   </div>
   <div class="card-body">
     <div class="field-grid">
-      <div><label>Nome do projeto</label><input id="p_nome" placeholder="Ex: Stand Expo Design 2026" oninput="metaInput()"></div>
-      <div><label>Cliente</label><input id="p_cliente" placeholder="Nome ou empresa" oninput="metaInput()"></div>
-      <div><label>Nome do evento</label><input id="p_evento" placeholder="Ex: Feira ABF Franchising" oninput="metaInput()"></div>
+      <div><label>Nome do projeto</label><input id="p_nome" placeholder="Ex: Túnel Sensorial Expo 2026" oninput="metaInput()"></div>
       <div><label>Número da proposta</label><input id="p_num" placeholder="001/2026" oninput="metaInput()"></div>
-      <div><label>Data</label><input id="p_data" type="text" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="dataInput()"></div>
-      <div class="adv-only"><label>Margem padrão (%)
-        <span class="hint" data-tip="Configuração global (0–100): pré-preenche cada novo orçamento e a margem de cada linha sem valor próprio. Mudar aqui vale dos próximos orçamentos em diante; os já salvos não mudam.">?</span>
-      </label><input id="p_margem" type="text" inputmode="decimal" placeholder="20" oninput="metaInput()" onblur="fmtPadraoInputs()"></div>
-      <div class="adv-only"><label>Imposto padrão (%)
-        <span class="hint" data-tip="Configuração global (0–100): valor inicial do Imposto % de cada nova linha. Mudar aqui vale dos próximos orçamentos em diante; os já salvos não mudam. Atalhos na linha: Serviço 16,33 · Locação 11,33.">?</span>
-      </label><input id="p_impostoPadrao" type="text" inputmode="decimal" placeholder="16,33" oninput="metaInput()" onblur="fmtPadraoInputs()"></div>
+      <div><label>Cliente</label><input id="p_cliente" placeholder="Nome ou empresa" oninput="metaInput()"></div>
+      <div><label>Responsável pelo orçamento</label><input id="p_responsavel" placeholder="Quem está orçando" oninput="metaInput()"></div>
+      <div><label>Data da proposta</label><input id="p_data" type="text" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="dataInput()"></div>
+      <div><label>Tipo de item cenográfico</label>
+        <select id="p_tipo" onchange="metaInput()">
+          <option value="">Selecione…</option>
+          <option>Túnel cenográfico</option>
+          <option>Stand</option>
+          <option>Backdrop</option>
+          <option>Portal</option>
+          <option>Totem</option>
+          <option>Cenário para evento</option>
+          <option>Display promocional</option>
+          <option>Estrutura especial</option>
+          <option>Outro</option>
+        </select>
+      </div>
       <div class="full"><label>Observações</label><input id="p_obs" placeholder="Prazo, condições de pagamento, validade da proposta…" oninput="metaInput()"></div>
     </div>
   </div>
 </div>
 
-<!-- Modo avançado -->
-<div class="modebar">
-  <label class="switch"><input type="checkbox" id="adv_toggle" onchange="toggleAvancado()"><span class="sl"></span></label>
-  <span class="ml">Modo avançado</span>
-  <span class="ms">Ligue para calcular impostos (nota fiscal × recibo), gross-up por custo, margem e versão interna. Desligado, o Valor de cada linha é o preço final puro.</span>
-</div>
-
-<!-- Tabela de itens -->
-<div class="card">
-  <div class="card-head">
-    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg></span>
-    <h2>Itens do orçamento</h2>
+<!-- 2 · MATERIAIS -->
+<div class="card sector" data-sec="materiais">
+  <div class="card-head" onclick="toggleSec('materiais')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg></span>
+    <h2>Materiais</h2>
+    <span class="badge-sub" id="badge-materiais">R$ 0,00</span>
+    <span class="chev">▾</span>
   </div>
   <div class="card-body">
-    <div id="tabela"></div>
-    <div class="add-bar">
-      <button class="btn obra" onclick="addLinha()">+ Adicionar item</button>
-      <button class="btn ghost adv-only" onclick="addDoCatalogo()">+ Do catálogo</button>
+    <div id="list-materiais"></div>
+    <div class="add-bar"><button class="btn obra" onclick="addMaterial()">+ Adicionar material</button></div>
+  </div>
+</div>
+
+<!-- 3 · IMPRESSÃO -->
+<div class="card sector" data-sec="impressao">
+  <div class="card-head" onclick="toggleSec('impressao')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg></span>
+    <h2>Impressão</h2>
+    <span class="badge-sub" id="badge-impressao">R$ 0,00</span>
+    <span class="chev">▾</span>
+  </div>
+  <div class="card-body">
+    <div id="list-impressao"></div>
+    <div class="add-bar"><button class="btn obra" onclick="addImpressao()">+ Adicionar impressão</button></div>
+  </div>
+</div>
+
+<!-- 4 · ESTRUTURA -->
+<div class="card sector" data-sec="estrutura">
+  <div class="card-head" onclick="toggleSec('estrutura')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg></span>
+    <h2>Estrutura</h2>
+    <span class="badge-sub" id="badge-estrutura">R$ 0,00</span>
+    <span class="chev">▾</span>
+  </div>
+  <div class="card-body">
+    <div id="list-estrutura"></div>
+    <div class="add-bar"><button class="btn obra" onclick="addEstrutura()">+ Adicionar estrutura</button></div>
+  </div>
+</div>
+
+<!-- 5 · MÃO DE OBRA -->
+<div class="card sector" data-sec="maoobra">
+  <div class="card-head" onclick="toggleSec('maoobra')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+    <h2>Mão de obra</h2>
+    <span class="badge-sub" id="badge-maoobra">R$ 0,00</span>
+    <span class="chev">▾</span>
+  </div>
+  <div class="card-body">
+    <div class="subhead">Produção (diárias) <span class="sh-sub" id="sub-producao">R$ 0,00</span></div>
+    <div id="list-producao"></div>
+    <div class="add-bar"><button class="btn obra" onclick="addFuncao()">+ Adicionar função</button></div>
+
+    <div class="subhead">Montagem e desmontagem <span class="sh-sub" id="sub-montagem">R$ 0,00</span></div>
+    <div class="field-grid">
+      <div><label>Diárias de montagem</label><input id="mont_dm" type="number" min="0" step="any" placeholder="0" oninput="setMont('diariasMontagem',this.value)"></div>
+      <div><label>Valor por diária (montagem)</label><input id="mont_vm" type="text" inputmode="decimal" placeholder="0,00" oninput="setMontMoney('valorMontagem',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Diárias de desmontagem</label><input id="mont_dd" type="number" min="0" step="any" placeholder="0" oninput="setMont('diariasDesmontagem',this.value)"></div>
+      <div><label>Valor por diária (desmontagem)</label><input id="mont_vd" type="text" inputmode="decimal" placeholder="0,00" oninput="setMontMoney('valorDesmontagem',this.value)" onblur="fmtMoneyInput(this)"></div>
     </div>
   </div>
 </div>
 
-<!-- Total geral -->
+<!-- 6 · LOGÍSTICA E LOCAÇÕES -->
+<div class="card sector" data-sec="logistica">
+  <div class="card-head" onclick="toggleSec('logistica')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+    <h2>Logística e locações</h2>
+    <span class="badge-sub" id="badge-logistica">R$ 0,00</span>
+    <span class="chev">▾</span>
+  </div>
+  <div class="card-body">
+    <div class="subhead">Transporte <span class="sh-sub" id="sub-transporte">R$ 0,00</span></div>
+    <div class="field-grid">
+      <div><label>Frete / caminhão</label><input id="tr_frete" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('frete',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Combustível</label><input id="tr_comb" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('combustivel',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Pedágio</label><input id="tr_ped" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('pedagio',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Estacionamento</label><input id="tr_est" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('estacionamento',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Hospedagem</label><input id="tr_hosp" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('hospedagem',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Alimentação</label><input id="tr_alim" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('alimentacao',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Outros</label><input id="tr_outros" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('outros',this.value)" onblur="fmtMoneyInput(this)"></div>
+    </div>
+
+    <div class="subhead">Locação de equipamentos <span class="sh-sub" id="sub-locacoes">R$ 0,00</span></div>
+    <div id="list-locacoes"></div>
+    <div class="add-bar"><button class="btn obra" onclick="addLocacao()">+ Adicionar locação</button></div>
+  </div>
+</div>
+
+<!-- 7 · PARÂMETROS FINANCEIROS -->
+<div class="card sector" data-sec="financeiro">
+  <div class="card-head" onclick="toggleSec('financeiro')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
+    <h2>Parâmetros financeiros</h2>
+    <span class="chev">▾</span>
+  </div>
+  <div class="card-body">
+    <div class="subhead">Tributação (Lucro Presumido)</div>
+    <div class="trib-btns">
+      <button type="button" class="btn ghost mini" onclick="tribPreset('servico')">Serviço · 18,33% (com ISS)</button>
+      <button type="button" class="btn ghost mini" onclick="tribPreset('locacao')">Locação · 13,33% (sem ISS)</button>
+    </div>
+    <div class="field-grid">
+      <div><label>Percentual efetivo de impostos (%)
+        <span class="hint" data-tip="Pré-preenchido pelo botão escolhido (Serviço/Locação), mas sempre editável. A alíquota real varia com o porte do projeto por causa do adicional de IR.">?</span>
+      </label><input id="f_imposto" type="text" inputmode="decimal" placeholder="0" oninput="setFin('impostoPct',this.value)" onblur="this.value=pctBR(state.financeiro.impostoPct)"></div>
+      <div><label>Margem de lucro desejada (%)</label><input id="f_margem" type="text" inputmode="decimal" placeholder="0" oninput="setFin('margemPct',this.value)" onblur="this.value=pctBR(state.financeiro.margemPct)"></div>
+    </div>
+    <div class="trib-aviso" id="tribAviso" style="display:none">Locação: benefício/regra válida até <b>31/12/2026</b> — revisar a alíquota depois dessa data.</div>
+    <p class="fin-nota">A alíquota efetiva varia com o porte do projeto (adicional de IR). O campo é sempre editável — ajuste quando necessário.</p>
+  </div>
+</div>
+
+<!-- Resultado -->
 <div class="total-geral">
   <div>
-    <div class="tl">Total geral</div>
-    <div class="tv" id="r_total">R$ 0,00</div>
+    <div class="tl">Preço de venda</div>
+    <div class="tv" id="r_preco">R$ 0,00</div>
   </div>
-  <div style="text-align:right" class="adv-only">
-    <div class="sub">Impostos embutidos: <b id="r_imp_total">R$ 0,00</b></div>
-    <div class="sub">Margem (fica para você): <b id="r_marg_total">R$ 0,00</b></div>
+  <div style="text-align:right">
+    <div class="sub">Custo total: <b id="r_custo">R$ 0,00</b></div>
+    <div class="sub">Impostos (<span id="r_imp_pct">0%</span>): <b id="r_imposto">R$ 0,00</b></div>
+    <div class="sub">Lucro estimado: <b id="r_lucro">R$ 0,00</b></div>
   </div>
 </div>
 <div style="height:16px"></div>
 
-<!-- Resumo: canhotos de nota (avançado) -->
-<div class="card adv-only">
-  <div class="card-head">
-    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 9h8M8 13h6"/></svg></span>
-    <h2>Resumo · como vai sair na nota
-      <span class="hint" data-tip="Serviço sai em nota fiscal, locação sai em recibo, com impostos diferentes. Aqui você vê quanto vai em cada um.">?</span>
-    </h2>
-  </div>
-  <div class="card-body">
-    <div class="notas-grid">
-      <div class="nota-stub servico">
-        <div class="eyebrow">Nota Fiscal · Serviço</div>
-        <div class="valor" id="r_serv_total">R$ 0,00</div>
-        <div class="linhas">
-          Custo: <b id="r_serv_custo">R$ 0,00</b><br>
-          Imposto embutido (<span id="lbl_serv_pct">16,33%</span>): <b id="r_serv_imp">R$ 0,00</b><br>
-          Sua margem: <b id="r_serv_marg">R$ 0,00</b>
-        </div>
-      </div>
-      <div class="nota-stub locacao">
-        <div class="eyebrow">Recibo · Locação</div>
-        <div class="valor" id="r_loc_total">R$ 0,00</div>
-        <div class="linhas">
-          Custo: <b id="r_loc_custo">R$ 0,00</b><br>
-          Imposto embutido (<span id="lbl_loc_pct">11,33%</span>): <b id="r_loc_imp">R$ 0,00</b><br>
-          Sua margem: <b id="r_loc_marg">R$ 0,00</b>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Tributos (avançado) -->
-<div class="card adv-only">
-  <div class="card-head">
-    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-    <h2>Tributos a pagar desta cotação</h2>
-  </div>
-  <div class="card-body">
-    <div class="trib-grid">
-      <div class="trib-box">
-        <div class="tl"><span class="dot" style="background:var(--servico)"></span>Sobre serviço</div>
-        <div class="tv" id="t_serv">R$ 0,00</div>
-        <div class="ts">ISS 5% + PIS/COFINS + IRPJ/CSLL</div>
-      </div>
-      <div class="trib-box">
-        <div class="tl"><span class="dot" style="background:var(--locacao)"></span>Sobre locação</div>
-        <div class="tv" id="t_loc">R$ 0,00</div>
-        <div class="ts">Sem ISS · PIS/COFINS + IRPJ/CSLL</div>
-      </div>
-      <div class="trib-box">
-        <div class="tl"><span class="dot" style="background:var(--obra)"></span>Total de impostos</div>
-        <div class="tv" id="t_total">R$ 0,00</div>
-        <div class="ts" id="t_pct">— da proposta</div>
-      </div>
-    </div>
-    <div class="trib-detalhe" id="t_detalhe"></div>
-  </div>
-</div>
-
-<!-- Dashboard -->
+<!-- Composição -->
 <div class="card">
   <div class="card-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span>
     <h2>Composição do orçamento</h2>
   </div>
   <div class="card-body">
-    <div class="adv-only" id="splitWrap">
-      <label style="margin-bottom:6px">Serviço × Locação</label>
-      <div class="split-bar" id="splitBar"></div>
-      <div class="legend">
-        <span><i style="background:var(--servico)"></i>Serviço</span>
-        <span><i style="background:var(--locacao)"></i>Locação</span>
-      </div>
-      <div style="height:14px"></div>
+    <label style="margin-bottom:6px">Composição do preço de venda</label>
+    <div class="split-bar" id="precoBar"></div>
+    <div class="legend">
+      <span><i style="background:var(--ink)"></i>Custo</span>
+      <span><i style="background:var(--accent-2)"></i>Impostos</span>
+      <span><i style="background:var(--accent)"></i>Lucro</span>
     </div>
-    <label style="margin-bottom:8px">Por categoria (valor)</label>
-    <div id="catBars"></div>
+    <div style="height:14px"></div>
+    <label style="margin-bottom:8px">Por setor (custo)</label>
+    <div id="setBars"></div>
   </div>
 </div>
 
 <!-- Ações finais -->
 <div style="display:flex;gap:8px;flex-wrap:wrap">
-  <button class="btn" onclick="imprimir('cliente')">Proposta para o cliente (PDF)</button>
-  <button class="btn ghost adv-only" onclick="imprimir('interna')">Versão interna completa (PDF)</button>
-  <button class="btn ghost" onclick="exportCSV()">Exportar Excel (CSV)</button>
+  <button class="btn" onclick="imprimir()">Proposta para o cliente (PDF)</button>
+  <button class="btn ghost" onclick="exportCSV()">Exportar interno (CSV)</button>
 </div>
 
 </div><!-- /telaOrcamento -->
 
 <p class="rodape-fixo">
-  Os valores de impostos (modo avançado) são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
+  Os percentuais de impostos são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
   Apuração oficial de tributos: <b>Pigatti Contabilidade</b>.
 </p>
 
@@ -556,7 +621,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   <div class="modal">
     <h3>Meus dados (aparecem na proposta)</h3>
     <div class="field-grid">
-      <div class="full"><label>Nome da empresa / seu nome</label><input id="c_nome" placeholder="Silvio Cenografia"></div>
+      <div class="full"><label>Nome da empresa / seu nome</label><input id="c_nome" placeholder="KMF Cenografia"></div>
       <div><label>CNPJ / CPF</label><input id="c_doc" placeholder="00.000.000/0001-00"></div>
       <div><label>Telefone / WhatsApp</label><input id="c_tel" placeholder="(11) 90000-0000"></div>
       <div><label>E-mail</label><input id="c_email" placeholder="contato@…"></div>
@@ -569,207 +634,55 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   </div>
 </div>
 
-<!-- Modal catálogo -->
-<div class="modal-bg" id="modalCatalogo">
-  <div class="modal">
-    <h3>Catálogo de itens
-      <span class="hint" data-tip="Itens que você usa sempre (totem, montagem, adesivagem…). Cadastre uma vez e adicione nas cotações com um clique.">?</span>
-    </h3>
-    <div id="catLista" style="max-height:260px;overflow:auto;margin-bottom:14px"></div>
-    <div class="field-grid" style="grid-template-columns:2fr 1fr 1fr">
-      <div><label>Nome do item</label><input id="cat_nome" placeholder="Totem 2m"></div>
-      <div><label>Custo unit. (R$)</label><input id="cat_custo" type="number" step="0.01" min="0"></div>
-      <div><label>Tipo</label><select id="cat_tipo"><option value="locacao">Locação</option><option value="servico">Serviço</option></select></div>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-      <button class="btn ghost" onclick="fecharModais()">Fechar</button>
-      <button class="btn" onclick="addCatalogoItem()">+ Adicionar ao catálogo</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 <div id="printArea"></div>
 <script>
 /* ============================================================
-   REGRAS TRIBUTÁRIAS — Lucro Presumido (editar aqui quando
-   a reforma tributária mudar as alíquotas). Usadas só no modo
-   avançado.
+   KMF Orçamento — modelo por setores.
+   Custo total = materiais + impressão + estrutura + mão de obra + logística.
+   Preço de venda = Custo / (1 − imposto% − margem%); guarda contra divisão inválida.
    ============================================================ */
-const TAX_RULES = {
-  servico: {
-    label: 'Serviço',
-    componentes: { 'ISS': 0.05, 'PIS': 0.0065, 'COFINS': 0.03, 'IRPJ': 0.048, 'CSLL': 0.0288 }
-  },
-  locacao: {
-    label: 'Locação',
-    componentes: { 'PIS': 0.0065, 'COFINS': 0.03, 'IRPJ': 0.048, 'CSLL': 0.0288 }
-  }
-};
-for (const k in TAX_RULES) {
-  TAX_RULES[k].total = Object.values(TAX_RULES[k].componentes).reduce((a,b)=>a+b,0);
-}
 
-/* Taxonomia real de cenografia. Cada categoria pode ter um preset de R$/m². */
-const CATEGORIAS = ['Pórtico','Trainel','Flâmula','Estande','Table Top','Totem','Adesivo','Coluna','Outros'];
-const CAT_PRESETS = { 'Trainel':200, 'Flâmula':120, 'Adesivo':120 };
-/* imposto % de cada atalho, derivado das alíquotas (Serviço 16,33 · Locação 11,33) */
-function impostoDe(tipo){ const r=TAX_RULES[tipo]||TAX_RULES.servico; return round2(r.total*100); }
-const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', catalog:'cen_v3_catalog', seen:'cen_v3_seen', defaults:'cen_v3_defaults' };
-const fmt = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const n2  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-const uid = () => Math.random().toString(36).slice(2,9);
+/* tributação (Lucro Presumido) — atalhos que pré-preenchem o imposto efetivo */
+const TRIB = { servico: 18.33, locacao: 13.33 };
+
+const UNID_MAT = ['m²','m','peça','kg','m³','l','un'];
+const UNID_EST = ['m','peça','kg','conjunto','un'];
+
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen' };
+
+const fmt  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const uid  = () => Math.random().toString(36).slice(2,9);
 const round2 = v => Math.round((Number(v)||0)*100)/100;
-const IMPOSTO_PADRAO = impostoDe('servico'); // 16,33
-/* % válida 0–100 (rejeita lixo, ex.: 121.658) */
-function parsePct(s){ const n=parseMoney(s); return (n===null||isNaN(n)||n<0||n>100) ? null : n; }
+const num  = v => { const n = Number(v); return isFinite(n) ? n : 0; };
 
-/* padrões GLOBAIS (margem e imposto) — salvos no localStorage, pré-preenchem todo
-   orçamento novo. Orçamentos já salvos guardam o seu próprio valor e não mudam. */
-let defaults = lsGet(LS.defaults, {margem:20, impostoPadrao:IMPOSTO_PADRAO});
-defaults.margem        = parsePct(defaults.margem)        !== null ? Number(defaults.margem)        : 20;
-defaults.impostoPadrao = parsePct(defaults.impostoPadrao) !== null ? Number(defaults.impostoPadrao) : IMPOSTO_PADRAO;
-function salvarDefaults(){ lsSet(LS.defaults, {margem:defaults.margem, impostoPadrao:defaults.impostoPadrao}); }
-
-let state   = novoEstado();
-let catalog = lsGet(LS.catalog, []);
-let config  = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
+let state  = novoEstado();
+let config = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
+let collapsed = {};   // estado de recolhimento dos cards (só UI)
 
 function novoEstado(){
-  return { meta:{nome:'',num:'',cliente:'',evento:'',data:hoje(),obs:'',margem:defaults.margem,impostoPadrao:defaults.impostoPadrao,avancado:false,categoriasCustom:[]}, itens:[] };
+  return {
+    meta:{ nome:'', num:'', cliente:'', responsavel:'', data:hoje(), tipoItem:'', obs:'' },
+    materiais:[],
+    impressao:[],
+    estrutura:[],
+    maoObra:{ producao:[], montagem:{ diariasMontagem:'', valorMontagem:'', diariasDesmontagem:'', valorDesmontagem:'' } },
+    logistica:{ transporte:{ frete:'', combustivel:'', pedagio:'', estacionamento:'', hospedagem:'', alimentacao:'', outros:'' }, locacoes:[] },
+    financeiro:{ tributacao:'', impostoPct:'', margemPct:'' },
+    migrado:false
+  };
 }
-function novoItem(cat){
-  return { id:uid(), categoria:cat||CATEGORIAS[0], desc:'', qtd:1, largura:'', altura:'', precoM2:'', valor:'', tipo:'servico', impostoPct:'', custo:'', margem:null };
-}
+function novoMaterial(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
+function novaImpressao(){ return {id:uid(), desc:'', m2:'', valorM2:''}; }
+function novaEstrutura(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
+function novaFuncao(){ return {id:uid(), funcao:'', diarias:1, valorDiaria:''}; }
+function novaLocacao(){ return {id:uid(), equipamento:'', qtd:1, dias:1, valorDia:''}; }
+
 function hoje(){ return new Date().toISOString().slice(0,10); }
 function lsGet(k,fb){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fb; }catch(e){ return fb; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('show'),2400); }
-
-/* ============================================================
-   MIGRAÇÃO / COMPATIBILIDADE
-   Aceita orçamentos antigos (modelo de seções) e novos (lista
-   de itens). Preenche campos novos com default e nunca zera o
-   que já existia: o Valor de itens antigos vem do preço final
-   que era calculado pelo gross-up, preservando os totais.
-   ============================================================ */
-function migrar(raw){
-  if(!raw || typeof raw!=='object') return novoEstado();
-  const st = JSON.parse(JSON.stringify(raw));
-  const dm = novoEstado().meta;
-  st.meta = Object.assign({}, dm, st.meta||{});
-  if(typeof st.meta.avancado!=='boolean') st.meta.avancado=false;
-
-  if(Array.isArray(st.itens)){
-    st.itens = st.itens.map(normItem);
-  } else if(Array.isArray(st.secoes)){
-    const itens=[];
-    st.secoes.forEach(sec=>{
-      const cat = catDaSecao(sec); // nunca perde o rótulo original da seção
-      (sec.items||[]).forEach(it=>{
-        const preco = grossupPreco(it, st); // preço final antigo
-        itens.push(normItem({
-          id: it.id || uid(),
-          categoria: cat,
-          desc: it.desc || (sec.nome ? sec.nome : ''),
-          qtd: it.qtd!==undefined ? it.qtd : 1,
-          largura:'', altura:'', precoM2:'',
-          valor: round2(preco),
-          tipo: it.tipo || 'servico',
-          custo: it.custo!==undefined ? it.custo : '',
-          margem: it.margem===undefined ? null : it.margem
-        }));
-      });
-    });
-    st.itens = itens;
-  } else {
-    st.itens = [];
-  }
-  delete st.secoes;
-
-  // registra como personalizada toda categoria fora da lista base (preservando o rótulo)
-  const customs = Array.isArray(st.meta.categoriasCustom) ? st.meta.categoriasCustom.slice() : [];
-  st.itens.forEach(it=>{
-    if(it.categoria && !CATEGORIAS.includes(it.categoria) && !customs.includes(it.categoria)) customs.push(it.categoria);
-  });
-  st.meta.categoriasCustom = customs;
-  return st;
-}
-/* deriva a categoria de uma seção antiga: usa o rótulo da seção; se bater com a
-   taxonomia nova vira categoria base, senão vira categoria personalizada (nada se perde) */
-function catDaSecao(sec){
-  const match = c => CATEGORIAS.find(x => x.toLowerCase() === String(c||'').trim().toLowerCase());
-  const mNome = match(sec.nome), mCat = match(sec.categoria);
-  if(mNome) return mNome;
-  if(mCat) return mCat;
-  const nome=(sec.nome||'').trim();   if(nome) return nome;
-  const c=(sec.categoria||'').trim(); if(c) return c;
-  return 'Outros';
-}
-function normItem(raw){
-  const it = Object.assign(novoItem(), raw||{});
-  // orçamentos antigos tinham Tipo serviço/locação → converte para Imposto %
-  if(!raw || raw.impostoPct===undefined || raw.impostoPct===null || raw.impostoPct==='')
-    it.impostoPct = impostoDe(it.tipo==='locacao' ? 'locacao' : 'servico');
-  return it;
-}
-
-/* margem do item (modo avançado): item > padrão */
-function margemDoItem(item, st=state){
-  if (item.margem !== null && item.margem !== '' && !isNaN(item.margem)) return Number(item.margem);
-  return Number(st.meta.margem) || 0;
-}
-/* gross-up: preço final a partir do custo + imposto + margem (usado na migração e no botão ↻) */
-function grossupPreco(item, st=state){
-  const tax = TAX_RULES[item.tipo] ? TAX_RULES[item.tipo].total : TAX_RULES.servico.total;
-  const mg  = margemDoItem(item, st)/100;
-  const custoTotal = (Number(item.qtd)||0) * (Number(item.custo)||0);
-  const denom = 1 - tax - mg;
-  if (denom <= 0.0001) return custoTotal; // sem preço possível: devolve ao menos o custo
-  return custoTotal/denom;
-}
-
-/* ---------- cálculo da linha ---------- */
-function m2De(it){ return (Number(it.qtd)||0) * (Number(it.largura)||0) * (Number(it.altura)||0); }
-function temPrecoM2(it){ return it.precoM2!=='' && it.precoM2!=null && !isNaN(it.precoM2) && Number(it.precoM2)>0; }
-
-/* margem da linha (%); se vazia, usa a margem padrão do orçamento */
-function margemLinha(it, st=state){
-  if(it.margem!==null && it.margem!=='' && !isNaN(it.margem)) return Number(it.margem);
-  return Number(st.meta.margem)||0;
-}
-function div1(p, frac){ const d=1-frac; return d>0.000001 ? p/d : p; } /* gross-up; se ≥100% trava no valor atual */
-
-/* imposto % da linha (fração); se vazio, usa o Imposto padrão do orçamento */
-function impostoLinha(it, st=state){
-  const v = it.impostoPct;
-  if(v!==null && v!=='' && !isNaN(v)) return Number(v)/100;
-  return (Number(st.meta.impostoPadrao)||0)/100;
-}
-
-/* MODO AVANÇADO — preço construído de baixo pra cima a partir do custo:
-   1) custo da linha = CUSTO UN. × Qtd
-   2) gross-up pelo Imposto % da linha (editável; atalhos Serviço/Locação)
-   3) MARG % da linha (ou Margem padrão, se vazia)
-   O resultado é o Valor da linha (somente leitura no avançado). */
-function precoAvancado(it, st=state){
-  let p = (Number(it.custo)||0) * (Number(it.qtd)||0);                 // 1
-  p = div1(p, impostoLinha(it, st));                                   // 2
-  p = div1(p, margemLinha(it, st)/100);                                // 3
-  return p;
-}
-function margemImpossivel(st=state){
-  if(!st.meta.avancado) return false;
-  const lim = v => v!==null && v!=='' && !isNaN(v) && Number(v)>=100;
-  if(lim(st.meta.margem)) return true;
-  return st.itens.some(it=>lim(it.margem));
-}
-
-/* Valor da linha: derivado do custo no avançado; manual (ou R$/m²) no simples */
-function valorLinha(it, st=state){
-  if(st && st.meta && st.meta.avancado) return round2(precoAvancado(it, st));
-  const v=it.valor; return (v===''||v==null) ? 0 : (Number(v)||0);
-}
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
 /* ---------- dinheiro em padrão BR (112.320,00) ---------- */
 function moneyInput(v){
@@ -786,235 +699,12 @@ function parseMoney(s){
   const n=Number(s);
   return isNaN(n)?null:n;
 }
-/* porcentagem em padrão BR, sem zeros à toa (ex.: 16,33 · 11,33 · 20) */
+function fmtMoneyInput(el){ const n=parseMoney(el.value); el.value = (n==null?'':moneyInput(n)); }
+/* porcentagem em padrão BR, sem zeros à toa (ex.: 18,33 · 13,33 · 25) */
 function pctBR(v){
   if(v===null||v===undefined||v==='') return '';
   const n=Number(v); if(isNaN(n)) return '';
   return n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
-}
-
-/* totais: total e por categoria sempre; decomposição serviço/locação para o modo avançado */
-function totais(st=state){
-  const t = {
-    total:0, porCategoria:{},
-    servico:{custo:0,imposto:0,margem:0,preco:0},
-    locacao:{custo:0,imposto:0,margem:0,preco:0},
-    compServ:{}, compLoc:{}, margemNegativa:false
-  };
-  (st.itens||[]).forEach(it=>{
-    const v = valorLinha(it, st);
-    t.porCategoria[it.categoria] = (t.porCategoria[it.categoria]||0) + v;
-    t.total += v;
-    const tipo = TAX_RULES[it.tipo] ? it.tipo : 'servico';
-    const tax = impostoLinha(it, st);            // imposto % digitado na linha (ou padrão)
-    const custoTotal = (Number(it.qtd)||0) * (Number(it.custo)||0);
-    const imposto = v*tax;
-    const margem  = v - custoTotal - imposto;
-    if (v>0 && margem < 0) t.margemNegativa = true;
-    const g = t[tipo];
-    g.preco+=v; g.custo+=custoTotal; g.imposto+=imposto; g.margem+=margem;
-    // distribui o imposto da linha entre os componentes do tipo, proporcionalmente
-    const comp = tipo==='servico' ? t.compServ : t.compLoc;
-    const ruleTotal = TAX_RULES[tipo].total || 1;
-    for (const [nome,aliq] of Object.entries(TAX_RULES[tipo].componentes)){
-      comp[nome] = (comp[nome]||0) + imposto*(aliq/ruleTotal);
-    }
-  });
-  return t;
-}
-
-/* ---------- categorias presentes (na ordem padrão + extras) ---------- */
-function catsPresentes(){
-  const out = CATEGORIAS.filter(c => state.itens.some(i=>i.categoria===c));
-  state.itens.forEach(i=>{ if(!out.includes(i.categoria)) out.push(i.categoria); });
-  return out;
-}
-function itensDaCategoria(cat){ return state.itens.filter(i=>i.categoria===cat); }
-/* todas as categorias disponíveis no dropdown: base + personalizadas + as já usadas */
-function todasCategorias(){
-  const out=[...CATEGORIAS];
-  (state.meta.categoriasCustom||[]).forEach(c=>{ if(c && !out.includes(c)) out.push(c); });
-  state.itens.forEach(i=>{ if(i.categoria && !out.includes(i.categoria)) out.push(i.categoria); });
-  return out;
-}
-function catChange(id, sel){
-  if(sel.value==='__new__'){ novaCategoria(id); return; }
-  setItem(id,'categoria',sel.value);
-}
-function novaCategoria(id){
-  const nome=(prompt('Nome da nova categoria:')||'').trim();
-  if(!nome){ renderTabela(); recalc(); return; } // cancelou: restaura o select
-  if(!CATEGORIAS.includes(nome) && !state.meta.categoriasCustom.includes(nome)) state.meta.categoriasCustom.push(nome);
-  const it=state.itens.find(i=>i.id===id); if(it) it.categoria=nome;
-  renderTabela(); recalc();
-}
-
-/* ============================================================
-   RENDER
-   ============================================================ */
-function render(){
-  const m = state.meta;
-  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente; p_evento.value=m.evento||'';
-  p_data.value=isoToBr(m.data); p_obs.value=m.obs;
-  p_margem.value = pctBR(m.margem);
-  p_impostoPadrao.value = pctBR(m.impostoPadrao);
-  adv_toggle.checked = !!m.avancado;
-  aplicarModoVis();
-  renderTabela();
-  recalc();
-}
-
-function aplicarModoVis(){
-  const on = !!state.meta.avancado;
-  document.querySelectorAll('.adv-only').forEach(el=>el.classList.toggle('hidden', !on));
-}
-function toggleAvancado(){
-  state.meta.avancado = adv_toggle.checked;
-  aplicarModoVis(); renderTabela(); recalc(); autosave();
-  toast(state.meta.avancado ? 'Modo avançado ligado' : 'Modo simples');
-}
-
-function renderTabela(){
-  const cont = document.getElementById('tabela');
-  if(!state.itens.length){
-    cont.innerHTML = '<div class="tab-vazia">Nenhum item ainda. Clique em <b>+ Adicionar item</b> para começar.</div>';
-    return;
-  }
-  const adv = !!state.meta.avancado;
-  let body='';
-  catsPresentes().forEach(cat=>{
-    itensDaCategoria(cat).forEach(it=> body += linhaHTML(it));
-    body += `<tr class="sub-row"><td colspan="10"><span class="sub-tag">${esc(cat)}</span> subtotal</td><td class="r" data-sub="${esc(cat)}">—</td><td></td></tr>`;
-  });
-  cont.innerHTML = `
-    <div class="tab-scroll"><table class="itab${adv?' adv':''}">
-      <thead><tr>
-        <th class="col-cat">Categoria</th>
-        <th>Descrição</th>
-        <th class="r col-qtd">Qtd</th>
-        <th class="r col-dim">Larg (m)</th>
-        <th class="r col-dim">Alt (m)</th>
-        <th class="r col-m2">m²</th>
-        <th class="r col-preco simple-col">R$/m²</th>
-        <th class="r adv-col col-imposto">Imposto %</th>
-        <th class="r adv-col col-custo">Custo un.</th>
-        <th class="r adv-col col-marg">Marg %</th>
-        <th class="r col-valor">Valor (R$)</th>
-        <th class="col-acts"></th>
-      </tr></thead>
-      <tbody>${body}</tbody>
-      <tfoot><tr class="grand"><td colspan="10">Total geral</td><td class="r" id="cell-grand">—</td><td></td></tr></tfoot>
-    </table></div>`;
-}
-
-function linhaHTML(it){
-  const all = todasCategorias();
-  let catOpts = all.map(c=>`<option ${c===it.categoria?'selected':''}>${esc(c)}</option>`).join('');
-  if(!all.includes(it.categoria)) catOpts += `<option selected>${esc(it.categoria)}</option>`;
-  catOpts += `<option value="__new__">+ Nova categoria…</option>`;
-  const preset = CAT_PRESETS[it.categoria];
-  const sug = preset!=null
-    ? `<button type="button" class="chip-sug" title="Usar R$/m² sugerido para ${esc(it.categoria)}" onclick="aplicarPreset('${it.id}',${preset})">${preset}</button>`
-    : '';
-  const adv = !!state.meta.avancado;
-  const valorNum = adv ? valorLinha(it) : (it.valor===''||it.valor==null ? null : Number(it.valor));
-  return `<tr data-id="${it.id}">
-    <td class="col-cat" data-l="Categoria"><select class="sel-cat" onchange="catChange('${it.id}',this)">${catOpts}</select></td>
-    <td data-l="Descrição"><input class="in-desc" value="${esc(it.desc)}" placeholder="Descrição do item" oninput="setItem('${it.id}','desc',this.value)"></td>
-    <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="1" value="${esc(it.qtd)}" oninput="setItem('${it.id}','qtd',this.value)"></td>
-    <td class="r col-dim" data-l="Largura (m)"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.largura)}" placeholder="—" oninput="setItem('${it.id}','largura',this.value)"></td>
-    <td class="r col-dim" data-l="Altura (m)"><input class="in-num" type="number" min="0" step="0.01" value="${esc(it.altura)}" placeholder="—" oninput="setItem('${it.id}','altura',this.value)"></td>
-    <td class="cell-m2 col-m2" data-m2="${it.id}" data-l="m²">—</td>
-    <td class="col-m2preco col-preco simple-col" data-l="R$/m² (opcional)">
-      <span class="m2preco-wrap">
-        <input class="in-num in-precom2" type="number" min="0" step="0.01" value="${esc(it.precoM2)}" placeholder="R$/m²" oninput="setItem('${it.id}','precoM2',this.value)">
-        ${sug}
-      </span>
-    </td>
-    <td class="r adv-col col-imposto" data-l="Imposto %"><div class="imp-wrap">
-      <input class="in-num in-imposto" type="text" inputmode="decimal" value="${esc(pctBR(it.impostoPct))}" placeholder="${esc(pctBR(state.meta.impostoPadrao))}" oninput="setItemImposto('${it.id}',this.value)" onblur="fmtPctInput(this)">
-      <span class="imp-quick">
-        <button type="button" class="chip-sug" title="Serviço — 16,33%" onclick="setImpostoPreset('${it.id}','servico')">Serv</button>
-        <button type="button" class="chip-sug" title="Locação — 11,33%" onclick="setImpostoPreset('${it.id}','locacao')">Loc</button>
-      </span>
-    </div></td>
-    <td class="r adv-col col-custo" data-l="Custo un."><input class="in-num in-custo" type="text" inputmode="decimal" value="${esc(moneyInput(it.custo))}" placeholder="0,00" oninput="setItemMoney('${it.id}','custo',this.value)" onblur="fmtMoneyInput(this)"></td>
-    <td class="r adv-col col-marg" data-l="Margem %"><input class="in-num" type="number" min="0" step="0.5" value="${it.margem??''}" placeholder="${esc(pctBR(state.meta.margem))}" title="Vazio = usa a margem padrão (${esc(pctBR(state.meta.margem))}%)" oninput="setItem('${it.id}','margem',this.value)"></td>
-    <td class="r col-valor" data-l="Valor (R$)"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(valorNum))}" placeholder="0,00" ${adv?'readonly title="No modo avançado o Valor é calculado a partir do custo + imposto + margem"':''} oninput="setItemMoney('${it.id}','valor',this.value)" onblur="fmtMoneyInput(this)"></td>
-    <td class="col-acts" data-l="Linha"><div class="row-acts">
-      <button class="ico-btn" aria-label="Mover para cima" title="Mover para cima" onclick="moveItem('${it.id}',-1)">↑</button>
-      <button class="ico-btn" aria-label="Mover para baixo" title="Mover para baixo" onclick="moveItem('${it.id}',1)">↓</button>
-      <button class="ico-btn del" aria-label="Remover linha" title="Remover linha" onclick="delItem('${it.id}')">✕</button>
-    </div></td>
-  </tr>`;
-}
-function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
-
-/* recalcula números sem reconstruir as linhas (mantém o foco) */
-function recalc(){
-  const adv = !!state.meta.avancado;
-  state.itens.forEach(it=>{
-    const cell = document.querySelector(`.cell-m2[data-m2="${it.id}"]`);
-    if(cell) cell.textContent = n2(m2De(it));               // m² ao vivo: Qtd × Largura × Altura
-    if(adv){                                                 // Valor derivado (read-only) recalculado junto
-      const vin = document.querySelector(`tr[data-id="${it.id}"] .in-valor`);
-      if(vin) vin.value = moneyInput(valorLinha(it));
-    }
-  });
-  const t = totais();
-  catsPresentes().forEach(cat=>{
-    const c = document.querySelector(`[data-sub="${esc(cat)}"]`);
-    if(c) c.textContent = fmt(t.porCategoria[cat]||0);
-  });
-  const g = document.getElementById('cell-grand'); if(g) g.textContent = fmt(t.total);
-
-  r_total.textContent = fmt(t.total);
-  r_imp_total.textContent = fmt(t.servico.imposto + t.locacao.imposto);
-  r_marg_total.textContent = fmt(t.servico.margem + t.locacao.margem);
-
-  // resumo notas
-  r_serv_total.textContent=fmt(t.servico.preco); r_serv_custo.textContent=fmt(t.servico.custo);
-  r_serv_imp.textContent=fmt(t.servico.imposto); r_serv_marg.textContent=fmt(t.servico.margem);
-  r_loc_total.textContent=fmt(t.locacao.preco);  r_loc_custo.textContent=fmt(t.locacao.custo);
-  r_loc_imp.textContent=fmt(t.locacao.imposto);  r_loc_marg.textContent=fmt(t.locacao.margem);
-
-  // tributos
-  const imp = t.servico.imposto + t.locacao.imposto;
-  t_serv.textContent=fmt(t.servico.imposto); t_loc.textContent=fmt(t.locacao.imposto); t_total.textContent=fmt(imp);
-  t_pct.textContent = t.total>0 ? (imp/t.total*100).toFixed(1).replace('.',',')+'% da proposta' : '— da proposta';
-  const det=[], junta={};
-  [t.compServ,t.compLoc].forEach(c=>{ for(const k in c){ junta[k]=(junta[k]||0)+c[k]; } });
-  for (const k of ['ISS','PIS','COFINS','IRPJ','CSLL']){ if(junta[k]) det.push(`${k}: <b>${fmt(junta[k])}</b>`); }
-  t_detalhe.innerHTML = det.length ? 'Detalhe por tributo · '+det.join(' &nbsp;·&nbsp; ') : '';
-
-  // aviso: no avançado, imposto + margem somando 100% ou mais torna o preço impossível
-  const aviso = document.getElementById('avisoGuard');
-  if(margemImpossivel()){
-    aviso.innerHTML = 'Atenção: uma margem (da linha ou padrão) está em <b>100% ou mais</b>. Assim não existe preço possível — reduza a margem.';
-    aviso.classList.add('show');
-  } else { aviso.classList.remove('show'); }
-
-  // dashboard
-  const sb=document.getElementById('splitBar');
-  if(t.total>0){
-    const ps=t.servico.preco/t.total*100, pl=t.locacao.preco/t.total*100;
-    sb.innerHTML =
-      (ps>0?`<div style="width:${ps}%;background:var(--servico)">${ps>=14?ps.toFixed(0)+'%':''}</div>`:'')+
-      (pl>0?`<div style="width:${pl}%;background:var(--locacao)">${pl>=14?pl.toFixed(0)+'%':''}</div>`:'');
-  } else sb.innerHTML='<div style="width:100%;background:var(--line)"></div>';
-  const cb=document.getElementById('catBars'); cb.innerHTML='';
-  const cores=['#C2410C','#9A3412','#E2731C','#7C2D12','#1F2933','#6B7280','#EF9A5F','#374151','#9AA2AC'];
-  const cats=Object.entries(t.porCategoria).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const max=cats.length?cats[0][1]:0;
-  cats.forEach(([cat,val],i)=>{
-    cb.insertAdjacentHTML('beforeend',
-      `<div class="bar-row"><div class="bl">${esc(cat)}</div>
-       <div class="bar-track"><div class="bar-fill" style="width:${max>0?val/max*100:0}%;background:${cores[i%cores.length]}"></div></div>
-       <div class="bv">${fmt(val)}</div></div>`);
-  });
-  if(!cats.length) cb.innerHTML='<div style="font-size:12.5px;color:var(--ink-soft)">Adicione itens para ver a composição.</div>';
-
-  autosave();
 }
 
 /* ---------- data br <-> iso ---------- */
@@ -1042,105 +732,371 @@ function dataInput(){
 }
 
 /* ============================================================
+   CÁLCULO
+   ============================================================ */
+function tMat(l){ return num(l.qtd)*num(l.valorUnit); }
+function tImp(l){ return num(l.m2)*num(l.valorM2); }
+function tEst(l){ return num(l.qtd)*num(l.valorUnit); }
+function tProd(l){ return num(l.diarias)*num(l.valorDiaria); }
+function tLoc(l){ return num(l.qtd)*num(l.dias)*num(l.valorDia); }
+
+function subMateriais(s=state){ return s.materiais.reduce((a,l)=>a+tMat(l),0); }
+function subImpressao(s=state){ return s.impressao.reduce((a,l)=>a+tImp(l),0); }
+function subEstrutura(s=state){ return s.estrutura.reduce((a,l)=>a+tEst(l),0); }
+function subProducao(s=state){ return s.maoObra.producao.reduce((a,l)=>a+tProd(l),0); }
+function subMontagem(s=state){ const m=s.maoObra.montagem; return num(m.diariasMontagem)*num(m.valorMontagem)+num(m.diariasDesmontagem)*num(m.valorDesmontagem); }
+function subMaoObra(s=state){ return subProducao(s)+subMontagem(s); }
+function subTransporte(s=state){ const t=s.logistica.transporte; return ['frete','combustivel','pedagio','estacionamento','hospedagem','alimentacao','outros'].reduce((a,k)=>a+num(t[k]),0); }
+function subLocacoes(s=state){ return s.logistica.locacoes.reduce((a,l)=>a+tLoc(l),0); }
+function subLogistica(s=state){ return subTransporte(s)+subLocacoes(s); }
+function custoTotal(s=state){ return subMateriais(s)+subImpressao(s)+subEstrutura(s)+subMaoObra(s)+subLogistica(s); }
+
+function resultado(s=state){
+  const custo = custoTotal(s);
+  const impPct = num(s.financeiro.impostoPct), mgPct = num(s.financeiro.margemPct);
+  const imp = impPct/100, mg = mgPct/100;
+  const denom = 1 - imp - mg;
+  const preco = denom>0 ? custo/denom : 0;     // se (1 − imposto − margem) ≤ 0 → preço 0
+  return { custo, preco, imposto:preco*imp, lucro:preco*mg, invalido:(denom<=0 && custo>0), impPct, mgPct };
+}
+
+/* ============================================================
+   MIGRAÇÃO / COMPATIBILIDADE
+   Novo formato (por setores) é normalizado. Formato antigo
+   (tabela plana de itens ou seções) vira linhas de MATERIAIS,
+   preservando descrição e valor final — o custo total migrado
+   bate exatamente com o total antigo.
+   ============================================================ */
+function migrar(raw){
+  if(!raw || typeof raw!=='object') return novoEstado();
+  if(raw.financeiro || Array.isArray(raw.materiais) || raw.maoObra) return normalizarNovo(raw);
+  // ---- legado ----
+  const meta = raw.meta || {};
+  const st = novoEstado();
+  st.meta.nome = meta.nome || '';
+  st.meta.num  = meta.num  || '';
+  st.meta.cliente = meta.cliente || '';
+  st.meta.data = meta.data || hoje();
+  st.meta.obs  = meta.obs || '';
+  st.materiais = linhasLegado(raw, meta).map(l=>({
+    id: uid(), desc: l.desc, unidade:'un', qtd:1, valorUnit: round2(l.valor)
+  }));
+  // imposto e margem zerados: preço de venda = custo total = total antigo
+  st.financeiro = { tributacao:'', impostoPct:'', margemPct:'' };
+  st.migrado = true;
+  return st;
+}
+function normalizarNovo(raw){
+  const st = novoEstado();
+  const src = JSON.parse(JSON.stringify(raw));
+  st.meta = Object.assign(st.meta, src.meta||{});
+  st.materiais = Array.isArray(src.materiais) ? src.materiais.map(l=>Object.assign(novoMaterial(),l)) : [];
+  st.impressao = Array.isArray(src.impressao) ? src.impressao.map(l=>Object.assign(novaImpressao(),l)) : [];
+  st.estrutura = Array.isArray(src.estrutura) ? src.estrutura.map(l=>Object.assign(novaEstrutura(),l)) : [];
+  if(src.maoObra && typeof src.maoObra==='object'){
+    st.maoObra.producao = Array.isArray(src.maoObra.producao) ? src.maoObra.producao.map(l=>Object.assign(novaFuncao(),l)) : [];
+    st.maoObra.montagem = Object.assign(st.maoObra.montagem, src.maoObra.montagem||{});
+  }
+  if(src.logistica && typeof src.logistica==='object'){
+    st.logistica.transporte = Object.assign(st.logistica.transporte, src.logistica.transporte||{});
+    st.logistica.locacoes = Array.isArray(src.logistica.locacoes) ? src.logistica.locacoes.map(l=>Object.assign(novaLocacao(),l)) : [];
+  }
+  st.financeiro = Object.assign(st.financeiro, src.financeiro||{});
+  st.migrado = !!src.migrado;
+  return st;
+}
+/* recalcula o valor final de cada item antigo, EXATAMENTE como o modelo antigo fazia */
+const LEG_TAX = { servico:0.1633, locacao:0.1133 };
+function legMargem(it, meta){
+  if(it.margem!==null && it.margem!==undefined && it.margem!=='' && !isNaN(it.margem)) return Number(it.margem);
+  return num(meta.margem);
+}
+function legImposto(it, meta){
+  const v=it.impostoPct;
+  if(v!==null && v!==undefined && v!=='' && !isNaN(v)) return Number(v)/100;
+  return num(meta.impostoPadrao)/100;
+}
+function legDiv(p,frac){ const d=1-frac; return d>0.000001 ? p/d : p; }
+function legAvancado(it, meta){
+  let p = num(it.custo)*num(it.qtd);
+  p = legDiv(p, legImposto(it, meta));
+  p = legDiv(p, legMargem(it, meta)/100);
+  return p;
+}
+function legGrossup(it, meta){
+  const tax = it.tipo==='locacao' ? LEG_TAX.locacao : LEG_TAX.servico;
+  const mg  = legMargem(it, meta)/100;
+  const custoTot = num(it.qtd)*num(it.custo);
+  const denom = 1-tax-mg;
+  if(denom<=0.0001) return custoTot;
+  return custoTot/denom;
+}
+function linhasLegado(raw, meta){
+  const av = !!meta.avancado;
+  if(Array.isArray(raw.itens)){
+    return raw.itens.map(it=>{
+      let valor;
+      if(av) valor = round2(legAvancado(it, meta));
+      else { const v=it.valor; valor = (v===''||v==null) ? 0 : (Number(v)||0); }
+      return { desc: it.desc || '', valor };
+    });
+  }
+  if(Array.isArray(raw.secoes)){
+    const out=[];
+    raw.secoes.forEach(sec=>{
+      (sec.items||[]).forEach(it=>{
+        const item = Object.assign({tipo:'servico'}, it);
+        if(item.qtd===undefined||item.qtd==='') item.qtd=1;
+        out.push({ desc: it.desc || sec.nome || '', valor: round2(legGrossup(item, meta)) });
+      });
+    });
+    return out;
+  }
+  return [];
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  const m = state.meta;
+  p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente;
+  p_responsavel.value=m.responsavel||''; p_tipo.value=m.tipoItem||'';
+  p_data.value=isoToBr(m.data); p_obs.value=m.obs;
+
+  // mão de obra · montagem
+  const mo=state.maoObra.montagem;
+  mont_dm.value = (mo.diariasMontagem==null?'':mo.diariasMontagem);
+  mont_vm.value = moneyInput(mo.valorMontagem);
+  mont_dd.value = (mo.diariasDesmontagem==null?'':mo.diariasDesmontagem);
+  mont_vd.value = moneyInput(mo.valorDesmontagem);
+  // logística · transporte
+  const tr=state.logistica.transporte;
+  tr_frete.value=moneyInput(tr.frete); tr_comb.value=moneyInput(tr.combustivel);
+  tr_ped.value=moneyInput(tr.pedagio); tr_est.value=moneyInput(tr.estacionamento);
+  tr_hosp.value=moneyInput(tr.hospedagem); tr_alim.value=moneyInput(tr.alimentacao);
+  tr_outros.value=moneyInput(tr.outros);
+  // financeiro
+  f_imposto.value=pctBR(state.financeiro.impostoPct);
+  f_margem.value=pctBR(state.financeiro.margemPct);
+
+  renderMateriais(); renderImpressao(); renderEstrutura(); renderProducao(); renderLocacoes();
+  renderTribAviso();
+  document.getElementById('bannerMigrado').classList.toggle('show', !!state.migrado);
+  recalc();
+}
+
+/* ---------- helpers de tabela ---------- */
+function tab(head, rows){ return `<div class="tab-scroll"><table class="itab"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`; }
+function vazia(msg){ return `<div class="tab-vazia">${msg} Use o botão abaixo para adicionar.</div>`; }
+function acts(sec,id){
+  return `<td class="col-acts" data-l="Linha"><div class="row-acts">
+    <button class="ico-btn" aria-label="Mover para cima" title="Mover para cima" onclick="moveLin('${sec}','${id}',-1)">↑</button>
+    <button class="ico-btn" aria-label="Mover para baixo" title="Mover para baixo" onclick="moveLin('${sec}','${id}',1)">↓</button>
+    <button class="ico-btn del" aria-label="Remover linha" title="Remover linha" onclick="delLin('${sec}','${id}')">✕</button>
+  </div></td>`;
+}
+function selUnidade(opts, val, sec, id){
+  const o = opts.map(u=>`<option ${u===val?'selected':''}>${esc(u)}</option>`).join('');
+  return `<select onchange="setLin('${sec}','${id}','unidade',this.value)">${o}</select>`;
+}
+function rowQtdUnid(sec, l, unidOpts){
+  return `<tr data-id="${l.id}">
+    <td data-l="Descrição"><input value="${esc(l.desc)}" placeholder="Descrição" oninput="setLin('${sec}','${l.id}','desc',this.value)"></td>
+    <td class="col-unid" data-l="Unidade">${selUnidade(unidOpts,l.unidade,sec,l.id)}</td>
+    <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('${sec}','${l.id}','qtd',this.value)"></td>
+    <td class="r col-valor" data-l="Valor unit."><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('${sec}','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
+    ${acts(sec,l.id)}
+  </tr>`;
+}
+function renderMateriais(){
+  const c=document.getElementById('list-materiais');
+  if(!state.materiais.length){ c.innerHTML=vazia('Nenhum material ainda.'); return; }
+  const head=`<th>Descrição</th><th class="col-unid">Unidade</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor unit.</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  c.innerHTML=tab(head, state.materiais.map(l=>rowQtdUnid('materiais',l,UNID_MAT)).join(''));
+}
+function renderEstrutura(){
+  const c=document.getElementById('list-estrutura');
+  if(!state.estrutura.length){ c.innerHTML=vazia('Nenhuma estrutura ainda.'); return; }
+  const head=`<th>Descrição</th><th class="col-unid">Unidade</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor unit.</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  c.innerHTML=tab(head, state.estrutura.map(l=>rowQtdUnid('estrutura',l,UNID_EST)).join(''));
+}
+function renderImpressao(){
+  const c=document.getElementById('list-impressao');
+  if(!state.impressao.length){ c.innerHTML=vazia('Nenhuma impressão ainda.'); return; }
+  const head=`<th>Descrição</th><th class="r col-qtd">m²</th><th class="r col-valor">Valor/m²</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  const rows=state.impressao.map(l=>`<tr data-id="${l.id}">
+    <td data-l="Descrição"><input value="${esc(l.desc)}" placeholder="Descrição da impressão" oninput="setLin('impressao','${l.id}','desc',this.value)"></td>
+    <td class="r col-qtd" data-l="m²"><input class="in-num" type="number" min="0" step="any" value="${esc(l.m2)}" placeholder="0" oninput="setLin('impressao','${l.id}','m2',this.value)"></td>
+    <td class="r col-valor" data-l="Valor/m²"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorM2))}" placeholder="0,00" oninput="setLinMoney('impressao','${l.id}','valorM2',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
+    ${acts('impressao',l.id)}
+  </tr>`).join('');
+  c.innerHTML=tab(head, rows);
+}
+function renderProducao(){
+  const c=document.getElementById('list-producao');
+  if(!state.maoObra.producao.length){ c.innerHTML=vazia('Nenhuma função ainda.'); return; }
+  const head=`<th>Função</th><th class="r col-qtd">Diárias</th><th class="r col-valor">Valor/diária</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  const rows=state.maoObra.producao.map(l=>`<tr data-id="${l.id}">
+    <td data-l="Função"><input value="${esc(l.funcao)}" placeholder="Ex: Marceneiro" oninput="setLin('producao','${l.id}','funcao',this.value)"></td>
+    <td class="r col-qtd" data-l="Diárias"><input class="in-num" type="number" min="0" step="any" value="${esc(l.diarias)}" oninput="setLin('producao','${l.id}','diarias',this.value)"></td>
+    <td class="r col-valor" data-l="Valor/diária"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDiaria))}" placeholder="0,00" oninput="setLinMoney('producao','${l.id}','valorDiaria',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
+    ${acts('producao',l.id)}
+  </tr>`).join('');
+  c.innerHTML=tab(head, rows);
+}
+function renderLocacoes(){
+  const c=document.getElementById('list-locacoes');
+  if(!state.logistica.locacoes.length){ c.innerHTML=vazia('Nenhuma locação ainda.'); return; }
+  const head=`<th>Equipamento</th><th class="r col-qtd">Qtd</th><th class="r col-qtd">Dias</th><th class="r col-valor">Valor/dia</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  const rows=state.logistica.locacoes.map(l=>`<tr data-id="${l.id}">
+    <td data-l="Equipamento"><input value="${esc(l.equipamento)}" placeholder="Ex: Empilhadeira" oninput="setLin('locacoes','${l.id}','equipamento',this.value)"></td>
+    <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('locacoes','${l.id}','qtd',this.value)"></td>
+    <td class="r col-qtd" data-l="Dias"><input class="in-num" type="number" min="0" step="any" value="${esc(l.dias)}" oninput="setLin('locacoes','${l.id}','dias',this.value)"></td>
+    <td class="r col-valor" data-l="Valor/dia"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDia))}" placeholder="0,00" oninput="setLinMoney('locacoes','${l.id}','valorDia',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
+    ${acts('locacoes',l.id)}
+  </tr>`).join('');
+  c.innerHTML=tab(head, rows);
+}
+
+/* ---------- recálculo ao vivo (sem reconstruir linhas: mantém o foco) ---------- */
+function setTots(arr, fn){ arr.forEach(l=>{ const c=document.querySelector(`[data-tot="${l.id}"]`); if(c) c.textContent=fmt(fn(l)); }); }
+function badge(sec,val){ const b=document.getElementById('badge-'+sec); if(b) b.textContent=fmt(val); }
+function setTxt(id,val){ const e=document.getElementById(id); if(e) e.textContent=fmt(val); }
+function seg(pct,color){ return pct>0 ? `<div style="width:${pct}%;background:${color}">${pct>=12?Math.round(pct)+'%':''}</div>` : ''; }
+
+function recalc(){
+  setTots(state.materiais, tMat);
+  setTots(state.impressao, tImp);
+  setTots(state.estrutura, tEst);
+  setTots(state.maoObra.producao, tProd);
+  setTots(state.logistica.locacoes, tLoc);
+
+  badge('materiais', subMateriais());
+  badge('impressao', subImpressao());
+  badge('estrutura', subEstrutura());
+  badge('maoobra', subMaoObra());
+  badge('logistica', subLogistica());
+  setTxt('sub-producao', subProducao());
+  setTxt('sub-montagem', subMontagem());
+  setTxt('sub-transporte', subTransporte());
+  setTxt('sub-locacoes', subLocacoes());
+
+  const r = resultado();
+  r_preco.textContent = fmt(r.preco);
+  r_custo.textContent = fmt(r.custo);
+  r_imposto.textContent = fmt(r.imposto);
+  r_lucro.textContent = fmt(r.lucro);
+  r_imp_pct.textContent = pctBR(r.impPct)+'%';
+
+  const g=document.getElementById('avisoGuard');
+  if(r.invalido){
+    g.innerHTML='Atenção: imposto% + margem% somam <b>100% ou mais</b>. Não existe preço possível — reduza um dos dois. (Preço de venda travado em R$ 0,00.)';
+    g.classList.add('show');
+  } else g.classList.remove('show');
+
+  // composição do preço
+  const pb=document.getElementById('precoBar');
+  if(r.preco>0){
+    const pc=r.custo/r.preco*100, pi=r.imposto/r.preco*100, pl=r.lucro/r.preco*100;
+    pb.innerHTML = seg(pc,'var(--ink)')+seg(pi,'var(--accent-2)')+seg(pl,'var(--accent)');
+  } else pb.innerHTML='<div style="width:100%;background:var(--line)"></div>';
+
+  // por setor (custo)
+  const sb=document.getElementById('setBars');
+  const dados=[['Materiais',subMateriais()],['Impressão',subImpressao()],['Estrutura',subEstrutura()],['Mão de obra',subMaoObra()],['Logística e locações',subLogistica()]]
+    .filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const max=dados.length?dados[0][1]:0;
+  const cores=['#C2410C','#9A3412','#E2731C','#7C2D12','#1F2933'];
+  sb.innerHTML = dados.length
+    ? dados.map(([nome,v],i)=>`<div class="bar-row"><div class="bl">${esc(nome)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${max>0?v/max*100:0}%;background:${cores[i%cores.length]}"></div></div>
+        <div class="bv">${fmt(v)}</div></div>`).join('')
+    : '<div style="font-size:12.5px;color:var(--ink-2)">Adicione itens para ver a composição.</div>';
+
+  autosave();
+}
+
+/* ============================================================
    MUTAÇÕES
    ============================================================ */
 function metaInput(){
   const m=state.meta;
-  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value; m.evento=p_evento.value;
-  m.obs=p_obs.value;
-  // margem/imposto padrão: validam 0–100 e viram configuração GLOBAL (próximos orçamentos)
-  const mg=parsePct(p_margem.value);        if(mg!==null){ m.margem=mg; defaults.margem=mg; salvarDefaults(); }
-  const ip=parsePct(p_impostoPadrao.value); if(ip!==null){ m.impostoPadrao=ip; defaults.impostoPadrao=ip; salvarDefaults(); }
+  m.nome=p_nome.value; m.num=p_num.value; m.cliente=p_cliente.value;
+  m.responsavel=p_responsavel.value; m.tipoItem=p_tipo.value; m.obs=p_obs.value;
+  autosave();
+}
+function lista(sec){
+  if(sec==='materiais') return state.materiais;
+  if(sec==='impressao') return state.impressao;
+  if(sec==='estrutura') return state.estrutura;
+  if(sec==='producao')  return state.maoObra.producao;
+  if(sec==='locacoes')  return state.logistica.locacoes;
+  return [];
+}
+function renderSec(sec){
+  ({materiais:renderMateriais, impressao:renderImpressao, estrutura:renderEstrutura, producao:renderProducao, locacoes:renderLocacoes}[sec])?.();
+}
+function setLin(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=v; recalc(); } }
+function setLinMoney(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=parseMoney(v); recalc(); } }
+function delLin(sec,id){ const arr=lista(sec); const i=arr.findIndex(x=>x.id===id); if(i>=0){ arr.splice(i,1); renderSec(sec); recalc(); } }
+function moveLin(sec,id,dir){
+  const arr=lista(sec); const i=arr.findIndex(x=>x.id===id); const j=i+dir;
+  if(i<0||j<0||j>=arr.length) return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  renderSec(sec); recalc();
+}
+function focusLast(sec){ const arr=lista(sec); const l=arr[arr.length-1]; if(l){ document.querySelector(`#list-${sec} tr[data-id="${l.id}"] input`)?.focus(); } }
+function addMaterial(){ state.materiais.push(novoMaterial()); renderMateriais(); recalc(); focusLast('materiais'); }
+function addImpressao(){ state.impressao.push(novaImpressao()); renderImpressao(); recalc(); focusLast('impressao'); }
+function addEstrutura(){ state.estrutura.push(novaEstrutura()); renderEstrutura(); recalc(); focusLast('estrutura'); }
+function addFuncao(){ state.maoObra.producao.push(novaFuncao()); renderProducao(); recalc(); focusLast('producao'); }
+function addLocacao(){ state.logistica.locacoes.push(novaLocacao()); renderLocacoes(); recalc(); focusLast('locacoes'); }
+
+function setMont(f,v){ state.maoObra.montagem[f]=v; recalc(); }
+function setMontMoney(f,v){ state.maoObra.montagem[f]=parseMoney(v); recalc(); }
+function setTrans(f,v){ state.logistica.transporte[f]=parseMoney(v); recalc(); }
+
+function setFin(f,v){ state.financeiro[f]=parseMoney(v); if(f==='impostoPct') state.financeiro.tributacao=''; recalc(); }
+function tribPreset(tipo){
+  state.financeiro.tributacao=tipo;
+  state.financeiro.impostoPct=TRIB[tipo];
+  f_imposto.value=pctBR(TRIB[tipo]);
+  renderTribAviso();
   recalc();
 }
-/* ao sair do campo, reexibe o valor válido formatado (descarta lixo digitado) */
-function fmtPadraoInputs(){ p_margem.value=pctBR(state.meta.margem); p_impostoPadrao.value=pctBR(state.meta.impostoPadrao); }
-function setItem(id,f,v){
-  const it=state.itens.find(i=>i.id===id); if(!it)return;
-  it[f] = (f==='margem' && v==='') ? null : v;
-  if(f==='categoria'){ renderTabela(); recalc(); return; }
-  if(f==='qtd'||f==='largura'||f==='altura'||f==='precoM2') aplicarPrecoM2(it);
-  recalc();
-}
-/* MODO SIMPLES: quando R$/m² está preenchido, o Valor = m² × R$/m² (mas segue editável).
-   No avançado o Valor é derivado do custo, então aqui não faz nada. */
-function aplicarPrecoM2(it){
-  if(state.meta.avancado) return;
-  if(temPrecoM2(it)){
-    it.valor = round2(m2De(it) * (Number(it.precoM2)||0));
-    const inp=document.querySelector(`tr[data-id="${it.id}"] .in-valor`);
-    if(inp) inp.value = moneyInput(it.valor);
-  }
-}
-function aplicarPreset(id,val){
-  if(val==='' || val==null) return;
-  const it=state.itens.find(i=>i.id===id); if(!it)return;
-  it.precoM2 = val;
-  const pre=document.querySelector(`tr[data-id="${id}"] .in-precom2`); if(pre) pre.value=val;
-  aplicarPrecoM2(it); recalc();
-}
-/* campos de dinheiro (Custo, Valor): grava número, recalcula ao vivo, reformata BR no blur */
-function setItemMoney(id,f,v){
-  const it=state.itens.find(i=>i.id===id); if(!it)return;
-  it[f] = parseMoney(v);
-  recalc();
-}
-function fmtMoneyInput(el){ const n=parseMoney(el.value); el.value = (n==null?'':moneyInput(n)); }
-/* Imposto % por linha: grava número, recalcula ao vivo, reformata BR no blur */
-function setItemImposto(id,v){
-  const it=state.itens.find(i=>i.id===id); if(!it)return;
-  it.impostoPct = parseMoney(v);
-  recalc();
-}
-function fmtPctInput(el){ const n=parseMoney(el.value); el.value = (n==null?'':pctBR(n)); }
-/* atalhos Serviço (16,33) / Locação (11,33): preenchem o Imposto %, mas segue editável */
-function setImpostoPreset(id,tipo){
-  const it=state.itens.find(i=>i.id===id); if(!it)return;
-  it.tipo = tipo;
-  it.impostoPct = impostoDe(tipo);
-  const inp=document.querySelector(`tr[data-id="${id}"] .in-imposto`);
-  if(inp) inp.value = pctBR(it.impostoPct);
-  recalc();
-}
-function addLinha(){
-  const last = state.itens[state.itens.length-1];
-  const cat = last ? last.categoria : CATEGORIAS[0];
-  const it = novoItem(cat);
-  it.impostoPct = (state.meta.impostoPadrao===''||state.meta.impostoPadrao==null) ? '' : Number(state.meta.impostoPadrao); // valor inicial do orçamento
-  state.itens.push(it);
-  renderTabela(); recalc();
-  document.querySelector(`tr[data-id="${it.id}"] input[placeholder="Descrição"]`)?.focus();
-}
-function delItem(id){
-  state.itens = state.itens.filter(i=>i.id!==id);
-  renderTabela(); recalc();
-}
-function moveItem(id,dir){
-  const idx = state.itens.findIndex(i=>i.id===id); if(idx<0)return;
-  const cat = state.itens[idx].categoria;
-  let j=idx+dir;
-  while(j>=0 && j<state.itens.length && state.itens[j].categoria!==cat) j+=dir;
-  if(j<0||j>=state.itens.length) return;
-  [state.itens[idx],state.itens[j]]=[state.itens[j],state.itens[idx]];
-  renderTabela(); recalc();
+function renderTribAviso(){
+  document.getElementById('tribAviso').style.display = state.financeiro.tributacao==='locacao' ? 'block' : 'none';
 }
 
-/* ---------- persistência ---------- */
+/* ---------- recolher / expandir cards ---------- */
+function toggleSec(sec){
+  collapsed[sec]=!collapsed[sec];
+  document.querySelector(`.sector[data-sec="${sec}"]`)?.classList.toggle('collapsed', !!collapsed[sec]);
+}
+
+/* ============================================================
+   PERSISTÊNCIA
+   ============================================================ */
 let autoT;
 function autosave(){ clearTimeout(autoT); autoT=setTimeout(()=>lsSet(LS.auto,state),350); }
 function salvarOrcamento(){
   const nome = prompt('Nome para salvar este orçamento:', state.meta.nome||'Orçamento');
-  if(!nome)return;
-  const t=totais();
+  if(!nome) return;
+  const r=resultado();
   const copia=JSON.parse(JSON.stringify(state));
-  copia.snapshot={salvoEm:Date.now(),total:t.total,cliente:state.meta.cliente||'',evento:state.meta.evento||''};
+  copia.snapshot={salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||''};
   const b=lsGet(LS.budgets,{}); b[nome]=copia; lsSet(LS.budgets,b);
   montarLoadSel(); toast('Orçamento salvo: '+nome);
 }
 function carregarOrcamento(nome){
-  if(!nome)return;
+  if(!nome) return;
   const b=lsGet(LS.budgets,{});
-  if(b[nome]){ state=migrar(b[nome]); delete state.snapshot; render(); irPara('orcamento'); toast('Aberto: '+nome); }
+  if(b[nome]){ state=migrar(b[nome]); delete state.snapshot; collapsed={}; render(); irPara('orcamento'); toast('Aberto: '+nome); }
   document.getElementById('loadSel').value='';
 }
 function montarLoadSel(){
@@ -1149,14 +1105,15 @@ function montarLoadSel(){
   sel.innerHTML='<option value="">Abrir…</option>'+Object.keys(b).map(n=>`<option>${esc(n)}</option>`).join('');
 }
 function novoOrcamento(){
-  if(!confirm('Começar um orçamento novo? (o atual continua salvo se você usou "Salvar orçamento")'))return;
+  if(!confirm('Começar um orçamento novo? (o atual continua salvo se você usou "Salvar orçamento")')) return;
   state=novoEstado();
-  state.itens.push(novoItem());
+  state.materiais.push(novoMaterial());
+  collapsed={};
   document.getElementById('bannerExemplo').classList.remove('show');
   render(); irPara('orcamento'); toast('Novo orçamento em branco');
 }
 
-/* ---------- config / catálogo ---------- */
+/* ---------- config ---------- */
 function abrirConfig(){
   c_nome.value=config.nome; c_doc.value=config.doc; c_tel.value=config.tel; c_email.value=config.email; c_cidade.value=config.cidade;
   document.getElementById('modalConfig').classList.add('open');
@@ -1164,36 +1121,6 @@ function abrirConfig(){
 function salvarConfig(){
   config={nome:c_nome.value,doc:c_doc.value,tel:c_tel.value,email:c_email.value,cidade:c_cidade.value};
   lsSet(LS.config,config); fecharModais(); toast('Dados salvos');
-}
-function abrirCatalogo(){ montarCatalogo(); document.getElementById('modalCatalogo').classList.add('open'); }
-function montarCatalogo(){
-  const el=document.getElementById('catLista');
-  if(!catalog.length){ el.innerHTML='<div style="font-size:13px;color:var(--ink-soft);padding:8px 0">Nenhum item ainda. Cadastre abaixo os itens que você usa sempre.</div>'; return; }
-  el.innerHTML=catalog.map((c,i)=>
-    `<div class="cat-row"><span class="cn">${esc(c.nome)}</span>
-     <span class="badge ${c.tipo}">${TAX_RULES[c.tipo].label}</span>
-     <span class="cm">${fmt(Number(c.custo)||0)}</span>
-     <button class="del-item ico-btn del" onclick="delCatalogoItem(${i})" title="Remover">✕</button></div>`).join('');
-}
-function addCatalogoItem(){
-  const nome=cat_nome.value.trim(); if(!nome){toast('Dê um nome ao item');return;}
-  catalog.push({nome,custo:cat_custo.value||0,tipo:cat_tipo.value});
-  lsSet(LS.catalog,catalog); cat_nome.value='';cat_custo.value='';
-  montarCatalogo(); toast('Item adicionado ao catálogo');
-}
-function delCatalogoItem(i){ catalog.splice(i,1); lsSet(LS.catalog,catalog); montarCatalogo(); }
-function addDoCatalogo(){
-  if(!catalog.length){ toast('Catálogo vazio. Abra "Catálogo" no topo e cadastre seus itens.'); return; }
-  const lista=catalog.map((c,i)=>`${i+1}. ${c.nome} (${TAX_RULES[c.tipo].label} · ${fmt(Number(c.custo)||0)})`).join('\n');
-  const n=prompt('Digite o número do item do catálogo:\n\n'+lista);
-  const c=catalog[Number(n)-1];
-  if(c){
-    const last = state.itens[state.itens.length-1];
-    const it = novoItem(last?last.categoria:CATEGORIAS[0]);
-    it.desc=c.nome; it.custo=c.custo; it.tipo=c.tipo; it.impostoPct=impostoDe(c.tipo);
-    state.itens.push(it);
-    renderTabela(); recalc();
-  }
 }
 function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)fecharModais(); }));
@@ -1207,26 +1134,26 @@ function irPara(tela){
   document.getElementById('tabOrcamento').classList.toggle('active', tela==='orcamento');
   if(tela==='inicio') montarInicio();
 }
-function totalDe(raw){ return totais(migrar(raw)).total; }
+function totalDe(raw){ return resultado(migrar(raw)).preco; }
 function montarInicio(){
   const cc=document.getElementById('cardContinuar');
-  const totalAtual=totais(state).total;
-  const temRascunho=!!(state.meta.nome || state.meta.cliente || totalAtual>0);
+  const r=resultado(state);
+  const temRascunho=!!(state.meta.nome || state.meta.cliente || r.custo>0);
   cc.innerHTML = temRascunho ? `
     <div class="proj-card continuar" onclick="irPara('orcamento')">
       <div class="pn">Continuar de onde parei</div>
-      <div class="pm">${esc(state.meta.nome||'Sem nome')}${state.meta.cliente?' · '+esc(state.meta.cliente):''}${state.meta.evento?' · '+esc(state.meta.evento):''}</div>
-      <div class="pv">${fmt(totalAtual)}</div>
+      <div class="pm">${esc(state.meta.nome||'Sem nome')}${state.meta.cliente?' · '+esc(state.meta.cliente):''}${state.meta.tipoItem?' · '+esc(state.meta.tipoItem):''}</div>
+      <div class="pv">${fmt(r.preco)}</div>
     </div>` : '';
   const b=lsGet(LS.budgets,{});
   inicioLista=Object.entries(b).map(([nome,st])=>{
     const snap=st.snapshot||{};
     return {
       nome,
-      cliente: snap.cliente!==undefined ? snap.cliente : (st.meta?.cliente||''),
-      evento:  snap.evento !==undefined ? snap.evento  : (st.meta?.evento||''),
-      total:   snap.total  !==undefined ? snap.total   : totalDe(st),
-      salvoEm: snap.salvoEm||0,
+      cliente:  snap.cliente!==undefined  ? snap.cliente  : (st.meta?.cliente||''),
+      tipoItem: snap.tipoItem!==undefined ? snap.tipoItem : (st.meta?.tipoItem||''),
+      total:    snap.total!==undefined    ? snap.total    : totalDe(st),
+      salvoEm:  snap.salvoEm||0,
       data: st.meta?.data||''
     };
   }).sort((a,b)=>b.salvoEm-a.salvoEm);
@@ -1238,7 +1165,7 @@ function montarInicio(){
   grid.innerHTML=inicioLista.map((p,i)=>`
     <div class="proj-card">
       <div class="pn">${esc(p.nome)}</div>
-      <div class="pm">${esc(p.cliente||'—')}${p.evento?' · '+esc(p.evento):''}${p.data?' · '+isoToBr(p.data):''}</div>
+      <div class="pm">${esc(p.cliente||'—')}${p.tipoItem?' · '+esc(p.tipoItem):''}${p.data?' · '+isoToBr(p.data):''}</div>
       <div class="pv">${fmt(p.total)}</div>
       <div class="pa">
         <button class="btn mini" onclick="abrirProjeto(${i})">Abrir</button>
@@ -1255,7 +1182,7 @@ function duplicarProjeto(i){
   while(b[novo]) novo=p.nome+` (cópia ${n++})`;
   const copia=JSON.parse(JSON.stringify(orig));
   if(copia.meta) copia.meta.nome=novo;
-  copia.snapshot={salvoEm:Date.now(),total:p.total,cliente:p.cliente,evento:p.evento};
+  copia.snapshot={salvoEm:Date.now(), total:p.total, cliente:p.cliente, tipoItem:p.tipoItem};
   b[novo]=copia; lsSet(LS.budgets,b);
   montarLoadSel(); montarInicio(); toast('Cópia criada: '+novo);
 }
@@ -1267,41 +1194,12 @@ function excluirProjeto(i){
 }
 
 /* ============================================================
-   IMPRESSÃO
+   PROPOSTA PARA O CLIENTE (PDF) — só dados do projeto + preço final.
+   Documento externo: não expõe custo, margem, imposto nem subtotais.
    ============================================================ */
-function imprimir(modo){
-  const interna = modo==='interna';
-  const t=totais();
+function imprimir(){
+  const r=resultado(); const m=state.meta;
   const pa=document.getElementById('printArea');
-  const m=state.meta;
-  const nCols = interna ? 7 : 5;
-  let linhas='';
-  catsPresentes().forEach(cat=>{
-    const its=itensDaCategoria(cat).filter(it=> valorLinha(it)>0 || it.desc);
-    if(!its.length)return;
-    linhas+=`<tr class="p-sec"><td colspan="${nCols}">${esc(cat)}</td></tr>`;
-    let sub=0;
-    its.forEach(it=>{
-      const v=valorLinha(it); sub+=v;
-      const m2=m2De(it);
-      const m2txt = m2>0 ? n2(m2) : '—';
-      if(interna){
-        const tax=impostoLinha(it);
-        const custoTotal=(Number(it.qtd)||0)*(Number(it.custo)||0);
-        const imp=v*tax, marg=v-custoTotal-imp;
-        linhas+=`<tr><td>${esc(it.desc)}</td><td class="r">${pctBR(tax*100)}%</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r">${fmt(custoTotal)}</td><td class="r">${fmt(imp)} · ${fmt(marg)}</td><td class="r">${fmt(v)}</td></tr>`;
-      } else {
-        linhas+=`<tr><td>${esc(it.desc)}</td><td class="r">${esc(it.qtd)}</td><td class="r">${m2txt}</td><td class="r"></td><td class="r">${fmt(v)}</td></tr>`;
-      }
-    });
-    linhas+= interna
-      ? `<tr class="p-subtot"><td colspan="6">Subtotal ${esc(cat)}</td><td class="r">${fmt(sub)}</td></tr>`
-      : `<tr class="p-subtot"><td colspan="4">Subtotal ${esc(cat)}</td><td class="r">${fmt(sub)}</td></tr>`;
-  });
-  const cab = interna
-    ? '<tr><th>Descrição</th><th class="r">Imposto %</th><th class="r">Qtd</th><th class="r">m²</th><th class="r">Custo total</th><th class="r">Imposto · Margem</th><th class="r">Valor</th></tr>'
-    : '<tr><th>Descrição</th><th class="r">Qtd</th><th class="r">m²</th><th class="r"></th><th class="r">Valor</th></tr>';
-
   pa.innerHTML=`
     <div class="p-head">
       <div>
@@ -1309,45 +1207,59 @@ function imprimir(modo){
         <div class="emp">${esc(config.doc)}${config.doc?'<br>':''}${esc(config.tel)}${config.tel?' · ':''}${esc(config.email)}${(config.tel||config.email)?'<br>':''}${esc(config.cidade)}</div>
       </div>
       <div class="prop">
-        <b>${interna?'VERSÃO INTERNA':'PROPOSTA'} ${esc(m.num)}</b><br>
+        <b>PROPOSTA ${esc(m.num)}</b><br>
         Projeto: ${esc(m.nome||'—')}<br>
-        ${m.evento?'Evento: '+esc(m.evento)+'<br>':''}
+        ${m.tipoItem?'Tipo: '+esc(m.tipoItem)+'<br>':''}
         Cliente: ${esc(m.cliente||'—')}<br>
         Data: ${m.data?isoToBr(m.data):'—'}
       </div>
     </div>
-    <table class="p-tab">${cab}${linhas}</table>
     <div class="p-tot"><table>
-      ${interna?`<tr><td>Subtotal serviço (nota fiscal)</td><td>${fmt(t.servico.preco)}</td></tr>
-      <tr><td>Subtotal locação (recibo)</td><td>${fmt(t.locacao.preco)}</td></tr>
-      <tr><td>Impostos embutidos</td><td>${fmt(t.servico.imposto+t.locacao.imposto)}</td></tr>
-      <tr><td>Margem total</td><td>${fmt(t.servico.margem+t.locacao.margem)}</td></tr>`:''}
-      <tr class="g"><td>Total</td><td>${fmt(t.total)}</td></tr>
+      <tr class="g"><td>Investimento total</td><td>${fmt(r.preco)}</td></tr>
     </table></div>
     ${m.obs?`<div class="p-obs"><b>Observações:</b> ${esc(m.obs)}</div>`:''}
-    ${interna?`<div class="p-trib"><b>Tributos estimados a pagar (Lucro Presumido)</b>
-      Serviço: ${fmt(t.servico.imposto)} · Locação: ${fmt(t.locacao.imposto)} · Total: ${fmt(t.servico.imposto+t.locacao.imposto)}<br>
-      Estimativa para formação de preço. Apuração oficial: Pigatti Contabilidade.</div>`:''}
-    <div class="p-foot">${interna?'Documento interno · não enviar ao cliente':'Proposta válida conforme condições descritas. ' + esc(config.nome||'')}</div>`;
+    <div class="p-foot">Proposta válida conforme condições descritas. ${esc(config.nome||'')}</div>`;
   window.print();
 }
 
 /* ============================================================
-   CSV
+   EXPORTAÇÃO INTERNA (CSV) — tudo: linhas, subtotais e resultado.
    ============================================================ */
 function exportCSV(){
   const sep=';';
-  const num = v => (Number(v)||0).toFixed(2).replace('.',',');
-  const rows=[['Categoria','Descrição','Qtd','Largura (m)','Altura (m)','m²','Valor (R$)'].join(sep)];
-  const t=totais();
-  catsPresentes().forEach(cat=>{
-    itensDaCategoria(cat).forEach(it=>{
-      rows.push([cat,it.desc,it.qtd,num(it.largura),num(it.altura),num(m2De(it)),num(valorLinha(it))].join(sep));
-    });
-    rows.push([cat+' — subtotal','','','','','',num(t.porCategoria[cat]||0)].join(sep));
-    rows.push('');
-  });
-  rows.push(['TOTAL GERAL','','','','','',num(t.total)].join(sep));
+  const nu = v => num(v).toFixed(2).replace('.',',');
+  const rows=[];
+  const push=(...c)=>rows.push(c.map(x=>String(x??'')).join(sep));
+  push('Setor','Descrição','Detalhe','Total (R$)');
+
+  state.materiais.forEach(l=>push('Materiais', l.desc, `${nu(l.qtd)} ${l.unidade} × ${nu(l.valorUnit)}`, nu(tMat(l))));
+  push('Materiais — subtotal','','',nu(subMateriais()));
+
+  state.impressao.forEach(l=>push('Impressão', l.desc, `${nu(l.m2)} m² × ${nu(l.valorM2)}`, nu(tImp(l))));
+  push('Impressão — subtotal','','',nu(subImpressao()));
+
+  state.estrutura.forEach(l=>push('Estrutura', l.desc, `${nu(l.qtd)} ${l.unidade} × ${nu(l.valorUnit)}`, nu(tEst(l))));
+  push('Estrutura — subtotal','','',nu(subEstrutura()));
+
+  state.maoObra.producao.forEach(l=>push('Mão de obra · Produção', l.funcao, `${nu(l.diarias)} diárias × ${nu(l.valorDiaria)}`, nu(tProd(l))));
+  const mo=state.maoObra.montagem;
+  push('Mão de obra · Montagem', '', `${nu(mo.diariasMontagem)} diárias × ${nu(mo.valorMontagem)}`, nu(num(mo.diariasMontagem)*num(mo.valorMontagem)));
+  push('Mão de obra · Desmontagem', '', `${nu(mo.diariasDesmontagem)} diárias × ${nu(mo.valorDesmontagem)}`, nu(num(mo.diariasDesmontagem)*num(mo.valorDesmontagem)));
+  push('Mão de obra — subtotal','','',nu(subMaoObra()));
+
+  const tr=state.logistica.transporte;
+  [['Frete/caminhão','frete'],['Combustível','combustivel'],['Pedágio','pedagio'],['Estacionamento','estacionamento'],['Hospedagem','hospedagem'],['Alimentação','alimentacao'],['Outros','outros']]
+    .forEach(([rot,k])=>push('Logística · Transporte', rot, '', nu(tr[k])));
+  state.logistica.locacoes.forEach(l=>push('Logística · Locação', l.equipamento, `${nu(l.qtd)} × ${nu(l.dias)} dias × ${nu(l.valorDia)}`, nu(tLoc(l))));
+  push('Logística — subtotal','','',nu(subLogistica()));
+
+  const r=resultado();
+  push('','','','');
+  push('Custo total','','',nu(r.custo));
+  push(`Impostos (${pctBR(r.impPct)}%)`,'','',nu(r.imposto));
+  push(`Margem/Lucro (${pctBR(r.mgPct)}%)`,'','',nu(r.lucro));
+  push('PREÇO DE VENDA','','',nu(r.preco));
+
   const blob=new Blob(['﻿'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1358,17 +1270,27 @@ function exportCSV(){
 /* ---------- onboarding ---------- */
 function exemplo(){
   state=novoEstado();
-  state.meta.nome='Stand Feira Exemplo'; state.meta.num='000/2026';
-  state.meta.cliente='Cliente Exemplo Ltda'; state.meta.evento='Expo Design 2026';
-  state.meta.obs='Validade da proposta: 15 dias. Pagamento: 50% na aprovação, 50% na entrega.';
-  const mk=(o)=>Object.assign(novoItem(o.categoria),o);
-  state.itens=[
-    mk({categoria:'Trainel', desc:'Trainel de fundo de palco', qtd:1, largura:8, altura:3, precoM2:200, valor:round2(8*3*200)}),
-    mk({categoria:'Flâmula', desc:'Flâmulas decorativas', qtd:10, largura:0.5, altura:1.5, precoM2:120, valor:round2(10*0.5*1.5*120)}),
-    mk({categoria:'Adesivo', desc:'Adesivo de piso', qtd:1, largura:3, altura:2, precoM2:120, valor:round2(3*2*120)}),
-    mk({categoria:'Totem', desc:'Totem 2m em MDF adesivado', qtd:3, valor:1140, tipo:'locacao'}),
-    mk({categoria:'Estande', desc:'Montagem e desmontagem do estande', qtd:1, valor:1500, tipo:'servico'})
+  state.meta.nome='Túnel Sensorial Expo';
+  state.meta.num='001/2026';
+  state.meta.cliente='Cliente Exemplo Ltda';
+  state.meta.responsavel='Equipe KMF';
+  state.meta.tipoItem='Túnel cenográfico';
+  state.meta.obs='Validade: 15 dias. Pagamento: 50% na aprovação, 50% na entrega.';
+  state.materiais=[
+    Object.assign(novoMaterial(),{desc:'Compensado naval 15mm', unidade:'m²', qtd:40, valorUnit:120}),
+    Object.assign(novoMaterial(),{desc:'Tinta acrílica fosca', unidade:'l', qtd:12, valorUnit:38})
   ];
+  state.impressao=[ Object.assign(novaImpressao(),{desc:'Lona impressa fosca', m2:24, valorM2:75}) ];
+  state.estrutura=[ Object.assign(novaEstrutura(),{desc:'Box truss Q30', unidade:'m', qtd:18, valorUnit:45}) ];
+  state.maoObra.producao=[
+    Object.assign(novaFuncao(),{funcao:'Marceneiro', diarias:6, valorDiaria:280}),
+    Object.assign(novaFuncao(),{funcao:'Pintor', diarias:3, valorDiaria:240})
+  ];
+  state.maoObra.montagem={ diariasMontagem:2, valorMontagem:600, diariasDesmontagem:1, valorDesmontagem:600 };
+  state.logistica.transporte={ frete:1200, combustivel:300, pedagio:80, estacionamento:'', hospedagem:'', alimentacao:200, outros:'' };
+  state.logistica.locacoes=[ Object.assign(novaLocacao(),{equipamento:'Empilhadeira', qtd:1, dias:2, valorDia:450}) ];
+  state.financeiro={ tributacao:'servico', impostoPct:18.33, margemPct:25 };
+  collapsed={};
   render();
   document.getElementById('bannerExemplo').classList.add('show');
 }
@@ -1376,13 +1298,11 @@ function exemplo(){
 /* ---------- init ---------- */
 (function init(){
   montarLoadSel();
-  lbl_serv_pct.textContent=(TAX_RULES.servico.total*100).toFixed(2).replace('.',',')+'%';
-  lbl_loc_pct.textContent =(TAX_RULES.locacao.total*100).toFixed(2).replace('.',',')+'%';
   const visto=lsGet(LS.seen,false);
   const auto=lsGet(LS.auto,null);
   if(!visto){ lsSet(LS.seen,true); exemplo(); irPara('orcamento'); }
   else if(auto){ state=migrar(auto); render(); irPara('inicio'); }
-  else { state=novoEstado(); state.itens.push(novoItem()); render(); irPara('inicio'); }
+  else { state=novoEstado(); state.materiais.push(novoMaterial()); render(); irPara('inicio'); }
 })();
 </script>
 </body>
