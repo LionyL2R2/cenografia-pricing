@@ -292,6 +292,12 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .subhead .sh-sub{margin-left:auto;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-transform:none;letter-spacing:0}
 .col-unid{width:130px}
 .col-tot{width:124px}
+/* dropdown de descrição/função (+ "Outros") e valor unit. de itens prontos */
+.desc-wrap{display:flex;flex-direction:column;gap:6px}
+.vp-wrap{display:flex;align-items:center;gap:6px}
+.vp-wrap .in-valor{min-width:0}
+.vp-wrap .chip-sug{flex:none}
+.chip-sug:disabled{opacity:.45;cursor:not-allowed}
 .cell-tot{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap}
 .trib-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .trib-aviso{background:#FEF6EC;border:1px solid #F3D6A8;color:#92580B;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin-top:10px;line-height:1.5}
@@ -322,6 +328,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   table.itab td.cell-m2{justify-content:flex-start;font-size:14px;color:var(--ink)}
   table.itab td.cell-tot{justify-content:flex-start;font-size:15px;color:var(--ink)}
   .col-m2preco .m2preco-wrap{flex:1}
+  .desc-wrap,.vp-wrap{flex:1;min-width:0}
   .row-acts{justify-content:flex-start;gap:4px}
   .ico-btn{min-width:40px;min-height:40px;border:1px solid var(--line)}
   tr.sub-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px}
@@ -452,7 +459,21 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   </div>
 </div>
 
-<!-- 2 · MATERIAIS -->
+<!-- 2 · ITENS PRONTOS -->
+<div class="card sector" data-sec="itensprontos">
+  <div class="card-head" onclick="toggleSec('itensprontos')" role="button">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20 7 12 3 4 7l8 4 8-4z"/><path d="M4 7v10l8 4 8-4V7"/><path d="M12 11v10"/></svg></span>
+    <h2>Itens prontos</h2>
+    <span class="badge-sub" id="badge-itensprontos">R$ 0,00</span>
+    <span class="chev">▾</span>
+  </div>
+  <div class="card-body">
+    <div id="list-itensprontos"></div>
+    <div class="add-bar"><button class="btn obra" onclick="addItemPronto()">+ Adicionar item pronto</button></div>
+  </div>
+</div>
+
+<!-- 3 · MATERIAIS -->
 <div class="card sector" data-sec="materiais">
   <div class="card-head" onclick="toggleSec('materiais')" role="button">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg></span>
@@ -649,7 +670,22 @@ const TRIB = { servico: 18.33, locacao: 13.33 };
 const UNID_MAT = ['m²','m','peça','kg','m³','l','un'];
 const UNID_EST = ['m','peça','kg','conjunto','un'];
 
-const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen' };
+/* opções pré-definidas dos campos de descrição/função (Adição 1).
+   As customizadas (digitadas em "Outros") são salvas à parte no localStorage. */
+const OPC_BASE = {
+  materiais: ['Madeira','Placa MDF','Metalon','Fita de LED'],
+  producao:  ['Marceneiro','Adesivador','Eletricista'],
+  impressao: ['Lona','Adesivo']
+};
+/* itens prontos (Adição 1/2) — cada item tem unidade fixa e preço padrão global */
+const ITENS_PRONTOS = [
+  {nome:'Trainel',           unidade:'m²'},
+  {nome:'Banner com ilhós',  unidade:'m²'},
+  {nome:'Stand',             unidade:'peça'},
+  {nome:'Toten',             unidade:'peça'}
+];
+
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', precos:'cen_v3_precos' };
 
 const fmt  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const uid  = () => Math.random().toString(36).slice(2,9);
@@ -659,10 +695,15 @@ const num  = v => { const n = Number(v); return isFinite(n) ? n : 0; };
 let state  = novoEstado();
 let config = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 let collapsed = {};   // estado de recolhimento dos cards (só UI)
+/* configuração global, salva separada do orçamento */
+let opcoesCustom = (function(){ const o=lsGet(LS.opcoes,{}); return { materiais:Array.isArray(o.materiais)?o.materiais:[], producao:Array.isArray(o.producao)?o.producao:[], impressao:Array.isArray(o.impressao)?o.impressao:[] }; })();
+let precosPadrao = (function(){ const p=lsGet(LS.precos,{}); return (p && typeof p==='object') ? p : {}; })();
+function opcoesDe(sec){ return (OPC_BASE[sec]||[]).concat(opcoesCustom[sec]||[]); }
 
 function novoEstado(){
   return {
     meta:{ nome:'', num:'', cliente:'', responsavel:'', data:hoje(), tipoItem:'', obs:'' },
+    itensProntos:[],
     materiais:[],
     impressao:[],
     estrutura:[],
@@ -672,6 +713,7 @@ function novoEstado(){
     migrado:false
   };
 }
+function novoItemPronto(){ return {id:uid(), item:'', qtd:1, valorUnit:''}; }
 function novoMaterial(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
 function novaImpressao(){ return {id:uid(), desc:'', m2:'', valorM2:''}; }
 function novaEstrutura(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
@@ -734,12 +776,14 @@ function dataInput(){
 /* ============================================================
    CÁLCULO
    ============================================================ */
+function tItem(l){ return num(l.qtd)*num(l.valorUnit); }
 function tMat(l){ return num(l.qtd)*num(l.valorUnit); }
 function tImp(l){ return num(l.m2)*num(l.valorM2); }
 function tEst(l){ return num(l.qtd)*num(l.valorUnit); }
 function tProd(l){ return num(l.diarias)*num(l.valorDiaria); }
 function tLoc(l){ return num(l.qtd)*num(l.dias)*num(l.valorDia); }
 
+function subItensProntos(s=state){ return s.itensProntos.reduce((a,l)=>a+tItem(l),0); }
 function subMateriais(s=state){ return s.materiais.reduce((a,l)=>a+tMat(l),0); }
 function subImpressao(s=state){ return s.impressao.reduce((a,l)=>a+tImp(l),0); }
 function subEstrutura(s=state){ return s.estrutura.reduce((a,l)=>a+tEst(l),0); }
@@ -749,7 +793,7 @@ function subMaoObra(s=state){ return subProducao(s)+subMontagem(s); }
 function subTransporte(s=state){ const t=s.logistica.transporte; return ['frete','combustivel','pedagio','estacionamento','hospedagem','alimentacao','outros'].reduce((a,k)=>a+num(t[k]),0); }
 function subLocacoes(s=state){ return s.logistica.locacoes.reduce((a,l)=>a+tLoc(l),0); }
 function subLogistica(s=state){ return subTransporte(s)+subLocacoes(s); }
-function custoTotal(s=state){ return subMateriais(s)+subImpressao(s)+subEstrutura(s)+subMaoObra(s)+subLogistica(s); }
+function custoTotal(s=state){ return subItensProntos(s)+subMateriais(s)+subImpressao(s)+subEstrutura(s)+subMaoObra(s)+subLogistica(s); }
 
 function resultado(s=state){
   const custo = custoTotal(s);
@@ -790,6 +834,7 @@ function normalizarNovo(raw){
   const st = novoEstado();
   const src = JSON.parse(JSON.stringify(raw));
   st.meta = Object.assign(st.meta, src.meta||{});
+  st.itensProntos = Array.isArray(src.itensProntos) ? src.itensProntos.map(l=>Object.assign(novoItemPronto(),l)) : [];
   st.materiais = Array.isArray(src.materiais) ? src.materiais.map(l=>Object.assign(novoMaterial(),l)) : [];
   st.impressao = Array.isArray(src.impressao) ? src.impressao.map(l=>Object.assign(novaImpressao(),l)) : [];
   st.estrutura = Array.isArray(src.estrutura) ? src.estrutura.map(l=>Object.assign(novaEstrutura(),l)) : [];
@@ -880,7 +925,7 @@ function render(){
   f_imposto.value=pctBR(state.financeiro.impostoPct);
   f_margem.value=pctBR(state.financeiro.margemPct);
 
-  renderMateriais(); renderImpressao(); renderEstrutura(); renderProducao(); renderLocacoes();
+  renderItensProntos(); renderMateriais(); renderImpressao(); renderEstrutura(); renderProducao(); renderLocacoes();
   renderTribAviso();
   document.getElementById('bannerMigrado').classList.toggle('show', !!state.migrado);
   recalc();
@@ -900,9 +945,30 @@ function selUnidade(opts, val, sec, id){
   const o = opts.map(u=>`<option ${u===val?'selected':''}>${esc(u)}</option>`).join('');
   return `<select onchange="setLin('${sec}','${id}','unidade',this.value)">${o}</select>`;
 }
-function rowQtdUnid(sec, l, unidOpts){
+/* dropdown de descrição/função com opções pré-definidas + customizadas + "Outros (digitar)" */
+function descCell(sec, id, field, val){
+  const opts = opcoesDe(sec);
+  const inList = val!=='' && opts.includes(val);
+  const showOutros = val!=='' && !inList;   // valor livre (digitado em "Outros")
+  let o = `<option value="" ${val===''?'selected':''} disabled>Selecione…</option>`;
+  o += opts.map(x=>`<option value="${esc(x)}" ${x===val?'selected':''}>${esc(x)}</option>`).join('');
+  o += `<option value="__outros__" ${showOutros?'selected':''}>Outros (digitar)</option>`;
+  return `<div class="desc-wrap">
+    <select class="desc-sel" onchange="onDescSel('${sec}','${id}','${field}',this)">${o}</select>
+    <input class="desc-outros" placeholder="Digite e salve para reutilizar" value="${esc(showOutros?val:'')}"${showOutros?'':' style="display:none"'} oninput="setLin('${sec}','${id}','${field}',this.value)">
+  </div>`;
+}
+function onDescSel(sec,id,field,selEl){
+  const inp = selEl.closest('.desc-wrap').querySelector('.desc-outros');
+  if(selEl.value==='__outros__'){
+    inp.style.display=''; setLin(sec,id,field,inp.value); inp.focus();
+  } else {
+    inp.style.display='none'; inp.value=''; setLin(sec,id,field,selEl.value);
+  }
+}
+function rowQtdUnid(sec, l, unidOpts, descHtml){
   return `<tr data-id="${l.id}">
-    <td data-l="Descrição"><input value="${esc(l.desc)}" placeholder="Descrição" oninput="setLin('${sec}','${l.id}','desc',this.value)"></td>
+    <td data-l="Descrição">${descHtml || `<input value="${esc(l.desc)}" placeholder="Descrição" oninput="setLin('${sec}','${l.id}','desc',this.value)">`}</td>
     <td class="col-unid" data-l="Unidade">${selUnidade(unidOpts,l.unidade,sec,l.id)}</td>
     <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('${sec}','${l.id}','qtd',this.value)"></td>
     <td class="r col-valor" data-l="Valor unit."><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('${sec}','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)"></td>
@@ -910,11 +976,33 @@ function rowQtdUnid(sec, l, unidOpts){
     ${acts(sec,l.id)}
   </tr>`;
 }
+function renderItensProntos(){
+  const c=document.getElementById('list-itensprontos');
+  if(!state.itensProntos.length){ c.innerHTML=vazia('Nenhum item pronto ainda.'); return; }
+  const head=`<th>Item</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor unit.</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  const rows=state.itensProntos.map(l=>{
+    const it=ITENS_PRONTOS.find(x=>x.nome===l.item);
+    const un=it?it.unidade:'';
+    let o=`<option value="" ${l.item===''?'selected':''} disabled>Selecione…</option>`;
+    o+=ITENS_PRONTOS.map(x=>`<option value="${esc(x.nome)}" ${x.nome===l.item?'selected':''}>${esc(x.nome)} — ${esc(x.unidade)}</option>`).join('');
+    return `<tr data-id="${l.id}">
+      <td data-l="Item"><select onchange="onItemProntoSel('${l.id}',this.value)">${o}</select></td>
+      <td class="r col-qtd" data-l="Qtd${un?' ('+esc(un)+')':''}"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('itensprontos','${l.id}','qtd',this.value)"></td>
+      <td class="r col-valor" data-l="Valor unit."><div class="vp-wrap">
+        <input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">
+        <button class="chip-sug" type="button" title="Salvar este valor como preço padrão de '${esc(l.item||'')}' para os próximos orçamentos" onclick="salvarPadrao('${l.id}')"${l.item?'':' disabled'}>★ padrão</button>
+      </div></td>
+      <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
+      ${acts('itensprontos',l.id)}
+    </tr>`;
+  }).join('');
+  c.innerHTML=tab(head, rows);
+}
 function renderMateriais(){
   const c=document.getElementById('list-materiais');
   if(!state.materiais.length){ c.innerHTML=vazia('Nenhum material ainda.'); return; }
   const head=`<th>Descrição</th><th class="col-unid">Unidade</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor unit.</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
-  c.innerHTML=tab(head, state.materiais.map(l=>rowQtdUnid('materiais',l,UNID_MAT)).join(''));
+  c.innerHTML=tab(head, state.materiais.map(l=>rowQtdUnid('materiais',l,UNID_MAT,descCell('materiais',l.id,'desc',l.desc))).join(''));
 }
 function renderEstrutura(){
   const c=document.getElementById('list-estrutura');
@@ -927,7 +1015,7 @@ function renderImpressao(){
   if(!state.impressao.length){ c.innerHTML=vazia('Nenhuma impressão ainda.'); return; }
   const head=`<th>Descrição</th><th class="r col-qtd">m²</th><th class="r col-valor">Valor/m²</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
   const rows=state.impressao.map(l=>`<tr data-id="${l.id}">
-    <td data-l="Descrição"><input value="${esc(l.desc)}" placeholder="Descrição da impressão" oninput="setLin('impressao','${l.id}','desc',this.value)"></td>
+    <td data-l="Descrição">${descCell('impressao',l.id,'desc',l.desc)}</td>
     <td class="r col-qtd" data-l="m²"><input class="in-num" type="number" min="0" step="any" value="${esc(l.m2)}" placeholder="0" oninput="setLin('impressao','${l.id}','m2',this.value)"></td>
     <td class="r col-valor" data-l="Valor/m²"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorM2))}" placeholder="0,00" oninput="setLinMoney('impressao','${l.id}','valorM2',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
@@ -940,7 +1028,7 @@ function renderProducao(){
   if(!state.maoObra.producao.length){ c.innerHTML=vazia('Nenhuma função ainda.'); return; }
   const head=`<th>Função</th><th class="r col-qtd">Diárias</th><th class="r col-valor">Valor/diária</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
   const rows=state.maoObra.producao.map(l=>`<tr data-id="${l.id}">
-    <td data-l="Função"><input value="${esc(l.funcao)}" placeholder="Ex: Marceneiro" oninput="setLin('producao','${l.id}','funcao',this.value)"></td>
+    <td data-l="Função">${descCell('producao',l.id,'funcao',l.funcao)}</td>
     <td class="r col-qtd" data-l="Diárias"><input class="in-num" type="number" min="0" step="any" value="${esc(l.diarias)}" oninput="setLin('producao','${l.id}','diarias',this.value)"></td>
     <td class="r col-valor" data-l="Valor/diária"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDiaria))}" placeholder="0,00" oninput="setLinMoney('producao','${l.id}','valorDiaria',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
@@ -970,12 +1058,14 @@ function setTxt(id,val){ const e=document.getElementById(id); if(e) e.textConten
 function seg(pct,color){ return pct>0 ? `<div style="width:${pct}%;background:${color}">${pct>=12?Math.round(pct)+'%':''}</div>` : ''; }
 
 function recalc(){
+  setTots(state.itensProntos, tItem);
   setTots(state.materiais, tMat);
   setTots(state.impressao, tImp);
   setTots(state.estrutura, tEst);
   setTots(state.maoObra.producao, tProd);
   setTots(state.logistica.locacoes, tLoc);
 
+  badge('itensprontos', subItensProntos());
   badge('materiais', subMateriais());
   badge('impressao', subImpressao());
   badge('estrutura', subEstrutura());
@@ -1008,10 +1098,10 @@ function recalc(){
 
   // por setor (custo)
   const sb=document.getElementById('setBars');
-  const dados=[['Materiais',subMateriais()],['Impressão',subImpressao()],['Estrutura',subEstrutura()],['Mão de obra',subMaoObra()],['Logística e locações',subLogistica()]]
+  const dados=[['Itens prontos',subItensProntos()],['Materiais',subMateriais()],['Impressão',subImpressao()],['Estrutura',subEstrutura()],['Mão de obra',subMaoObra()],['Logística e locações',subLogistica()]]
     .filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const max=dados.length?dados[0][1]:0;
-  const cores=['#C2410C','#9A3412','#E2731C','#7C2D12','#1F2933'];
+  const cores=['#C2410C','#9A3412','#E2731C','#7C2D12','#1F2933','#B45309'];
   sb.innerHTML = dados.length
     ? dados.map(([nome,v],i)=>`<div class="bar-row"><div class="bl">${esc(nome)}</div>
         <div class="bar-track"><div class="bar-fill" style="width:${max>0?v/max*100:0}%;background:${cores[i%cores.length]}"></div></div>
@@ -1031,6 +1121,7 @@ function metaInput(){
   autosave();
 }
 function lista(sec){
+  if(sec==='itensprontos') return state.itensProntos;
   if(sec==='materiais') return state.materiais;
   if(sec==='impressao') return state.impressao;
   if(sec==='estrutura') return state.estrutura;
@@ -1039,7 +1130,7 @@ function lista(sec){
   return [];
 }
 function renderSec(sec){
-  ({materiais:renderMateriais, impressao:renderImpressao, estrutura:renderEstrutura, producao:renderProducao, locacoes:renderLocacoes}[sec])?.();
+  ({itensprontos:renderItensProntos, materiais:renderMateriais, impressao:renderImpressao, estrutura:renderEstrutura, producao:renderProducao, locacoes:renderLocacoes}[sec])?.();
 }
 function setLin(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=v; recalc(); } }
 function setLinMoney(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=parseMoney(v); recalc(); } }
@@ -1051,6 +1142,19 @@ function moveLin(sec,id,dir){
   renderSec(sec); recalc();
 }
 function focusLast(sec){ const arr=lista(sec); const l=arr[arr.length-1]; if(l){ document.querySelector(`#list-${sec} tr[data-id="${l.id}"] input`)?.focus(); } }
+function addItemPronto(){ state.itensProntos.push(novoItemPronto()); renderItensProntos(); recalc(); focusLast('itensprontos'); }
+function onItemProntoSel(id,nome){
+  const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
+  l.item=nome;
+  if(precosPadrao[nome]!==undefined) l.valorUnit=precosPadrao[nome];   // pré-preenche com o preço padrão global (editável por linha)
+  renderItensProntos(); recalc();
+}
+function salvarPadrao(id){
+  const l=state.itensProntos.find(x=>x.id===id); if(!l||!l.item){ toast('Escolha um item primeiro'); return; }
+  precosPadrao[l.item]=num(l.valorUnit);
+  lsSet(LS.precos, precosPadrao);
+  toast('Preço padrão de '+l.item+': '+fmt(num(l.valorUnit)));
+}
 function addMaterial(){ state.materiais.push(novoMaterial()); renderMateriais(); recalc(); focusLast('materiais'); }
 function addImpressao(){ state.impressao.push(novaImpressao()); renderImpressao(); recalc(); focusLast('impressao'); }
 function addEstrutura(){ state.estrutura.push(novaEstrutura()); renderEstrutura(); recalc(); focusLast('estrutura'); }
@@ -1084,9 +1188,19 @@ function toggleSec(sec){
    ============================================================ */
 let autoT;
 function autosave(){ clearTimeout(autoT); autoT=setTimeout(()=>lsSet(LS.auto,state),350); }
+/* nomes digitados em "Outros" viram opções globais do setor (config separada do orçamento) */
+function coletarOpcoes(){
+  let novas=false;
+  const add=(sec,v)=>{ v=String(v||'').trim(); if(!v) return; if(opcoesDe(sec).includes(v)) return; opcoesCustom[sec].push(v); novas=true; };
+  state.materiais.forEach(l=>add('materiais',l.desc));
+  state.maoObra.producao.forEach(l=>add('producao',l.funcao));
+  state.impressao.forEach(l=>add('impressao',l.desc));
+  if(novas){ lsSet(LS.opcoes,opcoesCustom); render(); }   // re-render: os nomes agora aparecem no dropdown
+}
 function salvarOrcamento(){
   const nome = prompt('Nome para salvar este orçamento:', state.meta.nome||'Orçamento');
   if(!nome) return;
+  coletarOpcoes();
   const r=resultado();
   const copia=JSON.parse(JSON.stringify(state));
   copia.snapshot={salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||''};
@@ -1231,6 +1345,9 @@ function exportCSV(){
   const rows=[];
   const push=(...c)=>rows.push(c.map(x=>String(x??'')).join(sep));
   push('Setor','Descrição','Detalhe','Total (R$)');
+
+  state.itensProntos.forEach(l=>{ const it=ITENS_PRONTOS.find(x=>x.nome===l.item); const un=it?it.unidade:''; push('Itens prontos', l.item, `${nu(l.qtd)} ${un} × ${nu(l.valorUnit)}`, nu(tItem(l))); });
+  push('Itens prontos — subtotal','','',nu(subItensProntos()));
 
   state.materiais.forEach(l=>push('Materiais', l.desc, `${nu(l.qtd)} ${l.unidade} × ${nu(l.valorUnit)}`, nu(tMat(l))));
   push('Materiais — subtotal','','',nu(subMateriais()));
