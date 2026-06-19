@@ -685,7 +685,8 @@ const ITENS_PRONTOS = [
   {nome:'Toten',             unidade:'peça'}
 ];
 
-const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', precos:'cen_v3_precos' };
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', precos:'cen_v3_precos', itens:'cen_v3_itens' };
+const UNID_IP = ['m²','peça'];   // unidades possíveis de item pronto
 
 const fmt  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const uid  = () => Math.random().toString(36).slice(2,9);
@@ -698,7 +699,10 @@ let collapsed = {};   // estado de recolhimento dos cards (só UI)
 /* configuração global, salva separada do orçamento */
 let opcoesCustom = (function(){ const o=lsGet(LS.opcoes,{}); return { materiais:Array.isArray(o.materiais)?o.materiais:[], producao:Array.isArray(o.producao)?o.producao:[], impressao:Array.isArray(o.impressao)?o.impressao:[] }; })();
 let precosPadrao = (function(){ const p=lsGet(LS.precos,{}); return (p && typeof p==='object') ? p : {}; })();
+/* itens prontos customizados (digitados em "Outros") — {nome, unidade}, salvos à parte */
+let itensCustom = (function(){ const a=lsGet(LS.itens,[]); return Array.isArray(a) ? a.filter(x=>x && x.nome).map(x=>({nome:String(x.nome), unidade:x.unidade==='peça'?'peça':'m²'})) : []; })();
 function opcoesDe(sec){ return (OPC_BASE[sec]||[]).concat(opcoesCustom[sec]||[]); }
+function itensProntosAll(){ return ITENS_PRONTOS.concat(itensCustom); }
 
 function novoEstado(){
   return {
@@ -713,7 +717,7 @@ function novoEstado(){
     migrado:false
   };
 }
-function novoItemPronto(){ return {id:uid(), item:'', qtd:1, valorUnit:''}; }
+function novoItemPronto(){ return {id:uid(), item:'', unidade:'', qtd:1, valorUnit:''}; }
 function novoMaterial(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
 function novaImpressao(){ return {id:uid(), desc:'', m2:'', valorM2:''}; }
 function novaEstrutura(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
@@ -979,14 +983,22 @@ function rowQtdUnid(sec, l, unidOpts, descHtml){
 function renderItensProntos(){
   const c=document.getElementById('list-itensprontos');
   if(!state.itensProntos.length){ c.innerHTML=vazia('Nenhum item pronto ainda.'); return; }
+  const all=itensProntosAll();
   const head=`<th>Item</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor unit.</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
   const rows=state.itensProntos.map(l=>{
-    const it=ITENS_PRONTOS.find(x=>x.nome===l.item);
-    const un=it?it.unidade:'';
+    const known=all.find(x=>x.nome===l.item);
+    const showOutros = l.item!=='' && !known;          // nome livre, ainda não salvo na lista global
+    const un = known ? known.unidade : (l.unidade||'');
     let o=`<option value="" ${l.item===''?'selected':''} disabled>Selecione…</option>`;
-    o+=ITENS_PRONTOS.map(x=>`<option value="${esc(x.nome)}" ${x.nome===l.item?'selected':''}>${esc(x.nome)} — ${esc(x.unidade)}</option>`).join('');
+    o+=all.map(x=>`<option value="${esc(x.nome)}" ${x.nome===l.item?'selected':''}>${esc(x.nome)} — ${esc(x.unidade)}</option>`).join('');
+    o+=`<option value="__outros__" ${showOutros?'selected':''}>Outros (digitar)</option>`;
+    const unidSel = UNID_IP.map(u=>`<option ${ (l.unidade||'m²')===u?'selected':'' }>${u}</option>`).join('');
     return `<tr data-id="${l.id}">
-      <td data-l="Item"><select onchange="onItemProntoSel('${l.id}',this.value)">${o}</select></td>
+      <td data-l="Item"><div class="desc-wrap">
+        <select class="desc-sel" onchange="onItemProntoSel('${l.id}',this)">${o}</select>
+        <input class="ip-nome" placeholder="Nome do item pronto" value="${esc(showOutros?l.item:'')}"${showOutros?'':' style="display:none"'} oninput="setIPNome('${l.id}',this.value)">
+        <select class="ip-unid"${showOutros?'':' style="display:none"'} onchange="setLin('itensprontos','${l.id}','unidade',this.value)">${unidSel}</select>
+      </div></td>
       <td class="r col-qtd" data-l="Qtd${un?' ('+esc(un)+')':''}"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('itensprontos','${l.id}','qtd',this.value)"></td>
       <td class="r col-valor" data-l="Valor unit."><div class="vp-wrap">
         <input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">
@@ -1143,11 +1155,30 @@ function moveLin(sec,id,dir){
 }
 function focusLast(sec){ const arr=lista(sec); const l=arr[arr.length-1]; if(l){ document.querySelector(`#list-${sec} tr[data-id="${l.id}"] input`)?.focus(); } }
 function addItemPronto(){ state.itensProntos.push(novoItemPronto()); renderItensProntos(); recalc(); focusLast('itensprontos'); }
-function onItemProntoSel(id,nome){
+function onItemProntoSel(id,selEl){
   const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
-  l.item=nome;
-  if(precosPadrao[nome]!==undefined) l.valorUnit=precosPadrao[nome];   // pré-preenche com o preço padrão global (editável por linha)
-  renderItensProntos(); recalc();
+  if(selEl.value==='__outros__'){
+    // revela nome + unidade sem reconstruir a linha (preserva o que for digitado)
+    const wrap=selEl.closest('.desc-wrap');
+    const nomeInp=wrap.querySelector('.ip-nome'), unidSel=wrap.querySelector('.ip-unid');
+    nomeInp.style.display=''; unidSel.style.display='';
+    l.item=nomeInp.value; l.unidade=unidSel.value||'m²';
+    if(l.item && precosPadrao[l.item]!==undefined) l.valorUnit=precosPadrao[l.item];
+    recalc(); nomeInp.focus();
+  } else {
+    const known=itensProntosAll().find(x=>x.nome===selEl.value);
+    l.item=selEl.value;
+    if(known) l.unidade=known.unidade;
+    if(precosPadrao[l.item]!==undefined) l.valorUnit=precosPadrao[l.item];   // pré-preenche o preço padrão global (editável por linha)
+    renderItensProntos(); recalc();
+  }
+}
+function setIPNome(id,v){
+  const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
+  l.item=v;
+  const b=document.querySelector(`#list-itensprontos tr[data-id="${id}"] .chip-sug`);
+  if(b) b.disabled=!v;
+  recalc();
 }
 function salvarPadrao(id){
   const l=state.itensProntos.find(x=>x.id===id); if(!l||!l.item){ toast('Escolha um item primeiro'); return; }
@@ -1195,7 +1226,15 @@ function coletarOpcoes(){
   state.materiais.forEach(l=>add('materiais',l.desc));
   state.maoObra.producao.forEach(l=>add('producao',l.funcao));
   state.impressao.forEach(l=>add('impressao',l.desc));
-  if(novas){ lsSet(LS.opcoes,opcoesCustom); render(); }   // re-render: os nomes agora aparecem no dropdown
+  // itens prontos digitados em "Outros" → lista global (nome + unidade + valor unit. como preço padrão)
+  state.itensProntos.forEach(l=>{
+    const nome=String(l.item||'').trim();
+    if(!nome || itensProntosAll().some(x=>x.nome===nome)) return;
+    itensCustom.push({nome, unidade:l.unidade==='peça'?'peça':'m²'});
+    if(precosPadrao[nome]===undefined) precosPadrao[nome]=num(l.valorUnit);
+    novas=true;
+  });
+  if(novas){ lsSet(LS.opcoes,opcoesCustom); lsSet(LS.itens,itensCustom); lsSet(LS.precos,precosPadrao); render(); }   // re-render: os nomes agora aparecem no dropdown
 }
 function salvarOrcamento(){
   const nome = prompt('Nome para salvar este orçamento:', state.meta.nome||'Orçamento');
@@ -1346,7 +1385,7 @@ function exportCSV(){
   const push=(...c)=>rows.push(c.map(x=>String(x??'')).join(sep));
   push('Setor','Descrição','Detalhe','Total (R$)');
 
-  state.itensProntos.forEach(l=>{ const it=ITENS_PRONTOS.find(x=>x.nome===l.item); const un=it?it.unidade:''; push('Itens prontos', l.item, `${nu(l.qtd)} ${un} × ${nu(l.valorUnit)}`, nu(tItem(l))); });
+  state.itensProntos.forEach(l=>{ const it=itensProntosAll().find(x=>x.nome===l.item); const un=it?it.unidade:(l.unidade||''); push('Itens prontos', l.item, `${nu(l.qtd)} ${un} × ${nu(l.valorUnit)}`, nu(tItem(l))); });
   push('Itens prontos — subtotal','','',nu(subItensProntos()));
 
   state.materiais.forEach(l=>push('Materiais', l.desc, `${nu(l.qtd)} ${l.unidade} × ${nu(l.valorUnit)}`, nu(tMat(l))));
