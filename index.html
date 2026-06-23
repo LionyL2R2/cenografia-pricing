@@ -160,7 +160,7 @@ table.itab input.in-valor{font-weight:700;color:var(--ink)}
 .col-preco{width:118px}
 .col-imposto{width:132px}
 .col-marg{width:78px}
-.col-valor{width:120px}
+.col-valor{width:150px}   /* cabe 1.234.567,00 (7 dígitos) com folga */
 .col-acts{width:96px}
 .cell-m2{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink-2);text-align:right;white-space:nowrap}
 .col-m2preco .m2preco-wrap{display:flex;align-items:center;gap:6px}
@@ -280,6 +280,15 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .proj-card.continuar{cursor:pointer;border-left:3px solid var(--accent);margin-bottom:18px}
 .proj-card.continuar:hover{border-color:var(--accent)}
 .inicio-vazio{grid-column:1/-1;font-size:13px;color:var(--ink-2);padding:20px;border:1px dashed var(--line-2);border-radius:var(--r);background:var(--surface)}
+/* busca de projetos (aba Início) */
+.busca-wrap{position:relative;max-width:360px;margin-bottom:16px}
+.busca-wrap .busca-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--ink-3);pointer-events:none}
+.busca-wrap input{padding-left:34px}
+/* erro de validação de nome (modal salvar/duplicar) */
+.nome-erro{color:var(--erro);background:#FEF2F2;border:1px solid #FCA5A5;border-radius:var(--r-xs);padding:8px 11px;font-size:12.5px;margin-top:8px;display:none}
+.nome-erro.show{display:block}
+input.erro{border-color:var(--erro)}
+input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 
 /* ---------- cards de setor (novo modelo de entrada) ---------- */
 .sector .card-head{cursor:pointer;user-select:none}
@@ -293,12 +302,8 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .subhead .sh-sub{margin-left:auto;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;text-transform:none;letter-spacing:0}
 .col-unid{width:130px}
 .col-tot{width:124px}
-/* dropdown de descrição/função (+ "Outros") e valor unit. de itens prontos */
+/* dropdown de descrição/função (+ "Outros") de itens prontos */
 .desc-wrap{display:flex;flex-direction:column;gap:6px}
-.vp-wrap{display:flex;align-items:center;gap:6px}
-.vp-wrap .in-valor{min-width:0}
-.vp-wrap .chip-sug{flex:none}
-.chip-sug:disabled{opacity:.45;cursor:not-allowed}
 .cell-tot{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap}
 .trib-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .trib-aviso{background:#FEF6EC;border:1px solid #F3D6A8;color:#92580B;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin-top:10px;line-height:1.5}
@@ -330,7 +335,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   table.itab td.cell-m2{justify-content:flex-start;font-size:14px;color:var(--ink)}
   table.itab td.cell-tot{justify-content:flex-start;font-size:15px;color:var(--ink)}
   .col-m2preco .m2preco-wrap{flex:1}
-  .desc-wrap,.vp-wrap{flex:1;min-width:0}
+  .desc-wrap{flex:1;min-width:0}
   .row-acts{justify-content:flex-start;gap:4px}
   .ico-btn{min-width:40px;min-height:40px;border:1px solid var(--line)}
   tr.sub-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px}
@@ -411,6 +416,10 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
     <button class="btn obra" onclick="novoOrcamento()">+ Novo orçamento</button>
     <label style="margin:0">Orçamentos salvos</label>
+  </div>
+  <div class="busca-wrap" id="buscaWrap" style="display:none">
+    <svg class="busca-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="projBusca" type="search" placeholder="Buscar orçamento por nome…" oninput="renderProjGrid()" aria-label="Buscar orçamento">
   </div>
   <div class="proj-grid" id="projGrid"></div>
 </div>
@@ -657,6 +666,32 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   </div>
 </div>
 
+<!-- Modal nome (salvar / duplicar) -->
+<div class="modal-bg" id="modalNome">
+  <div class="modal">
+    <h3 id="nomeModalTitulo">Salvar orçamento</h3>
+    <label>Nome do orçamento</label>
+    <input id="nomeModalInput" placeholder="Nome do orçamento" oninput="validarNomeModal()" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarNomeModal()}">
+    <div class="nome-erro" id="nomeModalErro"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn ghost" onclick="fecharModais()">Cancelar</button>
+      <button class="btn" id="nomeModalOk" onclick="confirmarNomeModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmação (sim/não) -->
+<div class="modal-bg" id="modalConfirm">
+  <div class="modal">
+    <h3 id="confTitulo">Confirmar</h3>
+    <p id="confMsg" style="font-size:13.5px;color:var(--ink-2);line-height:1.6"></p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <button class="btn ghost" onclick="fecharModais()">Não</button>
+      <button class="btn danger" id="confOk">Sim</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="printArea"></div>
 <script>
@@ -687,7 +722,7 @@ const ITENS_PRONTOS = [
   {nome:'Toten',             unidade:'peça'}
 ];
 
-const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', precos:'cen_v3_precos', itens:'cen_v3_itens' };
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', itens:'cen_v3_itens' };
 const UNID_IP = ['m²','peça'];   // unidades possíveis de item pronto
 
 const fmt  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -700,7 +735,6 @@ let config = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 let collapsed = {};   // estado de recolhimento dos cards (só UI)
 /* configuração global, salva separada do orçamento */
 let opcoesCustom = (function(){ const o=lsGet(LS.opcoes,{}); return { materiais:Array.isArray(o.materiais)?o.materiais:[], producao:Array.isArray(o.producao)?o.producao:[], impressao:Array.isArray(o.impressao)?o.impressao:[] }; })();
-let precosPadrao = (function(){ const p=lsGet(LS.precos,{}); return (p && typeof p==='object') ? p : {}; })();
 /* itens prontos customizados (digitados em "Outros") — {nome, unidade}, salvos à parte */
 let itensCustom = (function(){ const a=lsGet(LS.itens,[]); return Array.isArray(a) ? a.filter(x=>x && x.nome).map(x=>({nome:String(x.nome), unidade:x.unidade==='peça'?'peça':'m²'})) : []; })();
 function opcoesDe(sec){ return (OPC_BASE[sec]||[]).concat(opcoesCustom[sec]||[]); }
@@ -861,6 +895,7 @@ function normalizarNovo(raw){
   }
   st.financeiro = Object.assign(st.financeiro, src.financeiro||{});
   st.migrado = !!src.migrado;
+  if(src._projId) st._projId = src._projId;   // mantém o vínculo com o projeto salvo (autosave)
   return st;
 }
 /* recalcula o valor final de cada item antigo, EXATAMENTE como o modelo antigo fazia */
@@ -1017,10 +1052,7 @@ function renderItensProntos(){
       </div></td>
       ${dimCells}
       <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('itensprontos','${l.id}','qtd',this.value)"></td>
-      <td class="r col-valor" data-l="${ehM2?'Valor/m²':'Valor unit.'}"><div class="vp-wrap">
-        <input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">
-        <button class="chip-sug" type="button" title="Salvar este valor como preço padrão de '${esc(l.item||'')}' para os próximos orçamentos" onclick="salvarPadrao('${l.id}')"${l.item?'':' disabled'}>★ padrão</button>
-      </div></td>
+      <td class="r col-valor" data-l="${ehM2?'Valor/m²':'Valor unit.'}"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)"></td>
       <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
       ${acts('itensprontos',l.id)}
     </tr>`;
@@ -1191,7 +1223,6 @@ function onItemProntoSel(id,selEl){
     const known=itensProntosAll().find(x=>x.nome===selEl.value);
     l.item=selEl.value;
     if(known) l.unidade=known.unidade;
-    if(precosPadrao[l.item]!==undefined) l.valorUnit=precosPadrao[l.item];   // pré-preenche o preço padrão global (editável por linha)
     renderItensProntos(); recalc();
   }
 }
@@ -1203,15 +1234,7 @@ function onIPUnidChange(id,val){
 function setIPNome(id,v){
   const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
   l.item=v;
-  const b=document.querySelector(`#list-itensprontos tr[data-id="${id}"] .chip-sug`);
-  if(b) b.disabled=!v;
   recalc();
-}
-function salvarPadrao(id){
-  const l=state.itensProntos.find(x=>x.id===id); if(!l||!l.item){ toast('Escolha um item primeiro'); return; }
-  precosPadrao[l.item]=num(l.valorUnit);
-  lsSet(LS.precos, precosPadrao);
-  toast('Preço padrão de '+l.item+': '+fmt(num(l.valorUnit)));
 }
 function addMaterial(){ state.materiais.push(novoMaterial()); renderMateriais(); recalc(); focusLast('materiais'); }
 function addImpressao(){ state.impressao.push(novaImpressao()); renderImpressao(); recalc(); focusLast('impressao'); }
@@ -1253,36 +1276,64 @@ function coletarOpcoes(){
   state.materiais.forEach(l=>add('materiais',l.desc));
   state.maoObra.producao.forEach(l=>add('producao',l.funcao));
   state.impressao.forEach(l=>add('impressao',l.desc));
-  // itens prontos digitados em "Outros" → lista global (nome + unidade + valor unit. como preço padrão)
+  // itens prontos digitados em "Outros" → lista global (nome + unidade)
   state.itensProntos.forEach(l=>{
     const nome=String(l.item||'').trim();
     if(!nome || itensProntosAll().some(x=>x.nome===nome)) return;
     itensCustom.push({nome, unidade:l.unidade==='peça'?'peça':'m²'});
-    if(precosPadrao[nome]===undefined) precosPadrao[nome]=num(l.valorUnit);
     novas=true;
   });
-  if(novas){ lsSet(LS.opcoes,opcoesCustom); lsSet(LS.itens,itensCustom); lsSet(LS.precos,precosPadrao); render(); }   // re-render: os nomes agora aparecem no dropdown
+  if(novas){ lsSet(LS.opcoes,opcoesCustom); lsSet(LS.itens,itensCustom); render(); }   // re-render: os nomes agora aparecem no dropdown
 }
-function salvarOrcamento(){
-  const nome = prompt('Nome para salvar este orçamento:', state.meta.nome||'Orçamento');
-  if(!nome) return;
-  coletarOpcoes();
+/* ---------- identidade do projeto (salvar por cima sem duplicar) ----------
+   Cada orçamento salvo é guardado em LS.budgets com chave = ID único; o nome
+   fica em snapshot.nome. state._projId aponta para o projeto aberto (vazio = novo). */
+function normNome(s){ return String(s||'').trim().toLowerCase(); }   // única regra de comparação de nome
+function nomeDe(rec){ return (rec && rec.snapshot && rec.snapshot.nome!==undefined) ? rec.snapshot.nome : (rec && rec.meta ? (rec.meta.nome||'') : ''); }
+/* nome colide com OUTRO projeto existente? (ignora o próprio, via exceptId) */
+function nomeColide(nome, exceptId){
+  const alvo=normNome(nome);
+  const b=lsGet(LS.budgets,{});
+  return Object.keys(b).some(id => id!==exceptId && normNome(nomeDe(b[id]))===alvo);
+}
+/* grava o estado atual no projeto de ID informado (cria/atualiza por cima) */
+function persistirProjeto(id, nome){
   const r=resultado();
   const copia=JSON.parse(JSON.stringify(state));
-  copia.snapshot={salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||''};
-  const b=lsGet(LS.budgets,{}); b[nome]=copia; lsSet(LS.budgets,b);
-  montarLoadSel(); toast('Orçamento salvo: '+nome);
+  delete copia._projId; delete copia.snapshot;
+  copia.snapshot={ id, nome, salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||'' };
+  const b=lsGet(LS.budgets,{}); b[id]=copia; lsSet(LS.budgets,b);
+  montarLoadSel();
 }
-function carregarOrcamento(nome){
-  if(!nome) return;
+function salvarOrcamento(){
+  coletarOpcoes();
   const b=lsGet(LS.budgets,{});
-  if(b[nome]){ state=migrar(b[nome]); delete state.snapshot; collapsed={}; render(); irPara('orcamento'); toast('Aberto: '+nome); }
+  if(state._projId && b[state._projId]){          // projeto existente → salva POR CIMA, sem pedir nome
+    const nome=nomeDe(b[state._projId]);
+    persistirProjeto(state._projId, nome);
+    toast('Salvo: '+nome);
+    return;
+  }
+  // projeto novo (nunca salvo) → pede nome com validação de unicidade
+  pedirNome('Salvar orçamento', state.meta.nome||'Orçamento', null, nome=>{
+    const id=uid();
+    state._projId=id;
+    persistirProjeto(id, nome);
+    autosave(); toast('Orçamento salvo: '+nome);
+  });
+}
+function carregarOrcamento(id){
+  if(!id) return;
+  const b=lsGet(LS.budgets,{});
+  const rec=b[id];
+  if(rec){ state=migrar(rec); delete state.snapshot; state._projId=id; collapsed={}; render(); irPara('orcamento'); toast('Aberto: '+nomeDe(rec)); }
   document.getElementById('loadSel').value='';
 }
 function montarLoadSel(){
   const sel=document.getElementById('loadSel');
   const b=lsGet(LS.budgets,{});
-  sel.innerHTML='<option value="">Abrir…</option>'+Object.keys(b).map(n=>`<option>${esc(n)}</option>`).join('');
+  const ent=Object.entries(b).map(([id,rec])=>({id,nome:nomeDe(rec),salvoEm:rec.snapshot?.salvoEm||0})).sort((a,b)=>b.salvoEm-a.salvoEm);
+  sel.innerHTML='<option value="">Abrir…</option>'+ent.map(e=>`<option value="${esc(e.id)}">${esc(e.nome)}</option>`).join('');
 }
 function novoOrcamento(){
   if(!confirm('Começar um orçamento novo? (o atual continua salvo se você usou "Salvar orçamento")')) return;
@@ -1305,6 +1356,45 @@ function salvarConfig(){
 function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)fecharModais(); }));
 
+/* ---------- modal de nome (salvar / duplicar) com validação de nome único ---------- */
+let nomeModalCtx=null;   // {exceptId, onOk}
+function pedirNome(titulo, valor, exceptId, onOk){
+  nomeModalCtx={exceptId, onOk};
+  document.getElementById('nomeModalTitulo').textContent=titulo;
+  const inp=document.getElementById('nomeModalInput');
+  inp.value=valor||'';
+  document.getElementById('modalNome').classList.add('open');
+  validarNomeModal();
+  setTimeout(()=>{ inp.focus(); inp.select(); },30);
+}
+function validarNomeModal(){
+  const inp=document.getElementById('nomeModalInput');
+  const err=document.getElementById('nomeModalErro');
+  const ok=document.getElementById('nomeModalOk');
+  const vazio=normNome(inp.value)==='';
+  const colide=!vazio && nomeColide(inp.value, nomeModalCtx ? nomeModalCtx.exceptId : null);
+  if(colide){ err.textContent='Já existe um orçamento com esse nome. Escolha outro.'; err.classList.add('show'); inp.classList.add('erro'); }
+  else { err.classList.remove('show'); inp.classList.remove('erro'); }
+  ok.disabled = vazio || colide;
+  return !vazio && !colide;
+}
+function confirmarNomeModal(){
+  if(!validarNomeModal()) return;
+  const nome=document.getElementById('nomeModalInput').value.trim();
+  const cb=nomeModalCtx ? nomeModalCtx.onOk : null;
+  fecharModais(); nomeModalCtx=null;
+  if(cb) cb(nome);
+}
+/* ---------- modal de confirmação (sim/não) ---------- */
+function confirmar(titulo, msg, onOk, okLabel){
+  document.getElementById('confTitulo').textContent=titulo;
+  document.getElementById('confMsg').textContent=msg;
+  const ok=document.getElementById('confOk');
+  ok.textContent=okLabel||'Sim';
+  ok.onclick=()=>{ fecharModais(); onOk(); };
+  document.getElementById('modalConfirm').classList.add('open');
+}
+
 /* ---------- abas / tela início ---------- */
 let inicioLista=[];
 function irPara(tela){
@@ -1326,10 +1416,11 @@ function montarInicio(){
       <div class="pv">${fmt(r.preco)}</div>
     </div>` : '';
   const b=lsGet(LS.budgets,{});
-  inicioLista=Object.entries(b).map(([nome,st])=>{
+  inicioLista=Object.entries(b).map(([id,st])=>{
     const snap=st.snapshot||{};
     return {
-      nome,
+      id,
+      nome:     snap.nome!==undefined     ? snap.nome     : (st.meta?.nome||'(sem nome)'),
       cliente:  snap.cliente!==undefined  ? snap.cliente  : (st.meta?.cliente||''),
       tipoItem: snap.tipoItem!==undefined ? snap.tipoItem : (st.meta?.tipoItem||''),
       total:    snap.total!==undefined    ? snap.total    : totalDe(st),
@@ -1337,40 +1428,66 @@ function montarInicio(){
       data: st.meta?.data||''
     };
   }).sort((a,b)=>b.salvoEm-a.salvoEm);
+  const busca=document.getElementById('buscaWrap');
+  if(busca) busca.style.display = inicioLista.length ? '' : 'none';
+  const bi=document.getElementById('projBusca'); if(bi) bi.value='';
+  renderProjGrid();
+}
+/* filtra a lista de projetos pelo termo de busca (nome/cliente) */
+function renderProjGrid(){
   const grid=document.getElementById('projGrid');
   if(!inicioLista.length){
     grid.innerHTML='<div class="inicio-vazio">Nenhum orçamento salvo ainda. Clique em <b>+ Novo orçamento</b> para criar o primeiro — e use <b>Salvar orçamento</b> para ele aparecer aqui.</div>';
     return;
   }
-  grid.innerHTML=inicioLista.map((p,i)=>`
+  const termo=normNome(document.getElementById('projBusca')?.value||'');
+  const filt=termo ? inicioLista.filter(p=>normNome(p.nome).includes(termo)||normNome(p.cliente).includes(termo)) : inicioLista;
+  if(!filt.length){
+    grid.innerHTML=`<div class="inicio-vazio">Nenhum orçamento encontrado para “${esc(document.getElementById('projBusca').value.trim())}”.</div>`;
+    return;
+  }
+  grid.innerHTML=filt.map(p=>`
     <div class="proj-card">
       <div class="pn">${esc(p.nome)}</div>
       <div class="pm">${esc(p.cliente||'—')}${p.tipoItem?' · '+esc(p.tipoItem):''}${p.data?' · '+isoToBr(p.data):''}</div>
       <div class="pv">${fmt(p.total)}</div>
       <div class="pa">
-        <button class="btn mini" onclick="abrirProjeto(${i})">Abrir</button>
-        <button class="btn ghost mini" onclick="duplicarProjeto(${i})">Duplicar</button>
-        <button class="btn danger mini" onclick="excluirProjeto(${i})">Excluir</button>
+        <button class="btn mini" onclick="abrirProjeto('${p.id}')">Abrir</button>
+        <button class="btn ghost mini" onclick="duplicarProjeto('${p.id}')">Duplicar</button>
+        <button class="btn danger mini" onclick="excluirProjeto('${p.id}')">Excluir</button>
       </div>
     </div>`).join('');
 }
-function abrirProjeto(i){ const p=inicioLista[i]; if(p) carregarOrcamento(p.nome); }
-function duplicarProjeto(i){
-  const p=inicioLista[i]; if(!p)return;
-  const b=lsGet(LS.budgets,{}); const orig=b[p.nome]; if(!orig)return;
-  let novo=p.nome+' (cópia)', n=2;
-  while(b[novo]) novo=p.nome+` (cópia ${n++})`;
-  const copia=JSON.parse(JSON.stringify(orig));
-  if(copia.meta) copia.meta.nome=novo;
-  copia.snapshot={salvoEm:Date.now(), total:p.total, cliente:p.cliente, tipoItem:p.tipoItem};
-  b[novo]=copia; lsSet(LS.budgets,b);
-  montarLoadSel(); montarInicio(); toast('Cópia criada: '+novo);
+function projPorId(id){ return inicioLista.find(p=>p.id===id); }
+function abrirProjeto(id){ carregarOrcamento(id); }
+/* nome base sem o sufixo " (n)" + primeiro número livre da sequência */
+function nomeBase(nome){ return String(nome||'').replace(/\s*\(\d+\)\s*$/,'').trim(); }
+function proximoNomeLivre(nome){
+  const base=nomeBase(nome) || String(nome||'').trim() || 'Orçamento';
+  let n=1;
+  while(nomeColide(base+' ('+n+')', null)) n++;
+  return base+' ('+n+')';
 }
-function excluirProjeto(i){
-  const p=inicioLista[i]; if(!p)return;
-  if(!confirm(`Excluir o orçamento "${p.nome}"?`))return;
-  const b=lsGet(LS.budgets,{}); delete b[p.nome]; lsSet(LS.budgets,b);
-  montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
+function duplicarProjeto(id){
+  const b=lsGet(LS.budgets,{}); const orig=b[id]; if(!orig) return;
+  const sugestao=proximoNomeLivre(nomeDe(orig));
+  pedirNome('Duplicar orçamento', sugestao, null, nome=>{
+    const novoId=uid();
+    const copia=JSON.parse(JSON.stringify(orig));
+    const snap=copia.snapshot||{};
+    if(copia.meta) copia.meta.nome=nome;
+    copia.snapshot={ id:novoId, nome, salvoEm:Date.now(), total:snap.total||0, cliente:snap.cliente||copia.meta?.cliente||'', tipoItem:snap.tipoItem||copia.meta?.tipoItem||'' };
+    const bb=lsGet(LS.budgets,{}); bb[novoId]=copia; lsSet(LS.budgets,bb);
+    montarLoadSel(); montarInicio(); toast('Cópia criada: '+nome);
+  });
+}
+function excluirProjeto(id){
+  const p=projPorId(id); if(!p) return;
+  confirmar('Excluir orçamento', `Excluir o orçamento "${p.nome}"? Esta ação não pode ser desfeita.`, ()=>{
+    const b=lsGet(LS.budgets,{}); delete b[id]; lsSet(LS.budgets,b);
+    if(state._projId===id) state._projId=undefined;
+    montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
+  }, 'Sim, excluir');
 }
 
 /* ============================================================
@@ -1493,8 +1610,24 @@ function exemplo(){
   document.getElementById('bannerExemplo').classList.add('show');
 }
 
+/* migra LS.budgets do formato antigo (chave = nome) p/ chave = ID único, sem perder nada */
+function migrarBudgets(){
+  const b=lsGet(LS.budgets,{});
+  const out={}; let changed=false;
+  for(const [k,v] of Object.entries(b)){
+    if(!v || typeof v!=='object') continue;
+    const snap = v.snapshot || (v.snapshot={});
+    if(snap.id===k){ out[k]=v; continue; }   // já está no formato por ID
+    if(snap.nome===undefined) snap.nome=k;    // preserva o nome que era a chave
+    snap.id = uid();
+    out[snap.id]=v; changed=true;
+  }
+  if(changed) lsSet(LS.budgets,out);
+}
+
 /* ---------- init ---------- */
 (function init(){
+  migrarBudgets();
   montarLoadSel();
   const visto=lsGet(LS.seen,false);
   const auto=lsGet(LS.auto,null);
