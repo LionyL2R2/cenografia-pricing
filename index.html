@@ -153,6 +153,7 @@ table.itab input.in-num{text-align:right;font-variant-numeric:tabular-nums}
 table.itab input.in-valor{font-weight:700;color:var(--ink)}
 /* larguras de coluna (desktop) */
 .col-cat{width:140px}
+.col-item{width:190px}   /* estreita o dropdown de Item/Descrição p/ sobrar espaço às medidas */
 .col-qtd{width:62px}
 .col-dim{width:84px}
 .col-m2{width:74px}
@@ -322,6 +323,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   table.itab tr[data-id]:hover td{background:none}
   table.itab tr[data-id] td{border:none;padding:6px 0;display:flex;align-items:center;gap:12px;width:auto}
   table.itab tr[data-id] td::before{content:attr(data-l);flex:0 0 104px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-2)}
+  table.itab td.dim-na{display:none}  /* células de medida vazias (itens de peça) somem no mobile */
   table.itab tr[data-id] td.col-acts::before{align-self:center}
   table.itab td input,table.itab td select{flex:1;width:auto;min-width:0;font-size:16px}  /* 16px evita zoom no iOS; min-width:0 deixa encolher */
   .m2preco-wrap{min-width:0}
@@ -717,9 +719,9 @@ function novoEstado(){
     migrado:false
   };
 }
-function novoItemPronto(){ return {id:uid(), item:'', unidade:'', qtd:1, valorUnit:''}; }
+function novoItemPronto(){ return {id:uid(), item:'', unidade:'', qtd:1, largura:'', altura:'', valorUnit:''}; }
 function novoMaterial(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
-function novaImpressao(){ return {id:uid(), desc:'', m2:'', valorM2:''}; }
+function novaImpressao(){ return {id:uid(), desc:'', largura:'', altura:'', m2:'', qtd:1, valorM2:''}; }
 function novaEstrutura(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorUnit:''}; }
 function novaFuncao(){ return {id:uid(), funcao:'', diarias:1, valorDiaria:''}; }
 function novaLocacao(){ return {id:uid(), equipamento:'', qtd:1, dias:1, valorDia:''}; }
@@ -780,9 +782,16 @@ function dataInput(){
 /* ============================================================
    CÁLCULO
    ============================================================ */
-function tItem(l){ return num(l.qtd)*num(l.valorUnit); }
+/* unidade efetiva de um item pronto (item conhecido manda; senão o que estiver na linha) */
+function ipUnidade(l){ const k=itensProntosAll().find(x=>x.nome===l.item); return k ? k.unidade : (l.unidade||'m²'); }
+function ipM2(l){ return num(l.largura)*num(l.altura); }
+/* item pronto: m² → m²×qtd×valor/m² · peça → qtd×valor unit. */
+function tItem(l){ return ipUnidade(l)==='m²' ? ipM2(l)*num(l.qtd)*num(l.valorUnit) : num(l.qtd)*num(l.valorUnit); }
 function tMat(l){ return num(l.qtd)*num(l.valorUnit); }
-function tImp(l){ return num(l.m2)*num(l.valorM2); }
+/* impressão: m² por dimensão (largura×altura); cai no m² salvo p/ orçamentos antigos sem dimensão */
+function hasDim(l){ return (l.largura!==''&&l.largura!=null) || (l.altura!==''&&l.altura!=null); }
+function impM2(l){ return hasDim(l) ? num(l.largura)*num(l.altura) : num(l.m2); }
+function tImp(l){ return impM2(l)*num(l.qtd)*num(l.valorM2); }
 function tEst(l){ return num(l.qtd)*num(l.valorUnit); }
 function tProd(l){ return num(l.diarias)*num(l.valorDiaria); }
 function tLoc(l){ return num(l.qtd)*num(l.dias)*num(l.valorDia); }
@@ -984,23 +993,31 @@ function renderItensProntos(){
   const c=document.getElementById('list-itensprontos');
   if(!state.itensProntos.length){ c.innerHTML=vazia('Nenhum item pronto ainda.'); return; }
   const all=itensProntosAll();
-  const head=`<th>Item</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor unit.</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  const head=`<th class="col-item">Item</th><th class="r col-dim">Larg. (m)</th><th class="r col-dim">Alt. (m)</th><th class="r col-m2">m²</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
   const rows=state.itensProntos.map(l=>{
     const known=all.find(x=>x.nome===l.item);
-    const showOutros = l.item!=='' && !known;          // nome livre, ainda não salvo na lista global
-    const un = known ? known.unidade : (l.unidade||'');
-    let o=`<option value="" ${l.item===''?'selected':''} disabled>Selecione…</option>`;
+    const showOutros = !known && (l.item!=='' || !!l._outros);   // "Outros": nome livre (ou em digitação)
+    const un = known ? known.unidade : (l.unidade||'m²');
+    const ehM2 = un==='m²';
+    let o=`<option value="" ${l.item===''&&!l._outros?'selected':''} disabled>Selecione…</option>`;
     o+=all.map(x=>`<option value="${esc(x.nome)}" ${x.nome===l.item?'selected':''}>${esc(x.nome)} — ${esc(x.unidade)}</option>`).join('');
     o+=`<option value="__outros__" ${showOutros?'selected':''}>Outros (digitar)</option>`;
     const unidSel = UNID_IP.map(u=>`<option ${ (l.unidade||'m²')===u?'selected':'' }>${u}</option>`).join('');
+    // colunas de medida: m² → largura/altura/m²; peça → vazias (somem no mobile)
+    const dimCells = ehM2
+      ? `<td class="r col-dim" data-l="Largura (m)"><input class="in-num" type="number" min="0" step="any" value="${esc(l.largura)}" placeholder="0" oninput="setLin('itensprontos','${l.id}','largura',this.value)"></td>
+         <td class="r col-dim" data-l="Altura (m)"><input class="in-num" type="number" min="0" step="any" value="${esc(l.altura)}" placeholder="0" oninput="setLin('itensprontos','${l.id}','altura',this.value)"></td>
+         <td class="r col-m2 cell-m2" data-m2="${l.id}" data-l="m²">—</td>`
+      : `<td class="col-dim dim-na"></td><td class="col-dim dim-na"></td><td class="col-m2 dim-na"></td>`;
     return `<tr data-id="${l.id}">
-      <td data-l="Item"><div class="desc-wrap">
+      <td class="col-item" data-l="Item"><div class="desc-wrap">
         <select class="desc-sel" onchange="onItemProntoSel('${l.id}',this)">${o}</select>
         <input class="ip-nome" placeholder="Nome do item pronto" value="${esc(showOutros?l.item:'')}"${showOutros?'':' style="display:none"'} oninput="setIPNome('${l.id}',this.value)">
-        <select class="ip-unid"${showOutros?'':' style="display:none"'} onchange="setLin('itensprontos','${l.id}','unidade',this.value)">${unidSel}</select>
+        <select class="ip-unid"${showOutros?'':' style="display:none"'} onchange="onIPUnidChange('${l.id}',this.value)">${unidSel}</select>
       </div></td>
-      <td class="r col-qtd" data-l="Qtd${un?' ('+esc(un)+')':''}"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('itensprontos','${l.id}','qtd',this.value)"></td>
-      <td class="r col-valor" data-l="Valor unit."><div class="vp-wrap">
+      ${dimCells}
+      <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('itensprontos','${l.id}','qtd',this.value)"></td>
+      <td class="r col-valor" data-l="${ehM2?'Valor/m²':'Valor unit.'}"><div class="vp-wrap">
         <input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">
         <button class="chip-sug" type="button" title="Salvar este valor como preço padrão de '${esc(l.item||'')}' para os próximos orçamentos" onclick="salvarPadrao('${l.id}')"${l.item?'':' disabled'}>★ padrão</button>
       </div></td>
@@ -1025,10 +1042,13 @@ function renderEstrutura(){
 function renderImpressao(){
   const c=document.getElementById('list-impressao');
   if(!state.impressao.length){ c.innerHTML=vazia('Nenhuma impressão ainda.'); return; }
-  const head=`<th>Descrição</th><th class="r col-qtd">m²</th><th class="r col-valor">Valor/m²</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
+  const head=`<th class="col-item">Descrição</th><th class="r col-dim">Larg. (m)</th><th class="r col-dim">Alt. (m)</th><th class="r col-m2">m²</th><th class="r col-qtd">Qtd</th><th class="r col-valor">Valor/m²</th><th class="r col-tot">Total</th><th class="col-acts"></th>`;
   const rows=state.impressao.map(l=>`<tr data-id="${l.id}">
-    <td data-l="Descrição">${descCell('impressao',l.id,'desc',l.desc)}</td>
-    <td class="r col-qtd" data-l="m²"><input class="in-num" type="number" min="0" step="any" value="${esc(l.m2)}" placeholder="0" oninput="setLin('impressao','${l.id}','m2',this.value)"></td>
+    <td class="col-item" data-l="Descrição">${descCell('impressao',l.id,'desc',l.desc)}</td>
+    <td class="r col-dim" data-l="Largura (m)"><input class="in-num" type="number" min="0" step="any" value="${esc(l.largura)}" placeholder="0" oninput="setLin('impressao','${l.id}','largura',this.value)"></td>
+    <td class="r col-dim" data-l="Altura (m)"><input class="in-num" type="number" min="0" step="any" value="${esc(l.altura)}" placeholder="0" oninput="setLin('impressao','${l.id}','altura',this.value)"></td>
+    <td class="r col-m2 cell-m2" data-m2="${l.id}" data-l="m²">—</td>
+    <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('impressao','${l.id}','qtd',this.value)"></td>
     <td class="r col-valor" data-l="Valor/m²"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorM2))}" placeholder="0,00" oninput="setLinMoney('impressao','${l.id}','valorM2',this.value)" onblur="fmtMoneyInput(this)"></td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
     ${acts('impressao',l.id)}
@@ -1064,12 +1084,16 @@ function renderLocacoes(){
 }
 
 /* ---------- recálculo ao vivo (sem reconstruir linhas: mantém o foco) ---------- */
+const fmtM2 = v => (isFinite(v)?v:0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m²';
 function setTots(arr, fn){ arr.forEach(l=>{ const c=document.querySelector(`[data-tot="${l.id}"]`); if(c) c.textContent=fmt(fn(l)); }); }
+function setM2s(arr, fn){ arr.forEach(l=>{ const c=document.querySelector(`[data-m2="${l.id}"]`); if(c) c.textContent=fmtM2(fn(l)); }); }
 function badge(sec,val){ const b=document.getElementById('badge-'+sec); if(b) b.textContent=fmt(val); }
 function setTxt(id,val){ const e=document.getElementById(id); if(e) e.textContent=fmt(val); }
 function seg(pct,color){ return pct>0 ? `<div style="width:${pct}%;background:${color}">${pct>=12?Math.round(pct)+'%':''}</div>` : ''; }
 
 function recalc(){
+  setM2s(state.itensProntos, ipM2);
+  setM2s(state.impressao, impM2);
   setTots(state.itensProntos, tItem);
   setTots(state.materiais, tMat);
   setTots(state.impressao, tImp);
@@ -1158,20 +1182,23 @@ function addItemPronto(){ state.itensProntos.push(novoItemPronto()); renderItens
 function onItemProntoSel(id,selEl){
   const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
   if(selEl.value==='__outros__'){
-    // revela nome + unidade sem reconstruir a linha (preserva o que for digitado)
-    const wrap=selEl.closest('.desc-wrap');
-    const nomeInp=wrap.querySelector('.ip-nome'), unidSel=wrap.querySelector('.ip-unid');
-    nomeInp.style.display=''; unidSel.style.display='';
-    l.item=nomeInp.value; l.unidade=unidSel.value||'m²';
-    if(l.item && precosPadrao[l.item]!==undefined) l.valorUnit=precosPadrao[l.item];
-    recalc(); nomeInp.focus();
+    l._outros=true; l.item='';
+    if(l.unidade!=='peça') l.unidade='m²';
+    renderItensProntos(); recalc();          // re-render: ajusta as colunas à unidade escolhida
+    document.querySelector(`#list-itensprontos tr[data-id="${id}"] .ip-nome`)?.focus();
   } else {
+    l._outros=false;
     const known=itensProntosAll().find(x=>x.nome===selEl.value);
     l.item=selEl.value;
     if(known) l.unidade=known.unidade;
     if(precosPadrao[l.item]!==undefined) l.valorUnit=precosPadrao[l.item];   // pré-preenche o preço padrão global (editável por linha)
     renderItensProntos(); recalc();
   }
+}
+/* troca de unidade em item "Outros": re-renderiza p/ alternar entre layout m² e peça */
+function onIPUnidChange(id,val){
+  const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
+  l.unidade=val; renderItensProntos(); recalc();
 }
 function setIPNome(id,v){
   const l=state.itensProntos.find(x=>x.id===id); if(!l) return;
@@ -1385,13 +1412,24 @@ function exportCSV(){
   const push=(...c)=>rows.push(c.map(x=>String(x??'')).join(sep));
   push('Setor','Descrição','Detalhe','Total (R$)');
 
-  state.itensProntos.forEach(l=>{ const it=itensProntosAll().find(x=>x.nome===l.item); const un=it?it.unidade:(l.unidade||''); push('Itens prontos', l.item, `${nu(l.qtd)} ${un} × ${nu(l.valorUnit)}`, nu(tItem(l))); });
+  state.itensProntos.forEach(l=>{
+    const un=ipUnidade(l);
+    const det = un==='m²'
+      ? `${nu(l.largura)}×${nu(l.altura)} m (${nu(ipM2(l))} m²) × ${nu(l.qtd)} × ${nu(l.valorUnit)}/m²`
+      : `${nu(l.qtd)} ${un} × ${nu(l.valorUnit)}`;
+    push('Itens prontos', l.item, det, nu(tItem(l)));
+  });
   push('Itens prontos — subtotal','','',nu(subItensProntos()));
 
   state.materiais.forEach(l=>push('Materiais', l.desc, `${nu(l.qtd)} ${l.unidade} × ${nu(l.valorUnit)}`, nu(tMat(l))));
   push('Materiais — subtotal','','',nu(subMateriais()));
 
-  state.impressao.forEach(l=>push('Impressão', l.desc, `${nu(l.m2)} m² × ${nu(l.valorM2)}`, nu(tImp(l))));
+  state.impressao.forEach(l=>{
+    const det = hasDim(l)
+      ? `${nu(l.largura)}×${nu(l.altura)} m (${nu(impM2(l))} m²) × ${nu(l.qtd)} × ${nu(l.valorM2)}/m²`
+      : `${nu(impM2(l))} m² × ${nu(l.qtd)} × ${nu(l.valorM2)}`;
+    push('Impressão', l.desc, det, nu(tImp(l)));
+  });
   push('Impressão — subtotal','','',nu(subImpressao()));
 
   state.estrutura.forEach(l=>push('Estrutura', l.desc, `${nu(l.qtd)} ${l.unidade} × ${nu(l.valorUnit)}`, nu(tEst(l))));
@@ -1436,7 +1474,11 @@ function exemplo(){
     Object.assign(novoMaterial(),{desc:'Compensado naval 15mm', unidade:'m²', qtd:40, valorUnit:120}),
     Object.assign(novoMaterial(),{desc:'Tinta acrílica fosca', unidade:'l', qtd:12, valorUnit:38})
   ];
-  state.impressao=[ Object.assign(novaImpressao(),{desc:'Lona impressa fosca', m2:24, valorM2:75}) ];
+  state.itensProntos=[
+    Object.assign(novoItemPronto(),{item:'Trainel', unidade:'m²', largura:3, altura:2, qtd:2, valorUnit:90}),
+    Object.assign(novoItemPronto(),{item:'Toten', unidade:'peça', qtd:1, valorUnit:850})
+  ];
+  state.impressao=[ Object.assign(novaImpressao(),{desc:'Lona impressa fosca', largura:6, altura:4, qtd:1, valorM2:75}) ];
   state.estrutura=[ Object.assign(novaEstrutura(),{desc:'Box truss Q30', unidade:'m', qtd:18, valorUnit:45}) ];
   state.maoObra.producao=[
     Object.assign(novaFuncao(),{funcao:'Marceneiro', diarias:6, valorDiaria:280}),
