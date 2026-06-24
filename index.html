@@ -269,6 +269,17 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .tab.active{color:var(--ink)}
 .tab.active::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2.5px;background:var(--accent);border-radius:2px 2px 0 0}
 
+/* ---------- configurações (admin de listas) ---------- */
+.opc-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.opc-row{display:flex;align-items:center;gap:8px}
+.opc-row .opc-nome{flex:1;min-width:0}
+.opc-unid{width:104px;flex:none}
+.opc-row .ico-btn{border:1px solid var(--line);flex:none}
+.opc-add{display:flex;align-items:center;gap:8px;margin-top:4px}
+.opc-add input{flex:1;min-width:0}
+.opc-add .btn{flex:none}
+.opc-vazia{font-size:13px;color:var(--ink-2);padding:6px 0 12px}
+
 /* ---------- tela início ---------- */
 .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .proj-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--sh);transition:box-shadow .16s ease,border-color .16s ease}
@@ -408,6 +419,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 <nav class="tabs">
   <button class="tab" id="tabInicio" onclick="irPara('inicio')">Início</button>
   <button class="tab" id="tabOrcamento" onclick="irPara('orcamento')">Orçamento atual</button>
+  <button class="tab" id="tabConfig" onclick="irPara('config')">Configurações</button>
 </nav>
 
 <!-- Tela Início -->
@@ -641,6 +653,9 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 
 </div><!-- /telaOrcamento -->
 
+<!-- Tela Configurações (admin das listas globais) -->
+<div id="telaConfig" style="display:none"></div>
+
 <p class="rodape-fixo">
   Os percentuais de impostos são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
   Apuração oficial de tributos: <b>Pigatti Contabilidade</b>.
@@ -722,7 +737,7 @@ const ITENS_PRONTOS = [
   {nome:'Toten',             unidade:'peça'}
 ];
 
-const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', itens:'cen_v3_itens' };
+const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', itens:'cen_v3_itens', opcSeed:'cen_v3_opcseed' };
 const UNID_IP = ['m²','peça'];   // unidades possíveis de item pronto
 
 const fmt  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -733,12 +748,25 @@ const num  = v => { const n = Number(v); return isFinite(n) ? n : 0; };
 let state  = novoEstado();
 let config = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
 let collapsed = {};   // estado de recolhimento dos cards (só UI)
-/* configuração global, salva separada do orçamento */
+/* listas globais de opções (salvas à parte do orçamento). Depois de migrarOpcoes()
+   o localStorage é a fonte única: já contém as opções-base (OPC_BASE/ITENS_PRONTOS)
+   mais as adicionadas via "Outros" ou pela aba Configurações. */
 let opcoesCustom = (function(){ const o=lsGet(LS.opcoes,{}); return { materiais:Array.isArray(o.materiais)?o.materiais:[], producao:Array.isArray(o.producao)?o.producao:[], impressao:Array.isArray(o.impressao)?o.impressao:[] }; })();
-/* itens prontos customizados (digitados em "Outros") — {nome, unidade}, salvos à parte */
+/* itens prontos globais — {nome, unidade} */
 let itensCustom = (function(){ const a=lsGet(LS.itens,[]); return Array.isArray(a) ? a.filter(x=>x && x.nome).map(x=>({nome:String(x.nome), unidade:x.unidade==='peça'?'peça':'m²'})) : []; })();
-function opcoesDe(sec){ return (OPC_BASE[sec]||[]).concat(opcoesCustom[sec]||[]); }
-function itensProntosAll(){ return ITENS_PRONTOS.concat(itensCustom); }
+function opcoesDe(sec){ return opcoesCustom[sec]||[]; }
+function itensProntosAll(){ return itensCustom; }
+/* semeia as opções-base no localStorage uma única vez; a partir daí o usuário
+   pode remover/renomear até as opções-base pela aba Configurações que elas ficam. */
+function migrarOpcoes(){
+  if(lsGet(LS.opcSeed,false)) return;
+  const dedupe=arr=>{ const seen=new Set(), out=[]; (arr||[]).forEach(v=>{ v=String(v||'').trim(); if(!v) return; const k=normNome(v); if(seen.has(k)) return; seen.add(k); out.push(v); }); return out; };
+  ['materiais','producao','impressao'].forEach(sec=>{ opcoesCustom[sec]=dedupe((OPC_BASE[sec]||[]).concat(opcoesCustom[sec]||[])); });
+  const seenI=new Set(), outI=[];
+  ITENS_PRONTOS.concat(itensCustom).forEach(it=>{ if(!it||!it.nome) return; const k=normNome(it.nome); if(seenI.has(k)) return; seenI.add(k); outI.push({nome:String(it.nome).trim(), unidade:it.unidade==='peça'?'peça':'m²'}); });
+  itensCustom=outI;
+  lsSet(LS.opcoes,opcoesCustom); lsSet(LS.itens,itensCustom); lsSet(LS.opcSeed,true);
+}
 
 function novoEstado(){
   return {
@@ -1400,9 +1428,12 @@ let inicioLista=[];
 function irPara(tela){
   document.getElementById('telaInicio').style.display    = tela==='inicio'    ? 'block' : 'none';
   document.getElementById('telaOrcamento').style.display = tela==='orcamento' ? 'block' : 'none';
+  document.getElementById('telaConfig').style.display    = tela==='config'    ? 'block' : 'none';
   document.getElementById('tabInicio').classList.toggle('active', tela==='inicio');
   document.getElementById('tabOrcamento').classList.toggle('active', tela==='orcamento');
+  document.getElementById('tabConfig').classList.toggle('active', tela==='config');
   if(tela==='inicio') montarInicio();
+  if(tela==='config') montarConfig();
 }
 function totalDe(raw){ return resultado(migrar(raw)).preco; }
 function montarInicio(){
@@ -1488,6 +1519,104 @@ function excluirProjeto(id){
     if(state._projId===id) state._projId=undefined;
     montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
   }, 'Sim, excluir');
+}
+
+/* ============================================================
+   CONFIGURAÇÕES (admin) — gerencia as listas globais de opções
+   usadas pelos dropdowns. Tudo é salvo nas MESMAS listas do
+   localStorage (LS.opcoes / LS.itens) que os menus já usam.
+   Remover/renomear só vale para os PRÓXIMOS orçamentos: os já
+   salvos guardam o texto digitado na hora e continuam intactos.
+   ============================================================ */
+const ADM_SECOES = [
+  {sec:'materiais', titulo:'Materiais',             ph:'Nome do material'},
+  {sec:'producao',  titulo:'Mão de obra (funções)', ph:'Nome da função'},
+  {sec:'impressao', titulo:'Impressão (descrições)',ph:'Descrição'}
+];
+/* colisão de nome na MESMA lista (mesma normalização do resto do app), ignorando o próprio índice */
+function opcColide(sec,nome,exceptIdx){ const a=normNome(nome); return (opcoesCustom[sec]||[]).some((x,i)=>i!==exceptIdx&&normNome(x)===a); }
+function itemColide(nome,exceptIdx){ const a=normNome(nome); return itensCustom.some((x,i)=>i!==exceptIdx&&normNome(x.nome)===a); }
+
+function admOpcRow(sec,idx,val){
+  return `<div class="opc-row" data-idx="${idx}">
+    <input class="opc-nome" value="${esc(val)}" aria-label="Nome da opção" onkeydown="if(event.key==='Enter')admRenameOpc('${sec}',${idx},this)">
+    <button class="ico-btn" title="Salvar nome" aria-label="Salvar nome" onclick="admRenameOpc('${sec}',${idx},this)">✓</button>
+    <button class="ico-btn del" title="Remover" aria-label="Remover" onclick="admRemoveOpc('${sec}',${idx})">✕</button>
+  </div>`;
+}
+function admItemRow(idx,it){
+  return `<div class="opc-row" data-idx="${idx}">
+    <input class="opc-nome" value="${esc(it.nome)}" aria-label="Nome do item" onkeydown="if(event.key==='Enter')admSaveItem(${idx},this)">
+    <select class="opc-unid" aria-label="Unidade">
+      <option ${it.unidade==='m²'?'selected':''}>m²</option>
+      <option ${it.unidade==='peça'?'selected':''}>peça</option>
+    </select>
+    <button class="ico-btn" title="Salvar item" aria-label="Salvar item" onclick="admSaveItem(${idx},this)">✓</button>
+    <button class="ico-btn del" title="Remover" aria-label="Remover" onclick="admRemoveItem(${idx})">✕</button>
+  </div>`;
+}
+function admCard(titulo, inner){
+  return `<div class="card"><div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+    <h2>${esc(titulo)}</h2></div><div class="card-body">${inner}</div></div>`;
+}
+function montarConfig(){
+  const c=document.getElementById('telaConfig');
+  let html=`<div class="banner-migrado show">As mudanças aqui valem para os <b>próximos</b> orçamentos. Renomear ou remover uma opção <b>não altera</b> orçamentos já salvos — eles guardam o texto usado na hora.</div>`;
+  ADM_SECOES.forEach(s=>{
+    const lista=opcoesCustom[s.sec]||[];
+    const rows = lista.length ? `<div class="opc-list">${lista.map((v,i)=>admOpcRow(s.sec,i,v)).join('')}</div>`
+                              : `<div class="opc-vazia">Nenhuma opção ainda.</div>`;
+    const add=`<div class="opc-add"><input id="add-${s.sec}" placeholder="${esc(s.ph)}" aria-label="${esc(s.ph)}" onkeydown="if(event.key==='Enter')admAddOpc('${s.sec}')"><button class="btn obra mini" onclick="admAddOpc('${s.sec}')">+ Adicionar</button></div>`;
+    html+=admCard(s.titulo, rows+add);
+  });
+  const ir = itensCustom.length ? `<div class="opc-list">${itensCustom.map((it,i)=>admItemRow(i,it)).join('')}</div>`
+                                : `<div class="opc-vazia">Nenhum item pronto ainda.</div>`;
+  const addItem=`<div class="opc-add"><input id="add-item-nome" placeholder="Nome do item pronto" aria-label="Nome do item pronto" onkeydown="if(event.key==='Enter')admAddItem()"><select id="add-item-unid" class="opc-unid" aria-label="Unidade"><option>m²</option><option>peça</option></select><button class="btn obra mini" onclick="admAddItem()">+ Adicionar</button></div>`;
+  html+=admCard('Itens prontos (nome + unidade)', ir+addItem);
+  c.innerHTML=html;
+}
+/* aplica a mudança: salva a lista, atualiza os dropdowns do orçamento aberto (render)
+   e redesenha a própria aba. Não toca em orçamentos salvos. */
+function admAplicar(){ lsSet(LS.opcoes,opcoesCustom); lsSet(LS.itens,itensCustom); render(); montarConfig(); }
+
+function admAddOpc(sec){
+  const inp=document.getElementById('add-'+sec); const v=(inp.value||'').trim();
+  if(!v){ inp.focus(); return; }
+  if(opcColide(sec,v,-1)){ toast('Essa opção já existe.'); return; }
+  opcoesCustom[sec].push(v); admAplicar(); toast('Adicionado: '+v);
+}
+function admRenameOpc(sec,idx,btn){
+  const atual=opcoesCustom[sec][idx]; if(atual===undefined) return;
+  const novo=(btn.closest('.opc-row').querySelector('.opc-nome').value||'').trim();
+  if(!novo){ toast('O nome não pode ficar vazio.'); return; }
+  if(novo===atual){ toast('Nada para alterar.'); return; }
+  if(opcColide(sec,novo,idx)){ toast('Já existe uma opção com esse nome.'); return; }
+  confirmar('Renomear opção', `Renomear "${atual}" para "${novo}"? Vale só para os próximos orçamentos — os já salvos mantêm o nome antigo.`,
+    ()=>{ opcoesCustom[sec][idx]=novo; admAplicar(); toast('Renomeado para: '+novo); }, 'Renomear');
+}
+function admRemoveOpc(sec,idx){
+  const atual=opcoesCustom[sec][idx]; if(atual===undefined) return;
+  confirmar('Remover opção', `Remover "${atual}" da lista? Deixa de aparecer nos próximos orçamentos. Os já salvos que usam esse nome continuam intactos.`,
+    ()=>{ opcoesCustom[sec].splice(idx,1); admAplicar(); toast('Removido: '+atual); }, 'Remover');
+}
+function admAddItem(){
+  const inp=document.getElementById('add-item-nome'); const nome=(inp.value||'').trim();
+  const unid=document.getElementById('add-item-unid').value==='peça'?'peça':'m²';
+  if(!nome){ inp.focus(); return; }
+  if(itemColide(nome,-1)){ toast('Esse item já existe.'); return; }
+  itensCustom.push({nome, unidade:unid}); admAplicar(); toast('Item adicionado: '+nome);
+}
+function admSaveItem(idx,btn){
+  const atual=itensCustom[idx]; if(!atual) return;
+  const row=btn.closest('.opc-row');
+  const novo=(row.querySelector('.opc-nome').value||'').trim();
+  const unid=row.querySelector('.opc-unid').value==='peça'?'peça':'m²';
+  if(!novo){ toast('O nome não pode ficar vazio.'); return; }
+  if(itemColide(novo,idx)){ toast('Já existe um item com esse nome.'); return; }
+  if(novo===atual.nome && unid===atual.unidade){ toast('Nada para alterar.'); return; }
+  confirmar('Salvar item', `Atualizar "${atual.nome}" → "${novo}" (${unid})? Vale só para os próximos orçamentos.`,
+    ()=>{ itensCustom[idx]={nome:novo, unidade:unid}; admAplicar(); toast('Item atualizado: '+novo); }, 'Salvar');
 }
 
 /* ============================================================
@@ -1628,6 +1757,7 @@ function migrarBudgets(){
 /* ---------- init ---------- */
 (function init(){
   migrarBudgets();
+  migrarOpcoes();
   montarLoadSel();
   const visto=lsGet(LS.seen,false);
   const auto=lsGet(LS.auto,null);
