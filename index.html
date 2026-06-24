@@ -395,6 +395,13 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
   .p-foot{margin-top:26px;font-size:10.5px;color:#777;border-top:1px solid #DDD;padding-top:8px}
   .p-trib{margin-top:16px;border:1px solid #BBB;border-radius:6px;padding:10px 12px;font-size:12px}
   .p-trib b{display:block;margin-bottom:4px}
+  /* relatório interno */
+  .p-uso{display:inline-block;border:1.5px solid #C2410C;color:#C2410C;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;padding:4px 11px;border-radius:20px}
+  .p-meta{width:100%;border-collapse:collapse;margin:0 0 10px;font-size:12px}
+  .p-meta td{padding:5px 8px;border-bottom:1px solid #EEE;vertical-align:top}
+  .p-meta td.k{color:#777;font-weight:700;width:130px;white-space:nowrap;text-transform:uppercase;font-size:10px;letter-spacing:.04em}
+  .p-h2{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#15181C;margin:18px 0 2px;padding-bottom:4px;border-bottom:1px solid #15181C}
+  .p-tab tr{page-break-inside:avoid}
 }
 </style>
 </head>
@@ -647,7 +654,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 
 <!-- Ações finais -->
 <div style="display:flex;gap:8px;flex-wrap:wrap">
-  <button class="btn" onclick="imprimir()">Proposta para o cliente (PDF)</button>
+  <button class="btn" onclick="imprimir()">Relatório interno (PDF)</button>
   <button class="btn ghost" onclick="exportCSV()">Exportar interno (CSV)</button>
 </div>
 
@@ -1620,31 +1627,112 @@ function admSaveItem(idx,btn){
 }
 
 /* ============================================================
-   PROPOSTA PARA O CLIENTE (PDF) — só dados do projeto + preço final.
-   Documento externo: não expõe custo, margem, imposto nem subtotais.
+   RELATÓRIO INTERNO (PDF) — espelha TUDO que foi preenchido:
+   cabeçalho do projeto, cada setor com suas linhas e subtotal, e o
+   resultado financeiro (custo, imposto, margem, preço). Documento de
+   uso interno (expõe custo e margem) — não é a proposta do cliente.
    ============================================================ */
 function imprimir(){
   const r=resultado(); const m=state.meta;
+  const n2  = v => (Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:2});           // dimensões / qtd
+  const m2f = v => (Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); // m²
+  const mny = v => fmt(num(v));                                                                  // dinheiro BR seguro
+  const td  = (v,cls) => `<td${cls?` class="${cls}"`:''}>${v}</td>`;
+  const secoes=[];
+  function secao(titulo, subtotal, head, rows, ncols){
+    return `<table class="p-tab">
+      <thead><tr class="p-sec"><td colspan="${ncols}">${esc(titulo)}</td></tr><tr>${head}</tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="p-subtot"><td colspan="${ncols-1}" class="r">Subtotal ${esc(titulo)}</td>${td(mny(subtotal),'r')}</tr></tfoot>
+    </table>`;
+  }
+
+  // Itens prontos
+  const lsIP=state.itensProntos.filter(l=>String(l.item||'').trim()!==''||tItem(l)>0);
+  if(lsIP.length){
+    const head=`<th>Item</th><th>Un.</th><th class="r">Larg.(m)</th><th class="r">Alt.(m)</th><th class="r">m²</th><th class="r">Qtd</th><th class="r">Valor</th><th class="r">Total</th>`;
+    const rows=lsIP.map(l=>{ const un=ipUnidade(l), ehM2=un==='m²';
+      return `<tr>${td(esc(l.item||'—'))}${td(esc(un))}${td(ehM2?n2(l.largura):'—','r')}${td(ehM2?n2(l.altura):'—','r')}${td(ehM2?m2f(ipM2(l)):'—','r')}${td(n2(l.qtd),'r')}${td(mny(l.valorUnit),'r')}${td(mny(tItem(l)),'r')}</tr>`;
+    }).join('');
+    secoes.push(secao('Itens prontos', subItensProntos(), head, rows, 8));
+  }
+  // Materiais
+  const lsMat=state.materiais.filter(l=>String(l.desc||'').trim()!==''||tMat(l)>0);
+  if(lsMat.length){
+    const head=`<th>Descrição</th><th>Un.</th><th class="r">Qtd</th><th class="r">Valor unit.</th><th class="r">Total</th>`;
+    const rows=lsMat.map(l=>`<tr>${td(esc(l.desc||'—'))}${td(esc(l.unidade||''))}${td(n2(l.qtd),'r')}${td(mny(l.valorUnit),'r')}${td(mny(tMat(l)),'r')}</tr>`).join('');
+    secoes.push(secao('Materiais', subMateriais(), head, rows, 5));
+  }
+  // Impressão
+  const lsImp=state.impressao.filter(l=>String(l.desc||'').trim()!==''||tImp(l)>0);
+  if(lsImp.length){
+    const head=`<th>Descrição</th><th class="r">Larg.(m)</th><th class="r">Alt.(m)</th><th class="r">m²</th><th class="r">Qtd</th><th class="r">Valor/m²</th><th class="r">Total</th>`;
+    const rows=lsImp.map(l=>`<tr>${td(esc(l.desc||'—'))}${td(hasDim(l)?n2(l.largura):'—','r')}${td(hasDim(l)?n2(l.altura):'—','r')}${td(m2f(impM2(l)),'r')}${td(n2(l.qtd),'r')}${td(mny(l.valorM2),'r')}${td(mny(tImp(l)),'r')}</tr>`).join('');
+    secoes.push(secao('Impressão', subImpressao(), head, rows, 7));
+  }
+  // Estrutura
+  const lsEst=state.estrutura.filter(l=>String(l.desc||'').trim()!==''||tEst(l)>0);
+  if(lsEst.length){
+    const head=`<th>Descrição</th><th>Un.</th><th class="r">Qtd</th><th class="r">Valor unit.</th><th class="r">Total</th>`;
+    const rows=lsEst.map(l=>`<tr>${td(esc(l.desc||'—'))}${td(esc(l.unidade||''))}${td(n2(l.qtd),'r')}${td(mny(l.valorUnit),'r')}${td(mny(tEst(l)),'r')}</tr>`).join('');
+    secoes.push(secao('Estrutura', subEstrutura(), head, rows, 5));
+  }
+  // Mão de obra (produção + montagem/desmontagem)
+  const lsProd=state.maoObra.producao.filter(l=>String(l.funcao||'').trim()!==''||tProd(l)>0);
+  const mo=state.maoObra.montagem;
+  const totM=num(mo.diariasMontagem)*num(mo.valorMontagem), totD=num(mo.diariasDesmontagem)*num(mo.valorDesmontagem);
+  const extraMO=[];
+  if(totM>0||num(mo.diariasMontagem)>0||num(mo.valorMontagem)>0) extraMO.push(['Montagem',mo.diariasMontagem,mo.valorMontagem,totM]);
+  if(totD>0||num(mo.diariasDesmontagem)>0||num(mo.valorDesmontagem)>0) extraMO.push(['Desmontagem',mo.diariasDesmontagem,mo.valorDesmontagem,totD]);
+  if(lsProd.length||extraMO.length){
+    const head=`<th>Função / etapa</th><th class="r">Diárias</th><th class="r">Valor/diária</th><th class="r">Total</th>`;
+    let rows=lsProd.map(l=>`<tr>${td(esc(l.funcao||'—'))}${td(n2(l.diarias),'r')}${td(mny(l.valorDiaria),'r')}${td(mny(tProd(l)),'r')}</tr>`).join('');
+    rows+=extraMO.map(([nm,di,va,to])=>`<tr>${td(esc(nm))}${td(n2(di),'r')}${td(mny(va),'r')}${td(mny(to),'r')}</tr>`).join('');
+    secoes.push(secao('Mão de obra', subMaoObra(), head, rows, 4));
+  }
+  // Logística e locações (transporte + locação de equipamentos)
+  const tr=state.logistica.transporte;
+  const rotulos=[['Frete / caminhão','frete'],['Combustível','combustivel'],['Pedágio','pedagio'],['Estacionamento','estacionamento'],['Hospedagem','hospedagem'],['Alimentação','alimentacao'],['Outros','outros']];
+  const trRows=rotulos.filter(([,k])=>num(tr[k])>0);
+  const lsLoc=state.logistica.locacoes.filter(l=>String(l.equipamento||'').trim()!==''||tLoc(l)>0);
+  if(trRows.length||lsLoc.length){
+    const head=`<th>Item</th><th class="r">Qtd</th><th class="r">Dias</th><th class="r">Valor unit.</th><th class="r">Total</th>`;
+    let rows=trRows.map(([rot,k])=>`<tr>${td(esc(rot))}${td('—','r')}${td('—','r')}${td('—','r')}${td(mny(tr[k]),'r')}</tr>`).join('');
+    rows+=lsLoc.map(l=>`<tr>${td(esc(l.equipamento||'—'))}${td(n2(l.qtd),'r')}${td(n2(l.dias),'r')}${td(mny(l.valorDia),'r')}${td(mny(tLoc(l)),'r')}</tr>`).join('');
+    secoes.push(secao('Logística e locações', subLogistica(), head, rows, 5));
+  }
+
+  // cabeçalho · dados do projeto
+  const metaLinhas=[
+    ['Projeto', m.nome], ['Proposta nº', m.num], ['Cliente', m.cliente],
+    ['Responsável', m.responsavel], ['Data', m.data?isoToBr(m.data):''], ['Tipo de item', m.tipoItem]
+  ].filter(([,v])=>String(v||'').trim()!=='');
+  const metaHtml = metaLinhas.length
+    ? `<table class="p-meta">${metaLinhas.map(([k,v])=>`<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`
+    : '<div class="p-obs">Sem dados de projeto preenchidos.</div>';
+
   const pa=document.getElementById('printArea');
   pa.innerHTML=`
     <div class="p-head">
       <div>
-        <h1>${esc(config.nome||'Proposta de Cenografia')}</h1>
-        <div class="emp">${esc(config.doc)}${config.doc?'<br>':''}${esc(config.tel)}${config.tel?' · ':''}${esc(config.email)}${(config.tel||config.email)?'<br>':''}${esc(config.cidade)}</div>
+        <h1>Relatório interno de orçamento</h1>
+        <div class="emp">${esc(config.nome||'KMF Cenografia')}</div>
       </div>
-      <div class="prop">
-        <b>PROPOSTA ${esc(m.num)}</b><br>
-        Projeto: ${esc(m.nome||'—')}<br>
-        ${m.tipoItem?'Tipo: '+esc(m.tipoItem)+'<br>':''}
-        Cliente: ${esc(m.cliente||'—')}<br>
-        Data: ${m.data?isoToBr(m.data):'—'}
-      </div>
+      <div class="prop"><span class="p-uso">Uso interno</span></div>
     </div>
-    <div class="p-tot"><table>
-      <tr class="g"><td>Investimento total</td><td>${fmt(r.preco)}</td></tr>
-    </table></div>
+    ${metaHtml}
     ${m.obs?`<div class="p-obs"><b>Observações:</b> ${esc(m.obs)}</div>`:''}
-    <div class="p-foot">Proposta válida conforme condições descritas. ${esc(config.nome||'')}</div>`;
+    <div class="p-h2">Detalhamento por setor</div>
+    ${secoes.length?secoes.join(''):'<div class="p-obs">Nenhum item preenchido neste orçamento.</div>'}
+    <div class="p-h2">Resultado financeiro</div>
+    <div class="p-tot"><table>
+      <tr><td>Custo total</td><td>${mny(r.custo)}</td></tr>
+      <tr><td>Impostos (${pctBR(r.impPct)}%)</td><td>${mny(r.imposto)}</td></tr>
+      <tr><td>Margem / lucro (${pctBR(r.mgPct)}%)</td><td>${mny(r.lucro)}</td></tr>
+      <tr class="g"><td>Preço de venda</td><td>${mny(r.preco)}</td></tr>
+    </table></div>
+    ${r.invalido?'<div class="p-obs"><b>Atenção:</b> imposto% + margem% somam 100% ou mais — preço de venda travado em R$ 0,00.</div>':''}
+    <div class="p-foot"><b>Documento de uso interno.</b> Contém custos, impostos e margem — não enviar ao cliente. ${esc(config.nome||'')}</div>`;
   window.print();
 }
 
