@@ -281,6 +281,27 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .opc-add .btn{flex:none}
 .opc-vazia{font-size:13px;color:var(--ink-2);padding:6px 0 12px}
 
+/* ---------- aviso fixo de falha ao gravar ---------- */
+.aviso-salvar{
+  position:fixed;top:0;left:0;right:0;z-index:70;display:none;
+  align-items:center;gap:14px;flex-wrap:wrap;
+  background:#FEF2F2;border-bottom:2px solid var(--erro);color:#7F1D1D;
+  padding:12px 18px;font-size:13px;line-height:1.5;box-shadow:var(--sh-2);
+}
+.aviso-salvar.show{display:flex}
+.aviso-salvar .as-txt{flex:1;min-width:220px}
+.aviso-salvar b{font-weight:700}
+.aviso-salvar .btn{flex:none}
+
+/* ---------- backup (aba Configurações) ---------- */
+.backup-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.imp-resumo{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);padding:12px 14px;font-size:13px;line-height:1.9;margin-bottom:14px}
+.imp-resumo .k{color:var(--ink-2);display:inline-block;min-width:150px}
+.imp-resumo b{font-weight:700;font-variant-numeric:tabular-nums}
+.imp-nomes{font-size:12.5px;color:var(--ink-2);margin-top:6px;line-height:1.6}
+.imp-alerta{background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:var(--r-sm);padding:11px 14px;font-size:13px;line-height:1.55}
+.imp-erro{background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:var(--r-sm);padding:12px 14px;font-size:13.5px;line-height:1.55}
+
 /* ---------- tela início ---------- */
 .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .proj-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--sh);transition:box-shadow .16s ease,border-color .16s ease}
@@ -407,6 +428,13 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 </style>
 </head>
 <body>
+
+<!-- aviso fixo: gravação no navegador falhou (quota cheia / storage bloqueado) -->
+<div id="avisoSalvar" class="aviso-salvar">
+  <div class="as-txt"><b>Atenção: os dados NÃO foram salvos.</b> O armazenamento deste navegador está cheio ou bloqueado. Seu trabalho está só na tela — se recarregar a página, ele se perde. Vá em <b>Configurações → Exportar backup</b> agora e depois apague orçamentos antigos para liberar espaço.</div>
+  <button class="btn ghost mini" onclick="fecharAvisoSalvar()">Entendi</button>
+</div>
+
 <div class="wrap">
 
 <header class="app">
@@ -716,6 +744,18 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
   </div>
 </div>
 
+<!-- Modal importar backup -->
+<div class="modal-bg" id="modalImport">
+  <div class="modal">
+    <h3 id="importTitulo">Importar backup</h3>
+    <div id="importCorpo"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <button class="btn ghost" onclick="fecharModais()">Cancelar</button>
+      <button class="btn danger" id="importOk">Substituir tudo</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="printArea"></div>
 <script>
@@ -726,7 +766,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    ============================================================ */
 
 /* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
-const APP_VERSION = '5.7';
+const APP_VERSION = '5.8';
 /* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
    schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
 const SCHEMA_VERSION = 2;
@@ -804,9 +844,33 @@ function novaEstrutura(){ return {id:uid(), desc:'', unidade:'un', qtd:1, valorU
 function novaFuncao(){ return {id:uid(), funcao:'', diarias:1, valorDiaria:''}; }
 function novaLocacao(){ return {id:uid(), equipamento:'', qtd:1, dias:1, valorDia:''}; }
 
-function hoje(){ return new Date().toISOString().slice(0,10); }
+/* data LOCAL em ISO (aaaa-mm-dd). toISOString() usava UTC e, no Brasil (UTC−3),
+   jogava tudo criado depois das 21h para o dia seguinte. */
+function pad2(n){ return String(n).padStart(2,'0'); }   // declaração (hoisted): hoje() roda antes desta linha
+function hoje(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function agoraLocal(){ const d=new Date(); return `${hoje()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+
 function lsGet(k,fb){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fb; }catch(e){ return fb; } }
-function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+/* Grava e devolve true/false. Se falhar (quota cheia, modo privado, storage
+   bloqueado) o usuário VÊ o aviso — antes o erro era engolido em silêncio e o
+   trabalho se perdia sem ninguém perceber. */
+function lsSet(k,v){
+  try{
+    localStorage.setItem(k,JSON.stringify(v));
+    avisoSalvar(false);
+    return true;
+  }catch(e){
+    console.error('[cenografia] falha ao gravar "'+k+'" no localStorage:', e);
+    avisoSalvar(true);
+    return false;
+  }
+}
+function avisoSalvar(mostrar){
+  const el=document.getElementById('avisoSalvar');
+  if(!el) return;
+  if(mostrar) el.classList.add('show'); else el.classList.remove('show');
+}
+function fecharAvisoSalvar(){ avisoSalvar(false); }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('show'),2400); }
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
@@ -1651,7 +1715,25 @@ function montarConfig(){
                                 : `<div class="opc-vazia">Nenhum item pronto ainda.</div>`;
   const addItem=`<div class="opc-add"><input id="add-item-nome" placeholder="Nome do item pronto" aria-label="Nome do item pronto" onkeydown="if(event.key==='Enter')admAddItem()"><select id="add-item-unid" class="opc-unid" aria-label="Unidade"><option>m²</option><option>peça</option></select><button class="btn obra mini" onclick="admAddItem()">+ Adicionar</button></div>`;
   html+=admCard('Itens prontos (nome + unidade)', ir+addItem);
+  html+=admCardBackup();
   c.innerHTML=html;
+}
+/* card de backup — a única forma de tirar os dados deste navegador */
+function admCardBackup(){
+  const b=lsGet(LS.budgets,{});
+  const n=Object.keys(b).length;
+  return `<div class="card"><div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
+    <h2>Backup dos dados</h2></div>
+    <div class="card-body">
+      <p class="fin-nota" style="margin-top:0">Seus <b>${n}</b> orçamento${n===1?'':'s'} ficam gravados <b>só neste navegador</b>. Limpar os dados do navegador, trocar de computador ou formatar a máquina apaga tudo, sem recuperação. Exporte um backup com frequência e guarde o arquivo.</p>
+      <div class="backup-acts">
+        <button class="btn" onclick="exportarBackup()">Exportar backup</button>
+        <button class="btn ghost" onclick="document.getElementById('importFile').click()">Importar backup</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="arquivoImportSelecionado(this)">
+      </div>
+      <p class="fin-nota">O arquivo <b>cenografia-backup-${esc(hoje())}.json</b> guarda tudo: orçamentos, rascunho, listas de opções, itens prontos e seus dados. Importar <b>substitui</b> o que estiver neste navegador.</p>
+    </div></div>`;
 }
 /* aplica a mudança: salva a lista, atualiza os dropdowns do orçamento aberto (render)
    e redesenha a própria aba. Não toca em orçamentos salvos. */
@@ -1694,6 +1776,125 @@ function admSaveItem(idx,btn){
   if(novo===atual.nome && unid===atual.unidade){ toast('Nada para alterar.'); return; }
   confirmar('Salvar item', `Atualizar "${atual.nome}" → "${novo}" (${unid})? Vale só para os próximos orçamentos.`,
     ()=>{ itensCustom[idx]={nome:novo, unidade:unid}; admAplicar(); toast('Item atualizado: '+novo); }, 'Salvar');
+}
+
+/* ============================================================
+   BACKUP — exportar / importar TODAS as chaves do localStorage.
+   Único caminho de recuperação: sem isto, limpar os dados do navegador
+   ou trocar de máquina apaga todos os orçamentos sem volta.
+   ============================================================ */
+const CHAVES_LS = Object.keys(LS).map(k=>LS[k]);   // as 7 chaves gravadas pelo app
+
+function exportarBackup(){
+  const dados={};
+  CHAVES_LS.forEach(ch=>{
+    const raw=localStorage.getItem(ch);
+    if(raw===null){ dados[ch]=null; return; }
+    try{ dados[ch]=JSON.parse(raw); }
+    catch(e){ dados[ch]=raw; console.warn('[cenografia] "'+ch+'" não é JSON válido — exportado como texto.'); }
+  });
+  const payload={
+    app:'cenografia-pricing',
+    appVersion:APP_VERSION,
+    schemaVersion:SCHEMA_VERSION,
+    exportadoEm:agoraLocal(),
+    dados
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`cenografia-backup-${hoje()}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  const res=resumoBackup(payload);
+  toast(`Backup exportado (${res.orc} orçamento${res.orc===1?'':'s'})`);
+}
+
+/* conta o que vem no arquivo, para o usuário conferir ANTES de substituir */
+function resumoBackup(pay){
+  const d=(pay&&pay.dados)||{};
+  const bud=d[LS.budgets];
+  const orcObj=(bud&&typeof bud==='object'&&!Array.isArray(bud))?bud:{};
+  const nomes=Object.keys(orcObj).map(id=>nomeDe(orcObj[id])||'(sem nome)');
+  const opc=d[LS.opcoes]||{};
+  const cfg=d[LS.config]||{};
+  return {
+    orc:nomes.length,
+    nomes,
+    itens:Array.isArray(d[LS.itens])?d[LS.itens].length:0,
+    opcoes:['materiais','producao','impressao'].reduce((a,k)=>a+(Array.isArray(opc[k])?opc[k].length:0),0),
+    rascunho:!!d[LS.auto],
+    empresa:(cfg&&cfg.nome)||''
+  };
+}
+function validarBackup(pay){
+  if(!pay||typeof pay!=='object'||Array.isArray(pay)) return {ok:false, erro:'O arquivo não tem o formato de um backup (esperado um objeto JSON).'};
+  if(pay.app && pay.app!=='cenografia-pricing') return {ok:false, erro:`Este backup é de outro aplicativo ("${String(pay.app).slice(0,40)}"). Nada foi alterado.`};
+  const d=pay.dados;
+  if(!d||typeof d!=='object'||Array.isArray(d)) return {ok:false, erro:'O arquivo não contém o bloco "dados". Verifique se é o backup gerado por este app.'};
+  if(!CHAVES_LS.some(ch=>Object.prototype.hasOwnProperty.call(d,ch))) return {ok:false, erro:'O arquivo não contém nenhuma das chaves de dados conhecidas. Nada foi alterado.'};
+  const bud=d[LS.budgets];
+  if(bud!==undefined && bud!==null && (typeof bud!=='object'||Array.isArray(bud))) return {ok:false, erro:'A lista de orçamentos do arquivo está corrompida.'};
+  return {ok:true};
+}
+
+function arquivoImportSelecionado(inp){
+  const f=inp&&inp.files&&inp.files[0];
+  if(!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    inp.value='';                       // permite escolher o mesmo arquivo de novo
+    let pay=null;
+    try{ pay=JSON.parse(fr.result); }
+    catch(e){ abrirModalImport(null,'O arquivo não é um JSON válido. Nada foi alterado.'); return; }
+    const v=validarBackup(pay);
+    if(!v.ok){ abrirModalImport(null,v.erro); return; }
+    abrirModalImport(pay,null);
+  };
+  fr.onerror=()=>{ inp.value=''; abrirModalImport(null,'Não foi possível ler o arquivo.'); };
+  fr.readAsText(f);
+}
+
+function abrirModalImport(pay, erro){
+  const corpo=document.getElementById('importCorpo');
+  const ok=document.getElementById('importOk');
+  document.getElementById('importTitulo').textContent = erro ? 'Backup não pôde ser lido' : 'Importar backup';
+  if(erro){
+    corpo.innerHTML=`<div class="imp-erro">${esc(erro)}</div>`;
+    ok.style.display='none'; ok.onclick=null;
+  } else {
+    const r=resumoBackup(pay);
+    const amostra=r.nomes.slice(0,5).map(n=>esc(n)).join(' · ');
+    corpo.innerHTML=`
+      <div class="imp-resumo">
+        <div><span class="k">Orçamentos salvos</span><b>${r.orc}</b></div>
+        <div><span class="k">Itens prontos</span><b>${r.itens}</b></div>
+        <div><span class="k">Opções de dropdown</span><b>${r.opcoes}</b></div>
+        <div><span class="k">Rascunho em aberto</span><b>${r.rascunho?'sim':'não'}</b></div>
+        <div><span class="k">Empresa</span><b>${esc(r.empresa||'—')}</b></div>
+        <div><span class="k">Gerado em</span><b>${esc(pay.exportadoEm||'—')}</b></div>
+        <div><span class="k">Versão do app</span><b>v${esc(pay.appVersion||'?')} · schema v${esc(String(pay.schemaVersion??'?'))}</b></div>
+        ${r.orc?`<div class="imp-nomes">${amostra}${r.orc>5?` … e mais ${r.orc-5}`:''}</div>`:''}
+      </div>
+      <div class="imp-alerta"><b>Isto substitui todos os dados deste navegador</b> — orçamentos salvos, rascunho atual, listas e seus dados serão trocados pelos do arquivo. Não há como desfazer. Se ainda não exportou um backup do que está aqui, cancele e exporte primeiro.</div>`;
+    ok.style.display='';
+    ok.onclick=()=>{ fecharModais(); aplicarBackup(pay); };
+  }
+  document.getElementById('modalImport').classList.add('open');
+}
+
+/* substitui TUDO: chaves ausentes no arquivo são removidas, não mantidas */
+function aplicarBackup(pay){
+  const d=pay.dados||{};
+  clearTimeout(autoT);                  // impede um autosave pendente de sobrescrever o import
+  let falhou=false;
+  CHAVES_LS.forEach(ch=>{
+    const v=d[ch];
+    if(v===undefined||v===null){ try{ localStorage.removeItem(ch); }catch(e){ falhou=true; } return; }
+    if(!lsSet(ch,v)) falhou=true;
+  });
+  if(falhou){ toast('Falha ao gravar — veja o aviso no topo da tela.'); return; }
+  toast('Backup importado. Recarregando…');
+  setTimeout(()=>location.reload(),700);
 }
 
 /* ============================================================
