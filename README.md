@@ -12,11 +12,23 @@ Em produção: https://cenografia-pricing.vercel.app (deploy automático no push
 
 - Single-file HTML (`index.html`) — sem backend, sem build step, sem dependências, sem framework.
 - Persistência local via `localStorage` do navegador.
-- Versão atual: **v5.9.1** · schema de dados **3** (exibidos no rodapé do app e do PDF).
+- Versão atual: **v5.9.2** · schema de dados **3** (exibidos no rodapé do app e do PDF).
+
+A regra de arquivo único vale para o **app**. Os testes ficam em `testes/`.
 
 ## Como rodar local
 
 Abra o `index.html` em qualquer navegador moderno. Só isso.
+
+## Testes
+
+```powershell
+node testes\run.js
+```
+
+Suíte de regressão que carrega o JavaScript real do `index.html` num DOM falso —
+sem framework, sem `package.json`, só o módulo `vm` do Node. **Toda entrega roda a
+suíte antes do commit.** Detalhes e cobertura em [`testes/README.md`](testes/README.md).
 
 ## Modelo de dados
 
@@ -120,6 +132,20 @@ consulta o catálogo: mexer no catálogo não altera nenhum orçamento existente
 
 O painel admin (aba **Configurações**) gerencia o catálogo e as listas de descrição
 dos dropdowns. Mudanças ali valem só para os próximos orçamentos.
+
+## Conferência de integridade
+
+**Configurações → Conferir integridade** recalcula cada orçamento salvo com as regras
+atuais e compara com o `snapshot.total` congelado no momento do salvamento. Mostra
+nome, data, total gravado, total recalculado e a diferença em R$ e %, destacando em
+vermelho qualquer divergência acima de R$ 0,01. Para os divergentes, abre o detalhe
+das linhas de item pronto (item, unidade, valor unitário) com uma observação por
+linha — *fora do catálogo*, *catálogo sem preço*, *difere do catálogo (R$ X)* — que
+identifica o caso de preço herdado. Exporta em CSV.
+
+É **só diagnóstico**: nada é corrigido automaticamente. Serve para achar orçamento
+cujo valor tenha mudado por trás antes de a auto-contenção (v5.9) e a varredura eager
+(v5.9.1) passarem a impedir isso.
 
 ## Backup
 

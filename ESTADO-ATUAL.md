@@ -1,4 +1,4 @@
-# Estado atual do app — v5.9.1
+# Estado atual do app — v5.9.2
 
 Mapeamento do `index.html` como está em produção (`cenografia-pricing.vercel.app`).
 Documento de referência para qualquer alteração futura.
@@ -13,7 +13,7 @@ entregas das fases 2 e 2.1 (v5.7 → v5.9.1) mudaram.
 
 | Onde | Valor |
 |---|---|
-| `APP_VERSION` no topo do `<script>` | `'5.9.1'` |
+| `APP_VERSION` no topo do `<script>` | `'5.9.2'` |
 | `SCHEMA_VERSION` | `3` |
 | Rodapé do app | `KMF Orçamento v5.9.1 · schema v3` |
 | Rodapé do PDF | idem + data de geração |
@@ -24,6 +24,7 @@ existia só na mensagem de commit e não havia como saber o que estava rodando.
 Histórico:
 
 ```
+v5.9.2  suíte de testes versionada, conferência de integridade
 v5.9.1  migração eager de schema 3, item sem preço, docs
 v5.9    orçamentos auto-contidos, preços congelados na linha   ← schema 3
 v5.8    export/import de backup, correção de quota e fuso
@@ -225,6 +226,19 @@ Sem senha — é uma aba normal.
 | Impressão (descrições) | `cen_v3_opcoes.impressao` | `[string]` |
 | Itens prontos | `cen_v3_itens` | `[{nome, unidade, preco}]` |
 | **Backup dos dados** | — | exporta/importa as 7 chaves de dados |
+| **Conferir integridade** | — | diagnóstico, não grava nada |
+
+### Conferência de integridade (v5.9.2)
+
+`conferirIntegridade()` recalcula cada orçamento salvo com as regras atuais e compara
+com `snapshot.total`. Divergência acima de **R$ 0,01** é destacada; para cada orçamento
+divergente, abre o detalhe das linhas de item pronto com `obsLinhaIP()` classificando
+a causa provável (*fora do catálogo*, *catálogo sem preço*, *difere do catálogo*,
+*unidade difere*). Exporta CSV. **Não corrige nada** — é a ferramenta para achar o
+estrago que possa ter ocorrido antes da v5.9, que o app não tem como desfazer sozinho.
+
+Orçamento sem `snapshot.total` (salvo antes do campo existir) é listado como "sem
+referência", não como divergente.
 
 O campo **preço** do catálogo foi adicionado na v5.9. O comentário no código prometia
 um "preço padrão global" desde a v5.1, mas ele nunca havia sido implementado.
@@ -321,7 +335,7 @@ Impressão e Estrutura com valor em branco continuam saindo como `R$ 0,00` no PD
 | # | Ponto frágil | Situação |
 |---|---|---|
 | 4 | Prefixo `cen_v3_` irreversível | continua irreversível, mas agora existe export/import para mover os dados entre navegadores |
-| 6 | Camadas de migração sem teste | há uma suíte de 135 asserções (migrações, totais antes/depois, rollback, import, backup, quota, fuso) rodando sobre o `index.html` real num DOM falso — **mas ela vive fora do repositório**, num diretório temporário. Não está versionada e não roda em CI |
+| 6 | Camadas de migração sem teste | **resolvido na v5.9.2**: suíte de 166 asserções em `testes/`, versionada, rodando sobre o `index.html` real num DOM falso (`node testes\run.js`). Cobre migrações, totais antes/depois, rollback, import, backup, quota, fuso e conferência. Ainda **não roda em CI** — depende de alguém rodar antes do commit |
 
 ### Continuam abertos
 
@@ -334,7 +348,7 @@ Impressão e Estrutura com valor em branco continuam saindo como `R$ 0,00` no PD
 | 11 | Estrutura e Locações fora do painel admin, sem lista global |
 | 12 | Handlers `onclick` inline em HTML gerado por template string |
 | — | O backup pré-migração (`cen_v3_backup_pre_mig3`) ocupa espaço permanentemente e não tem UI para ser descartado — soma-se ao risco de quota |
-| — | A varredura eager congela o catálogo **do momento em que a v5.9.1 for aberta pela primeira vez**. Se o catálogo tiver sido alterado entre o deploy da v5.9 e o da v5.9.1, esse desvio já ocorreu e não é recuperável pelo app |
+| — | A varredura eager congela o catálogo **do momento em que a v5.9.1 for aberta pela primeira vez**. Se o catálogo tiver sido alterado entre o deploy da v5.9 e o da v5.9.1, esse desvio já ocorreu e não é recuperável pelo app. A **conferência de integridade** (v5.9.2) detecta o estrago, mas não o desfaz |
 
 ---
 
@@ -346,6 +360,11 @@ backup**, **mudanças de schema apagavam dados em silêncio** e **o painel admin
 alterar retroativamente orçamentos já fechados**. Os três estão resolvidos, com testes
 que verificam que nenhum total mudou na migração.
 
+A v5.9.2 fecha a fase: a suíte de testes passou a ser versionada em `testes/`
+(166 asserções, `node testes\run.js`) e a aba Configurações ganhou a **conferência de
+integridade**, que detecta orçamento cujo valor tenha mudado por trás — o único
+caminho para achar estrago anterior à v5.9, que o app não desfaz sozinho.
+
 O que sobra é de outra natureza: acabamento de UX (14 bugs de baixa gravidade), código
 morto da v4.x, e duas lacunas estruturais — **não existe proposta para o cliente**
-(o único PDF é interno) e **a suíte de testes não está no repositório**.
+(o único PDF é interno) e **a suíte não roda em CI**, dependendo de disciplina manual.

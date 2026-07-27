@@ -303,6 +303,29 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .imp-alerta{background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:var(--r-sm);padding:11px 14px;font-size:13px;line-height:1.55}
 .imp-erro{background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:var(--r-sm);padding:12px 14px;font-size:13.5px;line-height:1.55}
 
+/* ---------- conferência de integridade ---------- */
+.conf-vazio{font-size:13px;color:var(--ink-2);padding:14px 0 2px}
+.conf-alerta{background:#FEF2F2;border:1px solid #FCA5A5;color:#7F1D1D;border-radius:var(--r-sm);padding:11px 14px;font-size:13px;line-height:1.55;margin:14px 0 10px}
+.conf-ok{background:#F0FBF4;border:1px solid #A7E3BF;color:#12603A;border-radius:var(--r-sm);padding:11px 14px;font-size:13px;line-height:1.55;margin:14px 0 10px}
+.conf-nota{font-size:12px;color:var(--ink-2);margin-bottom:10px;line-height:1.6}
+table.conf-tab{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+table.conf-tab th{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2);text-align:left;padding:9px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+table.conf-tab th.r,table.conf-tab td.r{text-align:right}
+table.conf-tab td{padding:9px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;vertical-align:top}
+tr.conf-linha td:first-child{font-weight:600}
+tr.conf-dif td{background:#FEF2F2;color:#7F1D1D}
+tr.conf-dif td.r{font-weight:700}
+.conf-na{color:var(--ink-3)}
+.conf-tag{display:inline-block;margin-left:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:1px 7px;vertical-align:1px}
+tr.conf-det-wrap>td{padding:0 9px 12px;background:#FEF2F2;border-bottom:1px solid var(--line)}
+table.conf-sub{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xs)}
+table.conf-sub th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-2);text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.conf-sub th.r,table.conf-sub td.r{text-align:right}
+table.conf-sub td{padding:7px 9px;border-bottom:1px solid var(--line);color:var(--ink);font-variant-numeric:tabular-nums}
+table.conf-sub tr:last-child td{border-bottom:none}
+.conf-obs{color:var(--accent-d);font-weight:600;font-size:12px}
+.conf-semitem{font-size:12.5px;color:var(--ink-2);padding:8px 2px 4px}
+
 /* ---------- tela início ---------- */
 .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .proj-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--sh);transition:box-shadow .16s ease,border-color .16s ease}
@@ -773,7 +796,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    ============================================================ */
 
 /* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
-const APP_VERSION = '5.9.1';
+const APP_VERSION = '5.9.2';
 /* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
    schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
 const SCHEMA_VERSION = 3;
@@ -1905,7 +1928,23 @@ function montarConfig(){
   const addItem=`<div class="opc-add"><input id="add-item-nome" placeholder="Nome do item pronto" aria-label="Nome do item pronto" onkeydown="if(event.key==='Enter')admAddItem()"><select id="add-item-unid" class="opc-unid" aria-label="Unidade"><option>m²</option><option>peça</option></select><input id="add-item-preco" class="opc-preco in-num" inputmode="decimal" placeholder="preço" aria-label="Preço padrão" onblur="fmtMoneyInput(this)" onkeydown="if(event.key==='Enter')admAddItem()"><button class="btn obra mini" onclick="admAddItem()">+ Adicionar</button></div>`;
   html+=admCard('Itens prontos (nome + unidade + preço padrão)', ir+addItem);
   html+=admCardBackup();
+  html+=admCardConferencia();
   c.innerHTML=html;
+  if(ultimaConferencia) renderConferencia(ultimaConferencia);   // remontou a aba: mantém o resultado
+}
+/* card de conferência — diagnóstico, nunca correção automática */
+function admCardConferencia(){
+  return `<div class="card"><div class="card-head">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
+    <h2>Conferir integridade</h2></div>
+    <div class="card-body">
+      <p class="fin-nota" style="margin-top:0">Recalcula cada orçamento salvo com as regras de hoje e compara com o total que ficou gravado quando ele foi salvo. Serve para achar orçamento cujo valor mudou por trás. <b>Nada é corrigido automaticamente</b> — é só diagnóstico.</p>
+      <div class="backup-acts">
+        <button class="btn" onclick="conferirIntegridade()">Conferir integridade</button>
+        <button class="btn ghost" id="btnConfCsv" onclick="exportarConferencia()" style="display:none">Exportar conferência (CSV)</button>
+      </div>
+      <div id="confResultado"></div>
+    </div></div>`;
 }
 /* card de backup — a única forma de tirar os dados deste navegador */
 function admCardBackup(){
@@ -2112,6 +2151,148 @@ function aplicarBackup(pay){
   if(falhou){ toast('Falha ao gravar — veja o aviso no topo da tela.'); return; }
   toast('Backup importado. Recarregando…');
   setTimeout(()=>location.reload(),700);
+}
+
+/* ============================================================
+   CONFERÊNCIA DE INTEGRIDADE
+   Recalcula cada orçamento salvo com as regras ATUAIS e compara com o
+   snapshot.total, que foi congelado no momento em que ele foi salvo. Serve para
+   detectar orçamento cujo valor mudou por trás — o caso que a auto-contenção
+   (v5.9) e a varredura eager (v5.9.1) passaram a impedir, mas que pode ter
+   ocorrido antes delas. É só diagnóstico: NADA é corrigido automaticamente.
+   ============================================================ */
+const TOLERANCIA = 0.01;               // diferença acima disso é divergência
+let ultimaConferencia = null;          // guardado para o export em CSV
+
+/* por que o valor desta linha pode estar diferente do catálogo de hoje */
+function obsLinhaIP(l){
+  if(semPreco(l)) return 'sem preço';
+  const nome=String(l.item||'').trim();
+  if(!nome) return 'sem item';
+  const k=itensProntosAll().find(x=>normNome(x.nome)===normNome(nome));
+  if(!k) return 'fora do catálogo';
+  if(k.preco===''||k.preco==null) return 'catálogo sem preço';
+  if(round2(Number(k.preco))!==round2(num(l.valorUnit))) return 'difere do catálogo ('+fmt(k.preco)+')';
+  if(k.unidade!==ipUnidade(l)) return 'unidade difere do catálogo ('+k.unidade+')';
+  return '';
+}
+
+function conferirIntegridade(){
+  const b=lsGet(LS.budgets,{});
+  const linhas=Object.keys(b).map(id=>{
+    const rec=b[id];
+    const snap=(rec&&rec.snapshot)||{};
+    const gravado=(snap.total===''||snap.total==null||!isFinite(Number(snap.total))) ? null : Number(snap.total);
+    let recalculado=null, erro=null, itens=[];
+    try{
+      const st=migrar(rec);
+      recalculado=round2(resultado(st).preco);
+      itens=(st.itensProntos||[]).map(l=>({
+        item:l.item||'(sem nome)', unidade:ipUnidade(l), valorUnit:l.valorUnit,
+        total:round2(tItem(l)), obs:obsLinhaIP(l)
+      }));
+    }catch(e){ erro=String((e&&e.message)||e); }
+    const dif = (gravado===null||recalculado===null) ? null : round2(recalculado-gravado);
+    const pct = (dif===null||!gravado) ? null : (dif/gravado*100);
+    return {
+      id, nome:nomeDe(rec)||'(sem nome)',
+      data:(rec&&rec.meta&&rec.meta.data)||'', salvoEm:snap.salvoEm||0,
+      gravado, recalculado, dif, pct, erro, itens,
+      legado:!ehFormatoNovo(rec),
+      divergente: dif!==null && Math.abs(dif)>TOLERANCIA
+    };
+  }).sort((a,b)=>{
+    if(a.divergente!==b.divergente) return a.divergente?-1:1;   // divergências primeiro
+    return b.salvoEm-a.salvoEm;
+  });
+  ultimaConferencia=linhas;
+  renderConferencia(linhas);
+  const nd=linhas.filter(l=>l.divergente).length;
+  toast(nd ? `${nd} orçamento${nd===1?'':'s'} com divergência` : 'Nenhuma divergência encontrada');
+  return linhas;
+}
+
+function renderConferencia(linhas){
+  const c=document.getElementById('confResultado');
+  if(!c) return;
+  const btn=document.getElementById('btnConfCsv');
+  if(btn) btn.style.display = linhas.length ? '' : 'none';
+  if(!linhas.length){ c.innerHTML='<div class="conf-vazio">Nenhum orçamento salvo para conferir.</div>'; return; }
+
+  const nd=linhas.filter(l=>l.divergente).length;
+  const nSem=linhas.filter(l=>l.gravado===null).length;
+  const nErro=linhas.filter(l=>l.erro).length;
+  const resumo = nd
+    ? `<div class="conf-alerta"><b>${nd} de ${linhas.length}</b> orçamento${nd===1?'':'s'} recalcula${nd===1?'':'m'} diferente do valor gravado no salvamento. Nada foi alterado — confira as linhas destacadas e corrija à mão o que fizer sentido.</div>`
+    : `<div class="conf-ok"><b>Nenhuma divergência.</b> Os ${linhas.length} orçamentos salvos recalculam exatamente o valor que foi gravado.</div>`;
+  const notas=[];
+  if(nSem) notas.push(`${nSem} sem total de referência (salvos antes desse campo existir) — não dá para comparar.`);
+  if(nErro) notas.push(`${nErro} não puderam ser recalculados.`);
+
+  const cel=(v,cls)=>`<td${cls?` class="${cls}"`:''}>${v}</td>`;
+  const linhasHtml=linhas.map(l=>{
+    const marca = l.divergente ? ' conf-dif' : '';
+    const gravado = l.gravado===null ? '<span class="conf-na">—</span>' : esc(fmt(l.gravado));
+    const recalc  = l.erro ? '<span class="conf-na">erro</span>' : (l.recalculado===null?'<span class="conf-na">—</span>':esc(fmt(l.recalculado)));
+    const dif     = l.dif===null ? '<span class="conf-na">—</span>' : esc((l.dif>0?'+':'')+fmt(l.dif));
+    const pct     = l.pct===null ? '<span class="conf-na">—</span>' : esc((l.pct>0?'+':'')+pctBR(round2(l.pct))+'%');
+    const tag     = l.legado ? '<span class="conf-tag">formato antigo</span>' : '';
+    let out=`<tr class="conf-linha${marca}">
+      ${cel(esc(l.nome)+tag)}
+      ${cel(l.data?esc(isoToBr(l.data)):'<span class="conf-na">—</span>')}
+      ${cel(gravado,'r')}${cel(recalc,'r')}${cel(dif,'r')}${cel(pct,'r')}
+    </tr>`;
+    // só orçamentos divergentes abrem o detalhe das linhas de item pronto
+    if(l.divergente && l.itens.length){
+      const det=l.itens.map(i=>`<tr class="conf-det">
+        ${cel('↳ '+esc(i.item))}
+        ${cel(esc(i.unidade))}
+        ${cel(semPreco(i)?'<span class="conf-na">sem preço</span>':esc(fmt(i.valorUnit)),'r')}
+        ${cel(esc(fmt(i.total)),'r')}
+        ${cel(i.obs?`<span class="conf-obs">${esc(i.obs)}</span>`:'','conf-obs-cel')}
+      </tr>`).join('');
+      out+=`<tr class="conf-det-wrap"><td colspan="6"><table class="conf-sub">
+        <thead><tr><th>Item pronto</th><th>Un.</th><th class="r">Valor unit.</th><th class="r">Total da linha</th><th>Observação</th></tr></thead>
+        <tbody>${det}</tbody></table></td></tr>`;
+    } else if(l.divergente){
+      out+=`<tr class="conf-det-wrap"><td colspan="6"><div class="conf-semitem">Este orçamento não tem itens prontos — a diferença vem de outro setor ou dos parâmetros financeiros.</div></td></tr>`;
+    }
+    return out;
+  }).join('');
+
+  c.innerHTML=`${resumo}
+    ${notas.length?`<div class="conf-nota">${notas.map(esc).join(' ')}</div>`:''}
+    <div class="tab-scroll"><table class="conf-tab">
+      <thead><tr><th>Orçamento</th><th>Data</th><th class="r">Total gravado</th><th class="r">Recalculado</th><th class="r">Diferença</th><th class="r">%</th></tr></thead>
+      <tbody>${linhasHtml}</tbody>
+    </table></div>`;
+}
+
+function exportarConferencia(){
+  if(!ultimaConferencia||!ultimaConferencia.length){ toast('Rode a conferência primeiro.'); return; }
+  const sep=';';
+  const nu = v => (v===null||v===undefined||v==='') ? '' : num(v).toFixed(2).replace('.',',');
+  const rows=[];
+  const push=(...c)=>rows.push(c.map(x=>String(x??'').replace(/[\r\n;]/g,' ')).join(sep));
+  push('Orçamento','Data','Total gravado','Total recalculado','Diferença (R$)','Diferença (%)','Situação');
+  ultimaConferencia.forEach(l=>{
+    const sit = l.erro ? ('erro: '+l.erro)
+              : l.gravado===null ? 'sem total de referência'
+              : l.divergente ? 'DIVERGENTE' : 'ok';
+    push(l.nome, l.data?isoToBr(l.data):'', nu(l.gravado), nu(l.recalculado), nu(l.dif),
+         l.pct===null?'':num(round2(l.pct)).toFixed(2).replace('.',','), sit);
+    if(l.divergente){
+      l.itens.forEach(i=>push('  ↳ '+i.item, i.unidade, semPreco(i)?'sem preço':nu(i.valorUnit), nu(i.total), '', '', i.obs||''));
+    }
+  });
+  push('','','','','','','');
+  push('Gerado por','KMF Orçamento v'+APP_VERSION,'schema v'+SCHEMA_VERSION,agoraLocal(),'','','');
+  const blob=new Blob(['﻿'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`cenografia-conferencia-${hoje()}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('Conferência exportada');
 }
 
 /* ============================================================
