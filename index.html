@@ -258,6 +258,7 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:11px 20px;border-radius:30px;transition:transform .25s ease;z-index:60;box-shadow:var(--sh-2)}
 #toast.show{transform:translateX(-50%) translateY(0)}
 .rodape-fixo{font-size:12px;color:var(--ink-2);text-align:center;margin-top:26px;line-height:1.7}
+.versao{display:inline-block;margin-top:6px;font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .banner-exemplo{background:var(--accent-soft);border:1px solid #F4D2BC;color:var(--accent-2);border-radius:var(--r-sm);padding:11px 15px;font-size:13px;margin-bottom:16px;display:none;align-items:center;gap:10px}
 .banner-exemplo.show{display:flex}
 .banner-exemplo b{font-weight:700}
@@ -665,7 +666,8 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 
 <p class="rodape-fixo">
   Os percentuais de impostos são <b>estimativa para formação de preço</b> (Lucro Presumido).<br>
-  Apuração oficial de tributos: <b>Pigatti Contabilidade</b>.
+  Apuração oficial de tributos: <b>Pigatti Contabilidade</b><br>
+  <span id="rodapeVersao" class="versao"></span>
 </p>
 
 </div><!-- /wrap -->
@@ -723,6 +725,12 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    Preço de venda = Custo / (1 − imposto% − margem%); guarda contra divisão inválida.
    ============================================================ */
 
+/* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
+const APP_VERSION = '5.7';
+/* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
+   schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
+const SCHEMA_VERSION = 2;
+
 /* tributação (Lucro Presumido) — atalhos que pré-preenchem o imposto efetivo */
 const TRIB = { servico: 18.33, locacao: 13.33 };
 
@@ -777,6 +785,7 @@ function migrarOpcoes(){
 
 function novoEstado(){
   return {
+    schemaVersion: SCHEMA_VERSION,
     meta:{ nome:'', num:'', cliente:'', responsavel:'', data:hoje(), tipoItem:'', obs:'' },
     itensProntos:[],
     materiais:[],
@@ -893,9 +902,64 @@ function resultado(s=state){
    preservando descrição e valor final — o custo total migrado
    bate exatamente com o total antigo.
    ============================================================ */
+/* ---------- migrações de schema (rodadas na LEITURA de todo orçamento) ----------
+   migrations[n] leva um orçamento da versão n para a versão n+1.
+   Rodam em cadeia até chegar em SCHEMA_VERSION. Nunca rodam ao contrário:
+   um orçamento gravado por uma versão mais nova é usado como está (com aviso). */
+const migrations = {
+  /* 1 → 2 (v5.7): só carimba o campo. Nenhum dado é alterado. */
+  1: function(raw){ return raw; }
+};
+function aplicarMigracoes(raw){
+  const o = JSON.parse(JSON.stringify(raw));
+  let v = Number(o.schemaVersion) || 1;
+  if(v > SCHEMA_VERSION){
+    console.warn(`[cenografia] orçamento gravado no schema v${v}, mais novo que o app (v${SCHEMA_VERSION}). Usando como está.`);
+    return o;
+  }
+  while(v < SCHEMA_VERSION){
+    const fn = migrations[v];
+    if(typeof fn!=='function'){ console.warn(`[cenografia] sem migração de schema v${v} → v${v+1}. Parando em v${v}.`); break; }
+    const res = fn(o) || o;
+    v++;
+    res.schemaVersion = v;
+    Object.assign(o, res);
+  }
+  return o;
+}
+
+/* ---------- preservação de campos desconhecidos ----------
+   Antes da v5.7 tudo que normalizarNovo não reconhecia era descartado em silêncio.
+   Agora vai para state._legacy[caminho] e um aviso vai para o console. Nada é perdido. */
+const CHAVES_RAIZ      = ['schemaVersion','meta','itensProntos','materiais','impressao','estrutura','maoObra','logistica','financeiro','migrado','_projId','snapshot','_legacy'];
+const CHAVES_MAOOBRA   = ['producao','montagem'];
+const CHAVES_LOGISTICA = ['transporte','locacoes'];
+
+function preservarDesconhecidos(st, src, conhecidas, caminho){
+  if(!src || typeof src!=='object') return;
+  const extras={};
+  Object.keys(src).forEach(k=>{ if(conhecidas.indexOf(k)<0) extras[k]=src[k]; });
+  const ks=Object.keys(extras);
+  if(!ks.length) return;
+  st._legacy = st._legacy || {};
+  st._legacy[caminho] = Object.assign(st._legacy[caminho]||{}, extras);
+  console.warn(`[cenografia] campos desconhecidos preservados em _legacy["${caminho}"]:`, ks);
+}
+/* lista tipada. Se vier algo que não é array (setor renomeado, formato inesperado),
+   o valor original é preservado em _legacy em vez de virar [] silenciosamente. */
+function listaOu(st, src, chave, factory, caminho){
+  if(Array.isArray(src[chave])) return src[chave].map(l=>Object.assign(factory(), l));
+  if(src[chave]!==undefined && src[chave]!==null){
+    st._legacy = st._legacy || {};
+    st._legacy[caminho] = src[chave];
+    console.warn(`[cenografia] "${caminho}" não é uma lista — valor original preservado em _legacy:`, src[chave]);
+  }
+  return [];
+}
+
 function migrar(raw){
   if(!raw || typeof raw!=='object') return novoEstado();
-  if(raw.financeiro || Array.isArray(raw.materiais) || raw.maoObra) return normalizarNovo(raw);
+  if(raw.financeiro || Array.isArray(raw.materiais) || raw.maoObra) return normalizarNovo(aplicarMigracoes(raw));
   // ---- legado ----
   const meta = raw.meta || {};
   const st = novoEstado();
@@ -915,22 +979,27 @@ function migrar(raw){
 function normalizarNovo(raw){
   const st = novoEstado();
   const src = JSON.parse(JSON.stringify(raw));
+  if(src._legacy && typeof src._legacy==='object') st._legacy = src._legacy;   // o que já vinha guardado continua guardado
   st.meta = Object.assign(st.meta, src.meta||{});
-  st.itensProntos = Array.isArray(src.itensProntos) ? src.itensProntos.map(l=>Object.assign(novoItemPronto(),l)) : [];
-  st.materiais = Array.isArray(src.materiais) ? src.materiais.map(l=>Object.assign(novoMaterial(),l)) : [];
-  st.impressao = Array.isArray(src.impressao) ? src.impressao.map(l=>Object.assign(novaImpressao(),l)) : [];
-  st.estrutura = Array.isArray(src.estrutura) ? src.estrutura.map(l=>Object.assign(novaEstrutura(),l)) : [];
+  st.itensProntos = listaOu(st, src, 'itensProntos', novoItemPronto, 'itensProntos');
+  st.materiais    = listaOu(st, src, 'materiais',    novoMaterial,   'materiais');
+  st.impressao    = listaOu(st, src, 'impressao',    novaImpressao,  'impressao');
+  st.estrutura    = listaOu(st, src, 'estrutura',    novaEstrutura,  'estrutura');
   if(src.maoObra && typeof src.maoObra==='object'){
-    st.maoObra.producao = Array.isArray(src.maoObra.producao) ? src.maoObra.producao.map(l=>Object.assign(novaFuncao(),l)) : [];
+    st.maoObra.producao = listaOu(st, src.maoObra, 'producao', novaFuncao, 'maoObra.producao');
     st.maoObra.montagem = Object.assign(st.maoObra.montagem, src.maoObra.montagem||{});
+    preservarDesconhecidos(st, src.maoObra, CHAVES_MAOOBRA, 'maoObra');
   }
   if(src.logistica && typeof src.logistica==='object'){
     st.logistica.transporte = Object.assign(st.logistica.transporte, src.logistica.transporte||{});
-    st.logistica.locacoes = Array.isArray(src.logistica.locacoes) ? src.logistica.locacoes.map(l=>Object.assign(novaLocacao(),l)) : [];
+    st.logistica.locacoes = listaOu(st, src.logistica, 'locacoes', novaLocacao, 'logistica.locacoes');
+    preservarDesconhecidos(st, src.logistica, CHAVES_LOGISTICA, 'logistica');
   }
   st.financeiro = Object.assign(st.financeiro, src.financeiro||{});
   st.migrado = !!src.migrado;
+  st.schemaVersion = Number(src.schemaVersion) || SCHEMA_VERSION;
   if(src._projId) st._projId = src._projId;   // mantém o vínculo com o projeto salvo (autosave)
+  preservarDesconhecidos(st, src, CHAVES_RAIZ, 'raiz');
   return st;
 }
 /* recalcula o valor final de cada item antigo, EXATAMENTE como o modelo antigo fazia */
@@ -1336,7 +1405,8 @@ function persistirProjeto(id, nome){
   const r=resultado();
   const copia=JSON.parse(JSON.stringify(state));
   delete copia._projId; delete copia.snapshot;
-  copia.snapshot={ id, nome, salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||'' };
+  copia.schemaVersion=SCHEMA_VERSION;   // todo orçamento gravado carrega a versão do schema
+  copia.snapshot={ id, nome, salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||'', appVersion:APP_VERSION };
   const b=lsGet(LS.budgets,{}); b[id]=copia; lsSet(LS.budgets,b);
   montarLoadSel();
 }
@@ -1732,7 +1802,7 @@ function imprimir(){
       <tr class="g"><td>Preço de venda</td><td>${mny(r.preco)}</td></tr>
     </table></div>
     ${r.invalido?'<div class="p-obs"><b>Atenção:</b> imposto% + margem% somam 100% ou mais — preço de venda travado em R$ 0,00.</div>':''}
-    <div class="p-foot"><b>Documento de uso interno.</b> Contém custos, impostos e margem — não enviar ao cliente. ${esc(config.nome||'')}</div>`;
+    <div class="p-foot"><b>Documento de uso interno.</b> Contém custos, impostos e margem — não enviar ao cliente. ${esc(config.nome||'')}<br>Gerado por KMF Orçamento v${esc(APP_VERSION)} (schema v${SCHEMA_VERSION}) em ${esc(isoToBr(hoje()))}.</div>`;
   window.print();
 }
 
@@ -1844,6 +1914,8 @@ function migrarBudgets(){
 
 /* ---------- init ---------- */
 (function init(){
+  const rv=document.getElementById('rodapeVersao');
+  if(rv) rv.textContent=`KMF Orçamento v${APP_VERSION} · schema v${SCHEMA_VERSION}`;
   migrarBudgets();
   migrarOpcoes();
   montarLoadSel();
