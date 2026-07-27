@@ -1,6 +1,13 @@
 /* Suíte 2 — backup, quota e fuso horário (v5.8).
    Cobre: hoje() local, lsSet devolvendo true/false, export das 7 chaves,
    validação do arquivo de backup, resumo, e import substituindo tudo. */
+
+/* O teste de data local só tem sentido num fuso onde local != UTC — num
+   ambiente em UTC (o CI, por exemplo) o bug que ele cobre é invisível.
+   O fuso é fixado aqui, antes de qualquer Date ser criada, para o resultado
+   não depender da máquina que roda a suíte. */
+process.env.TZ = 'America/Sao_Paulo';
+
 const { ctx, K, store } = require('./harness')();
 let fails = 0;
 const ok = (n, c, x) => { console.log((c ? 'PASS  ' : 'FALHA ') + n + (c ? '' : '  -> ' + JSON.stringify(x))); if (!c) fails++; };
@@ -8,6 +15,12 @@ const ok = (n, c, x) => { console.log((c ? 'PASS  ' : 'FALHA ') + n + (c ? '' : 
 ok('APP_VERSION é uma string', typeof K.APP_VERSION==='string', K.APP_VERSION);
 
 // ---------- hoje() usa data LOCAL, nao UTC ----------
+/* guarda: se o Node parar de respeitar process.env.TZ em runtime, o teste abaixo
+   viraria um falso PASS silencioso. Melhor falhar aqui, alto e claro. */
+ok('fuso do teste fixado em America/Sao_Paulo (UTC-3)',
+  new Date('2026-07-27T23:30:00-03:00').getDate() === 27,
+  { TZ: process.env.TZ, offsetMin: new Date().getTimezoneOffset() });
+
 const d = new Date();
 const esperado = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 ok('hoje() = data local', ctx.hoje() === esperado, { got: ctx.hoje(), esperado, utc: new Date().toISOString().slice(0, 10) });

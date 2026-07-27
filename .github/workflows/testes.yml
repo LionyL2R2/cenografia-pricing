@@ -1,0 +1,22 @@
+name: testes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  suite:
+    name: suíte de regressão
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Sem npm install: a suíte não tem dependências, só o módulo vm do Node.
+      - name: Rodar a suíte
+        run: node testes/run.js

@@ -38,6 +38,20 @@ node testes\t3.js
 
 Requisito: Node 18 ou mais novo (`node --version`). Nada mais precisa ser instalado.
 
+## No CI
+
+`.github/workflows/testes.yml` roda a mesma suíte no GitHub Actions a cada push e
+pull request para `main`, com Node 20. Sem `npm install` e sem cache — não há nada
+para instalar. O badge de status fica no topo do `README.md` da raiz.
+
+O CI roda em **UTC**. Por isso `t2.js` fixa `process.env.TZ = 'America/Sao_Paulo'`
+antes de criar qualquer `Date`: o bug de fuso que ele cobre (`hoje()` usando
+`toISOString()`, que adiantava o dia depois das 21h no Brasil) é **invisível** num
+ambiente em UTC, onde local e UTC coincidem. Há uma asserção-guarda que falha alto
+se o Node parar de respeitar `TZ` em runtime, para o teste não virar um falso PASS.
+A suíte passa igual em qualquer fuso — verificada em UTC, America/Sao_Paulo e
+Asia/Tokyo.
+
 ## Regra de entrega
 
 **Toda entrega roda `node testes\run.js` antes do commit.** Commit só sai com

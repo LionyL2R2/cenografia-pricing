@@ -1,5 +1,7 @@
 # cenografia-pricing
 
+[![testes](https://github.com/LionyL2R2/cenografia-pricing/actions/workflows/testes.yml/badge.svg)](https://github.com/LionyL2R2/cenografia-pricing/actions/workflows/testes.yml)
+
 App de formação de preço para projetos de cenografia. O orçamento é montado por
 setores (materiais, impressão, estrutura, mão de obra, logística), o preço de venda
 sai por gross-up sobre o custo, e o resultado pode ser exportado como relatório
@@ -29,6 +31,9 @@ node testes\run.js
 Suíte de regressão que carrega o JavaScript real do `index.html` num DOM falso —
 sem framework, sem `package.json`, só o módulo `vm` do Node. **Toda entrega roda a
 suíte antes do commit.** Detalhes e cobertura em [`testes/README.md`](testes/README.md).
+
+A suíte também roda no GitHub Actions a cada push e pull request para `main`
+(`.github/workflows/testes.yml`, Node 20) — é o badge no topo deste arquivo.
 
 ## Modelo de dados
 
