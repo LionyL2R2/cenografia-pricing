@@ -343,6 +343,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 .lnk-preco{font:inherit;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent-d);border:1px solid #F4D2BC;border-radius:20px;padding:2px 8px;cursor:pointer;line-height:1.4}
 .lnk-preco:hover{background:#F9DCC8}
 .lnk-preco:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.preco-dif.sem-preco{color:var(--ink-3);font-style:italic}
 .cell-tot{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap}
 .trib-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .trib-aviso{background:#FEF6EC;border:1px solid #F3D6A8;color:#92580B;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin-top:10px;line-height:1.5}
@@ -772,7 +773,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    ============================================================ */
 
 /* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
-const APP_VERSION = '5.9';
+const APP_VERSION = '5.9.1';
 /* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
    schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
 const SCHEMA_VERSION = 3;
@@ -798,7 +799,11 @@ const ITENS_PRONTOS = [
   {nome:'Toten',             unidade:'peça'}
 ];
 
+/* chaves de DADOS do usuário — são exatamente estas que entram no backup */
 const LS = { auto:'cen_v3_auto', budgets:'cen_v3_budgets', config:'cen_v3_config', seen:'cen_v3_seen', opcoes:'cen_v3_opcoes', itens:'cen_v3_itens', opcSeed:'cen_v3_opcseed' };
+/* chaves de CONTROLE INTERNO — ficam fora do backup de propósito: a flag não deve
+   viajar entre navegadores e o backup pré-migração dobraria o tamanho do arquivo */
+const LS_INT = { mig3:'cen_v3_mig3', preMig3:'cen_v3_backup_pre_mig3' };
 const UNID_IP = ['m²','peça'];   // unidades possíveis de item pronto
 
 const fmt  = v => (isFinite(v) ? v : 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -1025,9 +1030,29 @@ const migrations = {
     return raw;
   }
 };
+/* um registro está no formato "novo" (por setores)? Se não, é v3/v4 e quem
+   converte é o caminho legado de migrar(), não a cadeia de migrations[]. */
+function ehFormatoNovo(r){ return !!(r && typeof r==='object' && (r.financeiro || Array.isArray(r.materiais) || r.maoObra)); }
+
+/* schemaVersion DECLARADO não é confiável: o registro pode vir de um arquivo de
+   backup editado à mão ou remontado. Se diz ser v3+ mas nenhuma linha de item
+   pronto tem precoRef — campo que só a migração 2→3 escreve — foi rotulado errado
+   e é tratado como v2. Registro legitimamente migrado sempre tem precoRef. */
+function versaoRealDe(rec){
+  let v = Number(rec && rec.schemaVersion) || 1;
+  if(v>=3 && Array.isArray(rec.itensProntos) && rec.itensProntos.length){
+    const semMarca = rec.itensProntos.every(l => !l || typeof l!=='object' || l.precoRef===undefined);
+    if(semMarca){
+      console.warn('[cenografia] registro diz schema v'+v+' mas as linhas não têm precoRef — remigrando como v2.');
+      v = 2;
+    }
+  }
+  return v;
+}
+
 function aplicarMigracoes(raw){
   const o = JSON.parse(JSON.stringify(raw));
-  let v = Number(o.schemaVersion) || 1;
+  let v = versaoRealDe(o);
   if(v > SCHEMA_VERSION){
     console.warn(`[cenografia] orçamento gravado no schema v${v}, mais novo que o app (v${SCHEMA_VERSION}). Usando como está.`);
     return o;
@@ -1041,6 +1066,62 @@ function aplicarMigracoes(raw){
     Object.assign(o, res);
   }
   return o;
+}
+
+/* ---------- MIGRAÇÃO EAGER PARA O SCHEMA 3 ----------
+   A migração 2→3 resolve a unidade de cada item pronto CONSULTANDO o catálogo.
+   Rodada só na leitura (lazy), ela congelava o catálogo do dia em que o orçamento
+   fosse aberto — se o catálogo mudasse antes disso, o total mudava junto. Era o
+   mesmo bug, adiado. Aqui a varredura roda uma única vez, no boot, com o catálogo
+   ainda no estado original, e congela todo mundo de uma vez.
+   A migração lazy continua em migrar(), como rede para o que entrar por import. */
+function migrarTudoParaSchema3(){
+  if(lsGet(LS_INT.mig3,false)) return null;
+
+  // 1) backup byte-exato do original ANTES de tocar em qualquer coisa
+  const pre = {
+    em: agoraLocal(), appVersion: APP_VERSION,
+    budgets: localStorage.getItem(LS.budgets),
+    auto: localStorage.getItem(LS.auto)
+  };
+  if(!lsSet(LS_INT.preMig3, pre)){
+    console.error('[cenografia] backup pré-migração não pôde ser gravado — varredura adiada, nada foi alterado.');
+    return null;                       // sem rede de segurança, não mexe
+  }
+
+  let migrados=0, pulados=0, autoMigrado=false;
+  try{
+    const b = lsGet(LS.budgets, {});
+    if(b && typeof b==='object' && !Array.isArray(b)){
+      Object.keys(b).forEach(id=>{
+        const rec=b[id];
+        if(!ehFormatoNovo(rec)){ pulados++; return; }   // v3/v4: convertido pelo caminho legado ao abrir
+        if(versaoRealDe(rec) >= SCHEMA_VERSION) return; // já está em dia
+        b[id]=aplicarMigracoes(rec);                    // deep copy: snapshot e _legacy vêm junto
+        migrados++;
+      });
+      if(migrados && !lsSet(LS.budgets,b)) throw new Error('falha ao gravar '+LS.budgets);
+    }
+    const a = lsGet(LS.auto, null);
+    if(ehFormatoNovo(a) && versaoRealDe(a) < SCHEMA_VERSION){
+      if(!lsSet(LS.auto, aplicarMigracoes(a))) throw new Error('falha ao gravar '+LS.auto);
+      autoMigrado=true;
+    }
+    if(!lsSet(LS_INT.mig3,true)) throw new Error('falha ao gravar a flag de migração');
+  }catch(e){
+    console.error('[cenografia] varredura de migração falhou — restaurando o estado anterior.', e);
+    restaurarPreMig3(pre);             // volta tudo e NÃO marca a flag: tenta de novo no próximo boot
+    return null;
+  }
+  const res={migrados, pulados, autoMigrado};
+  console.info('[cenografia] migração eager para o schema '+SCHEMA_VERSION+':', res);
+  return res;
+}
+function restaurarPreMig3(pre){
+  try{
+    if(pre.budgets===null) localStorage.removeItem(LS.budgets); else localStorage.setItem(LS.budgets, pre.budgets);
+    if(pre.auto===null)    localStorage.removeItem(LS.auto);    else localStorage.setItem(LS.auto, pre.auto);
+  }catch(e){ console.error('[cenografia] falha ao restaurar o backup pré-migração:', e); }
 }
 
 /* ---------- preservação de campos desconhecidos ----------
@@ -1247,9 +1328,21 @@ function rowQtdUnid(sec, l, unidOpts, descHtml){
     ${acts(sec,l.id)}
   </tr>`;
 }
-/* aviso discreto na linha quando o catálogo mudou de preço depois dela.
-   NUNCA atualiza sozinho — o preço da linha só muda se o usuário clicar. */
+/* linha sem preço preenchido — 0 e ausência de preço são coisas diferentes */
+function semPreco(l){ return l.valorUnit===''||l.valorUnit==null; }
+/* o item existe no catálogo mas o catálogo não tem preço para ele, e a linha
+   ainda está em branco: não há de onde puxar valor, e não se inventa zero */
+function semPrecoCatalogo(l){
+  if(!semPreco(l)) return false;
+  const nome=String(l.item||'').trim();
+  if(!nome) return false;
+  const k=itensProntosAll().find(x=>normNome(x.nome)===normNome(nome));
+  return !!k && (k.preco===''||k.preco==null);
+}
+/* aviso discreto na linha. NUNCA atualiza sozinho — o preço só muda se o usuário clicar. */
 function avisoPreco(l){
+  if(semPrecoCatalogo(l))
+    return `<div class="preco-dif sem-preco" title="Este item não tem preço padrão cadastrado em Configurações. Digite o valor aqui, ou cadastre o preço no catálogo para as próximas vezes.">sem preço no catálogo</div>`;
   const novo=catalogoDivergiu(l);
   if(novo===null) return '';
   return `<div class="preco-dif" title="O preço deste item mudou no catálogo depois que esta linha foi montada. O valor da linha não foi alterado.">
@@ -1472,7 +1565,14 @@ function onItemProntoSel(id,selEl){
       if(known.preco!=='' && known.preco!=null){
         l.valorUnit=Number(known.preco);
         l.precoRef=Number(known.preco);
-      } else l.precoRef='';
+      } else {
+        /* item do catálogo SEM preço definido: limpa o valor em vez de deixar o preço
+           do item anterior. Antes, trocar um Stand de R$ 1.200 por um Trainel sem preço
+           mantinha os R$ 1.200 na linha, sem nenhum sinal. Zero também não serve —
+           seria um preço falso. Fica em branco e a linha avisa. */
+        l.valorUnit='';
+        l.precoRef='';
+      }
     }
     renderItensProntos(); recalc();
   }
@@ -1976,9 +2076,28 @@ function abrirModalImport(pay, erro){
   document.getElementById('modalImport').classList.add('open');
 }
 
+/* roda a cadeia de migrações no conteúdo importado, registro a registro.
+   O schemaVersion do CABEÇALHO do arquivo é ignorado de propósito: ele descreve o
+   app que exportou, não cada orçamento; e um arquivo editado à mão pode mentir.
+   Quem decide é versaoRealDe() de cada registro. */
+function migrarPayloadImport(d){
+  const out=Object.assign({},d);
+  const b=out[LS.budgets];
+  if(b && typeof b==='object' && !Array.isArray(b)){
+    const nb={};
+    Object.keys(b).forEach(id=>{
+      const rec=b[id];
+      nb[id] = ehFormatoNovo(rec) ? aplicarMigracoes(rec) : rec;   // v3/v4 fica p/ o caminho legado
+    });
+    out[LS.budgets]=nb;
+  }
+  if(ehFormatoNovo(out[LS.auto])) out[LS.auto]=aplicarMigracoes(out[LS.auto]);
+  return out;
+}
+
 /* substitui TUDO: chaves ausentes no arquivo são removidas, não mantidas */
 function aplicarBackup(pay){
-  const d=pay.dados||{};
+  const d=migrarPayloadImport(pay.dados||{});
   clearTimeout(autoT);                  // impede um autosave pendente de sobrescrever o import
   let falhou=false;
   CHAVES_LS.forEach(ch=>{
@@ -1986,6 +2105,10 @@ function aplicarBackup(pay){
     if(v===undefined||v===null){ try{ localStorage.removeItem(ch); }catch(e){ falhou=true; } return; }
     if(!lsSet(ch,v)) falhou=true;
   });
+  /* o conteúdo importado já saiu daqui no schema corrente: a varredura eager não
+     precisa rodar de novo, e o backup pré-migração antigo não vale mais. */
+  lsSet(LS_INT.mig3,true);
+  try{ localStorage.removeItem(LS_INT.preMig3); }catch(e){}
   if(falhou){ toast('Falha ao gravar — veja o aviso no topo da tela.'); return; }
   toast('Backup importado. Recarregando…');
   setTimeout(()=>location.reload(),700);
@@ -2016,10 +2139,13 @@ function imprimir(){
   const lsIP=state.itensProntos.filter(l=>String(l.item||'').trim()!==''||tItem(l)>0);
   if(lsIP.length){
     const head=`<th>Item</th><th>Un.</th><th class="r">Larg.(m)</th><th class="r">Alt.(m)</th><th class="r">m²</th><th class="r">Qtd</th><th class="r">Valor</th><th class="r">Total</th>`;
-    const rows=lsIP.map(l=>{ const un=ipUnidade(l), ehM2=un==='m²';
-      return `<tr>${td(esc(l.item||'—'))}${td(esc(un))}${td(ehM2?n2(l.largura):'—','r')}${td(ehM2?n2(l.altura):'—','r')}${td(ehM2?m2f(ipM2(l)):'—','r')}${td(n2(l.qtd),'r')}${td(mny(l.valorUnit),'r')}${td(mny(tItem(l)),'r')}</tr>`;
+    /* linha sem preço sai como "—", nunca como R$ 0,00: num relatório interno um
+       zero é lido como "de graça", não como "falta preencher" */
+    const rows=lsIP.map(l=>{ const un=ipUnidade(l), ehM2=un==='m²', sp=semPreco(l);
+      return `<tr>${td(esc(l.item||'—'))}${td(esc(un))}${td(ehM2?n2(l.largura):'—','r')}${td(ehM2?n2(l.altura):'—','r')}${td(ehM2?m2f(ipM2(l)):'—','r')}${td(n2(l.qtd),'r')}${td(sp?'— sem preço':mny(l.valorUnit),'r')}${td(sp?'—':mny(tItem(l)),'r')}</tr>`;
     }).join('');
     secoes.push(secao('Itens prontos', subItensProntos(), head, rows, 8));
+    if(lsIP.some(semPreco)) secoes.push('<div class="p-obs">Itens marcados com <b>— sem preço</b> não têm valor definido e <b>não entram</b> no subtotal acima.</div>');
   }
   // Materiais
   const lsMat=state.materiais.filter(l=>String(l.desc||'').trim()!==''||tMat(l)>0);
@@ -2112,11 +2238,12 @@ function exportCSV(){
   push('Setor','Descrição','Detalhe','Total (R$)');
 
   state.itensProntos.forEach(l=>{
-    const un=ipUnidade(l);
+    const un=ipUnidade(l), sp=semPreco(l);
+    const pv = sp ? 'sem preço' : nu(l.valorUnit);
     const det = un==='m²'
-      ? `${nu(l.largura)}×${nu(l.altura)} m (${nu(ipM2(l))} m²) × ${nu(l.qtd)} × ${nu(l.valorUnit)}/m²`
-      : `${nu(l.qtd)} ${un} × ${nu(l.valorUnit)}`;
-    push('Itens prontos', l.item, det, nu(tItem(l)));
+      ? `${nu(l.largura)}×${nu(l.altura)} m (${nu(ipM2(l))} m²) × ${nu(l.qtd)} × ${pv}/m²`
+      : `${nu(l.qtd)} ${un} × ${pv}`;
+    push('Itens prontos', l.item, det, sp?'':nu(tItem(l)));   // célula vazia, não 0,00
   });
   push('Itens prontos — subtotal','','',nu(subItensProntos()));
 
@@ -2211,9 +2338,11 @@ function migrarBudgets(){
 (function init(){
   const rv=document.getElementById('rodapeVersao');
   if(rv) rv.textContent=`KMF Orçamento v${APP_VERSION} · schema v${SCHEMA_VERSION}`;
-  migrarBudgets();
-  migrarOpcoes();
+  migrarBudgets();     // chave = nome → chave = ID
+  migrarOpcoes();      // semeia o catálogo — a migração 2→3 depende dele, então vem antes
+  const mig = migrarTudoParaSchema3();   // varredura eager, com o catálogo ainda intacto
   montarLoadSel();
+  if(mig && mig.migrados) setTimeout(()=>toast(`${mig.migrados} orçamento${mig.migrados===1?'':'s'} atualizado${mig.migrados===1?'':'s'} para o novo formato`),400);
   const visto=lsGet(LS.seen,false);
   const auto=lsGet(LS.auto,null);
   if(!visto){ lsSet(LS.seen,true); exemplo(); irPara('orcamento'); }
