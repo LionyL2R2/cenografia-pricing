@@ -185,6 +185,21 @@ Controle interno (ficam **fora** do backup de propósito):
 O prefixo `cen_v3_` é histórico e **não deve ser renomeado**: mudar o prefixo apaga
 todos os dados do usuário, sem recuperação.
 
+## Supabase (em preparação)
+
+O app vai virar multi-tenant: login com Google e cada usuário enxergando só os
+próprios dados. **A regra de arquivo único continua valendo** — o Supabase entra por
+CDN, sem build step e sem `package.json`.
+
+A **fase 1** (schema, RLS e auth) está em [`supabase/`](supabase/) e **ainda não toca
+no `index.html`**: o app segue rodando 100% em `localStorage`. Veja
+[`supabase/README.md`](supabase/README.md) para o passo a passo do painel do Supabase
+e do Google Cloud Console.
+
+Configuração local: copie `config.example.js` para `config.js` e preencha. `config.js`
+está no `.gitignore` — leia a seção "Deploy no Vercel" antes de publicar, porque isso
+tem consequência para o site em produção.
+
 ## Documentação
 
 `ESTADO-ATUAL.md` tem o mapeamento detalhado do app: telas, modelo de dados, lógica

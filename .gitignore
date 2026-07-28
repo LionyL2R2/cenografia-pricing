@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 
 .vercel
+
+# configuração do Supabase — copie de config.example.js
+config.js
