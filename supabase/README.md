@@ -10,6 +10,7 @@ Esta pasta é a **fase 1**: schema, RLS e auth. O `index.html` ainda não foi to
 |---|---|
 | `schema.sql` | tabelas, índices, triggers, RLS e policies. Roda uma vez, é idempotente |
 | `testes-rls.sql` | prova que um usuário não enxerga o do outro. Roda quantas vezes quiser |
+| `PLANO-FASE-2.md` | plano de ligar o app no Supabase: inventário do `localStorage`, propagação do async, mapeamento campo a campo, cache, ordem de execução e riscos |
 
 ## O projeto
 
