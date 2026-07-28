@@ -20,8 +20,6 @@ const CHEIO = {
 
 const { ctx, K, V } = criar({ cen_v3_seen: true, cen_v3_opcseed: true, cen_v3_mig3: true });
 
-ok('APP_VERSION foi para a 5.10', K.APP_VERSION === '5.10', K.APP_VERSION);
-
 /* elemento falso mínimo para o que o app toca fora do printArea */
 const fake = () => ({
   value: '', textContent: '', innerHTML: '', style: {}, dataset: {},

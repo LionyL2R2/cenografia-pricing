@@ -531,6 +531,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
       <div><label>Cliente</label><input id="p_cliente" placeholder="Nome ou empresa" oninput="metaInput()"></div>
       <div><label>Responsável pelo orçamento</label><input id="p_responsavel" placeholder="Quem está orçando" oninput="metaInput()"></div>
       <div><label>Data da proposta</label><input id="p_data" type="text" placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10" oninput="dataInput()"></div>
+      <div><label>Validade (dias)</label><input id="p_validade" type="text" placeholder="15" inputmode="numeric" maxlength="4" oninput="validadeInput()"></div>
       <div><label>Tipo de item cenográfico</label>
         <select id="p_tipo" onchange="metaInput()">
           <option value="">Selecione…</option>
@@ -715,9 +716,14 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 
 <!-- Ações finais -->
 <div style="display:flex;gap:8px;flex-wrap:wrap">
-  <button class="btn" onclick="imprimir()">Relatório interno (PDF)</button>
+  <button class="btn" onclick="imprimirProposta()">Proposta (cliente)</button>
+  <button class="btn" onclick="imprimir()">Relatório interno</button>
   <button class="btn ghost" onclick="exportCSV()">Exportar interno (CSV)</button>
 </div>
+<p class="fin-nota" style="margin-top:10px">
+  A <b>proposta</b> mostra só descrição, quantidade e valor de venda — sem custo, imposto ou margem.
+  O <b>relatório interno</b> abre a composição inteira e não deve ser enviado ao cliente.
+</p>
 
 </div><!-- /telaOrcamento -->
 
@@ -799,10 +805,13 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    ============================================================ */
 
 /* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
-const APP_VERSION = '5.10';
+const APP_VERSION = '5.11';
 /* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
    schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
 const SCHEMA_VERSION = 3;
+/* validade padrão da proposta, em dias. Fica aqui em cima porque novoEstado()
+   roda antes de metade do script existir. */
+const VALIDADE_PADRAO = 15;
 
 /* tributação (Lucro Presumido) — atalhos que pré-preenchem o imposto efetivo */
 const TRIB = { servico: 18.33, locacao: 13.33 };
@@ -875,7 +884,7 @@ function migrarOpcoes(){
 function novoEstado(){
   return {
     schemaVersion: SCHEMA_VERSION,
-    meta:{ nome:'', num:'', cliente:'', responsavel:'', data:hoje(), tipoItem:'', obs:'' },
+    meta:{ nome:'', num:'', cliente:'', responsavel:'', data:hoje(), tipoItem:'', obs:'', validadeDias:VALIDADE_PADRAO },
     itensProntos:[],
     materiais:[],
     impressao:[],
@@ -970,6 +979,14 @@ function dataInput(){
   p_data.value=v;
   if(v==='') state.meta.data='';
   else { const iso=brToIso(v); if(iso) state.meta.data=iso; }
+  autosave();
+}
+/* validade em dias: só dígitos. Em branco não é erro — cai no padrão na hora de
+   imprimir, e o placeholder mostra qual é. */
+function validadeInput(){
+  const v=p_validade.value.replace(/\D/g,'').slice(0,4);
+  p_validade.value=v;
+  state.meta.validadeDias = v==='' ? '' : Number(v);
   autosave();
 }
 
@@ -1290,6 +1307,7 @@ function render(){
   p_nome.value=m.nome; p_num.value=m.num; p_cliente.value=m.cliente;
   p_responsavel.value=m.responsavel||''; p_tipo.value=m.tipoItem||'';
   p_data.value=isoToBr(m.data); p_obs.value=m.obs;
+  p_validade.value = (m.validadeDias===''||m.validadeDias==null) ? '' : String(m.validadeDias);
 
   // mão de obra · montagem
   const mo=state.maoObra.montagem;
@@ -2319,6 +2337,17 @@ function exportarConferencia(){
    documento, contato e cidade descem agrupados em corpo menor. Telefone e
    e-mail dividem a mesma linha, separados por "·", e a linha some se os dois
    estiverem vazios. Sem nome o cabeçalho cai no rótulo padrão, como antes. */
+/* tabela de um setor: faixa com o título, cabeçalho de colunas, linhas e o
+   subtotal no rodapé. Mesmo esqueleto e mesmo CSS nos dois documentos —
+   o relatório interno e a proposta só diferem nas COLUNAS que passam aqui. */
+function secaoTab(titulo, subtotal, head, rows, ncols){
+  return `<table class="p-tab">
+      <thead><tr class="p-sec"><td colspan="${ncols}">${esc(titulo)}</td></tr><tr>${head}</tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="p-subtot"><td colspan="${ncols-1}" class="r">Subtotal ${esc(titulo)}</td><td class="r">${fmt(num(subtotal))}</td></tr></tfoot>
+    </table>`;
+}
+
 function blocoEmpresa(cfg){
   const c = (cfg && typeof cfg==='object') ? cfg : {};
   const t = v => String(v==null ? '' : v).trim();
@@ -2341,13 +2370,7 @@ function imprimir(){
   const mny = v => fmt(num(v));                                                                  // dinheiro BR seguro
   const td  = (v,cls) => `<td${cls?` class="${cls}"`:''}>${v}</td>`;
   const secoes=[];
-  function secao(titulo, subtotal, head, rows, ncols){
-    return `<table class="p-tab">
-      <thead><tr class="p-sec"><td colspan="${ncols}">${esc(titulo)}</td></tr><tr>${head}</tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr class="p-subtot"><td colspan="${ncols-1}" class="r">Subtotal ${esc(titulo)}</td>${td(mny(subtotal),'r')}</tr></tfoot>
-    </table>`;
-  }
+  const secao = (titulo, subtotal, head, rows, ncols) => secaoTab(titulo, subtotal, head, rows, ncols);
 
   // Itens prontos
   const lsIP=state.itensProntos.filter(l=>String(l.item||'').trim()!==''||tItem(l)>0);
@@ -2438,6 +2461,161 @@ function imprimir(){
     </table></div>
     ${r.invalido?'<div class="p-obs"><b>Atenção:</b> imposto% + margem% somam 100% ou mais — preço de venda travado em R$ 0,00.</div>':''}
     <div class="p-foot"><b>Documento de uso interno.</b> Contém custos, impostos e margem — não enviar ao cliente. ${esc(config.nome||'')}<br>Gerado por KMF Orçamento v${esc(APP_VERSION)} (schema v${SCHEMA_VERSION}) em ${esc(isoToBr(hoje()))}.</div>`;
+  window.print();
+}
+
+/* ============================================================
+   PROPOSTA (PDF do cliente) — mesmo esqueleto e mesmo CSS do relatório
+   interno; a diferença é a razão de existir: NADA de custo, imposto,
+   margem ou composição. O cliente vê descrição, quantidade e o valor de
+   venda da linha — o preço já com o gross-up aplicado.
+   ============================================================ */
+
+/* soma dias a uma data ISO em horário LOCAL — mesma razão de hoje(): em UTC,
+   depois das 21h no Brasil, a conta pularia um dia. new Date(y,m,d+n) já
+   resolve virada de mês, de ano e ano bissexto. */
+function somarDias(iso, dias){
+  const mt=/^(\d{4})-(\d{2})-(\d{2})$/.exec((iso||'').trim());
+  if(!mt) return '';
+  const d=new Date(+mt[1], +mt[2]-1, +mt[3]+Math.trunc(num(dias)));
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+/* dias de validade efetivos: em branco ou lixo caem no padrão */
+function validadeDias(m){
+  const v = m && m.validadeDias;
+  if(v===''||v==null) return VALIDADE_PADRAO;
+  const n=Number(v);
+  return (isFinite(n) && n>=0) ? Math.trunc(n) : VALIDADE_PADRAO;
+}
+/* data-limite da proposta. Devolve '' quando o usuário zera a validade de
+   propósito — é a forma de emitir proposta sem prazo. */
+function validadeAte(m){
+  const dias=validadeDias(m);
+  return dias<=0 ? '' : somarDias((m&&m.data)||hoje(), dias);
+}
+function qtdBR(v){ return (Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:2}); }
+
+/* linhas da proposta, na mesma ordem de setores do relatório interno e com os
+   mesmos filtros de "linha vazia". Cada linha carrega o CUSTO; o valor de venda
+   é derivado depois, de uma vez só, para a soma fechar com o preço de venda. */
+function linhasProposta(s=state){
+  const secs=[];
+  const add=(titulo,linhas)=>{ if(linhas.length) secs.push({titulo,linhas}); };
+  const L=(desc,qtd,un,custo,sp)=>({desc:String(desc||'').trim()||'—', qtd, un:un||'', custo:num(custo), semPreco:!!sp});
+
+  /* item pronto: a quantidade que o cliente vê é a que está sendo vendida —
+     m² totais (larg × alt × qtd) ou número de peças */
+  add('Itens prontos', s.itensProntos
+    .filter(l=>String(l.item||'').trim()!==''||tItem(l)>0)
+    .map(l=>{ const un=ipUnidade(l);
+      return L(l.item, un==='m²'?ipM2(l)*num(l.qtd):num(l.qtd), un, tItem(l), semPreco(l)); }));
+
+  add('Materiais', s.materiais
+    .filter(l=>String(l.desc||'').trim()!==''||tMat(l)>0)
+    .map(l=>L(l.desc, num(l.qtd), l.unidade, tMat(l))));
+
+  add('Impressão', s.impressao
+    .filter(l=>String(l.desc||'').trim()!==''||tImp(l)>0)
+    .map(l=>L(l.desc, impM2(l)*num(l.qtd), 'm²', tImp(l))));
+
+  add('Estrutura', s.estrutura
+    .filter(l=>String(l.desc||'').trim()!==''||tEst(l)>0)
+    .map(l=>L(l.desc, num(l.qtd), l.unidade, tEst(l))));
+
+  const mo=s.maoObra.montagem;
+  const totM=num(mo.diariasMontagem)*num(mo.valorMontagem), totD=num(mo.diariasDesmontagem)*num(mo.valorDesmontagem);
+  const lmo=s.maoObra.producao
+    .filter(l=>String(l.funcao||'').trim()!==''||tProd(l)>0)
+    .map(l=>L(l.funcao, num(l.diarias), 'diária(s)', tProd(l)));
+  if(totM>0||num(mo.diariasMontagem)>0||num(mo.valorMontagem)>0) lmo.push(L('Montagem', num(mo.diariasMontagem), 'diária(s)', totM));
+  if(totD>0||num(mo.diariasDesmontagem)>0||num(mo.valorDesmontagem)>0) lmo.push(L('Desmontagem', num(mo.diariasDesmontagem), 'diária(s)', totD));
+  add('Mão de obra', lmo);
+
+  const tr=s.logistica.transporte;
+  const rotulos=[['Frete / caminhão','frete'],['Combustível','combustivel'],['Pedágio','pedagio'],['Estacionamento','estacionamento'],['Hospedagem','hospedagem'],['Alimentação','alimentacao'],['Outros','outros']];
+  const llog=rotulos.filter(([,k])=>num(tr[k])>0).map(([rot,k])=>L(rot, null, '', num(tr[k])));
+  s.logistica.locacoes
+    .filter(l=>String(l.equipamento||'').trim()!==''||tLoc(l)>0)
+    .forEach(l=>llog.push(L(l.equipamento, num(l.qtd), num(l.dias)>0?`un · ${qtdBR(l.dias)} dia(s)`:'un', tLoc(l))));
+  add('Logística', llog);
+
+  return secs;
+}
+
+/* converte custo em valor de venda linha a linha e fecha a conta.
+   O gross-up é proporcional (fator = preço / custo), então cada linha carrega a
+   sua fatia de imposto e margem sem que nenhum dos dois apareça. O resíduo de
+   arredondamento vai para a MAIOR linha: sem isso a soma das linhas pode ficar
+   um ou dois centavos longe do preço de venda, e uma proposta cujo total não
+   bate com as parcelas é uma proposta que o cliente contesta. */
+function propostaValores(s=state){
+  const r=resultado(s);
+  const secs=linhasProposta(s);
+  const fator = r.custo>0 ? r.preco/r.custo : 0;
+  const comValor=[];
+  secs.forEach(sec=>sec.linhas.forEach(l=>{
+    l.valor = l.semPreco ? null : round2(l.custo*fator);
+    if(!l.semPreco) comValor.push(l);
+  }));
+  const dif = round2(round2(r.preco) - round2(comValor.reduce((a,l)=>a+l.valor,0)));
+  if(dif!==0 && comValor.length){
+    let maior=comValor[0];
+    comValor.forEach(l=>{ if(l.valor>maior.valor) maior=l; });
+    maior.valor=round2(maior.valor+dif);
+  }
+  secs.forEach(sec=>{ sec.subtotal = round2(sec.linhas.reduce((a,l)=>a+(l.valor||0),0)); });
+  return {
+    secoes: secs,
+    total: round2(secs.reduce((a,sec)=>a+sec.subtotal,0)),
+    temSemPreco: secs.some(sec=>sec.linhas.some(l=>l.semPreco)),
+    invalido: r.invalido
+  };
+}
+
+function imprimirProposta(){
+  const m=state.meta;
+  const p=propostaValores();
+  /* proposta zerada é pior que proposta nenhuma: sai do fluxo antes de imprimir */
+  if(p.invalido){ toast('Imposto + margem somam 100% ou mais — ajuste o financeiro antes de gerar a proposta.'); return; }
+  if(!p.secoes.length || p.total<=0){ toast('Nada para enviar: nenhuma linha com valor preenchido.'); return; }
+
+  const mny = v => fmt(num(v));
+  const td  = (v,cls) => `<td${cls?` class="${cls}"`:''}>${v}</td>`;
+  const head=`<th>Descrição</th><th class="r">Qtd</th><th>Un.</th><th class="r">Valor</th>`;
+  const secoes=p.secoes.map(sec=>{
+    const rows=sec.linhas.map(l=>
+      `<tr>${td(esc(l.desc))}${td(l.qtd==null?'—':qtdBR(l.qtd),'r')}${td(esc(l.un))}${td(l.semPreco?'a definir':mny(l.valor),'r')}</tr>`
+    ).join('');
+    return secaoTab(sec.titulo, sec.subtotal, head, rows, 4);
+  }).join('');
+
+  const metaLinhas=[
+    ['Projeto', m.nome], ['Cliente', m.cliente],
+    ['Proposta nº', m.num], ['Data', m.data?isoToBr(m.data):'']
+  ].filter(([,v])=>String(v||'').trim()!=='');
+  const metaHtml = metaLinhas.length
+    ? `<table class="p-meta">${metaLinhas.map(([k,v])=>`<tr><td class="k">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</table>`
+    : '';
+
+  const ate=validadeAte(m);
+  const pa=document.getElementById('printArea');
+  pa.innerHTML=`
+    <div class="p-head">
+      <div>
+        <h1>Proposta comercial</h1>
+        ${blocoEmpresa(config)}
+      </div>
+      <div class="prop">${m.num?`Proposta<br><b>nº ${esc(m.num)}</b>`:'Proposta'}${m.data?`<br>${esc(isoToBr(m.data))}`:''}</div>
+    </div>
+    ${metaHtml}
+    <div class="p-h2">Escopo e valores</div>
+    ${secoes}
+    ${p.temSemPreco?'<div class="p-obs">Itens marcados como <b>a definir</b> ainda não têm valor fechado e <b>não entram</b> no total.</div>':''}
+    <div class="p-tot"><table>
+      <tr class="g"><td>Total</td><td>${mny(p.total)}</td></tr>
+    </table></div>
+    ${m.obs?`<div class="p-obs"><b>Observações:</b> ${esc(m.obs)}</div>`:''}
+    <div class="p-foot">${ate?`<b>Proposta válida até ${esc(isoToBr(ate))}.</b><br>`:''}${esc(config.nome||'')}<br>Emitida em ${esc(isoToBr(hoje()))} · KMF Orçamento v${esc(APP_VERSION)}.</div>`;
   window.print();
 }
 

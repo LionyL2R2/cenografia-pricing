@@ -4,8 +4,9 @@
 
 App de formação de preço para projetos de cenografia. O orçamento é montado por
 setores (materiais, impressão, estrutura, mão de obra, logística), o preço de venda
-sai por gross-up sobre o custo, e o resultado pode ser exportado como relatório
-interno em PDF ou CSV.
+sai por gross-up sobre o custo, e o resultado vira dois documentos distintos: a
+**proposta** para o cliente final (só descrição, quantidade e valor de venda) e o
+**relatório interno** em PDF ou CSV (com custo, imposto e margem abertos).
 
 Cliente: Silvio, fornecedor da KMF Eventos.
 Em produção: https://cenografia-pricing.vercel.app (deploy automático no push para `main`).
@@ -14,7 +15,7 @@ Em produção: https://cenografia-pricing.vercel.app (deploy automático no push
 
 - Single-file HTML (`index.html`) — sem backend, sem build step, sem dependências, sem framework.
 - Persistência local via `localStorage` do navegador.
-- Versão atual: **v5.10** · schema de dados **3** (exibidos no rodapé do app e do PDF).
+- Versão atual: **v5.11** · schema de dados **3** (exibidos no rodapé do app e do PDF).
 
 A regra de arquivo único vale para o **app**. Os testes ficam em `testes/`.
 

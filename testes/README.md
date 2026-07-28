@@ -23,9 +23,10 @@ t2.js     33 PASS   0 FALHA   backup, quota e fuso horário (v5.8)
 t3.js     44 PASS   0 FALHA   orçamentos auto-contidos (v5.9)
 t4.js     38 PASS   0 FALHA   migração eager e item sem preço (v5.9.1)
 t5.js     31 PASS   0 FALHA   conferência de integridade (v5.9.2)
-t6.js     68 PASS   0 FALHA   dados da empresa no PDF e migração legada de responsavel (v5.10)
+t6.js     67 PASS   0 FALHA   dados da empresa no PDF e migração legada de responsavel (v5.10)
+t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
 ------------------------------------------------------------
-TOTAL: 235 PASS / 0 FALHA em 6 suítes
+TOTAL: 344 PASS / 0 FALHA em 7 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -154,10 +155,39 @@ fechado, que é o pior defeito possível neste projeto.
 - Ramo legado de `migrar()`: `meta.responsavel` preservado (era descartado), junto de
   `nome`, `num`, `cliente` e `obs`, com o total intacto — e o nome chega ao PDF.
 
+### `t7.js` — PDF de proposta para o cliente final (v5.11)
+
+- **O que a proposta nunca pode conter**: `custo`, `imposto`, `margem`, `lucro`,
+  `tributa`, `Uso interno`, `Valor unit.`, `p-uso` — por `includes` e por regex
+  case-insensitive. Também: o percentual de imposto, o de margem e os **valores**
+  de custo total, imposto, lucro e subtotal de custo por setor.
+- O que ela precisa conter: bloco da empresa completo, cliente, número, data,
+  observações, todos os seis setores com subtotal, e cada linha de cada setor.
+- **Totais batem com o relatório interno**: total da proposta === preço de venda,
+  soma dos subtotais === total, soma das linhas === total.
+- Gross-up: todas as linhas usam o mesmo fator, nenhuma linha sai pelo custo, e o
+  subtotal de cada setor é o custo daquele setor vezes o fator.
+- Resíduo de arredondamento: caso montado com dízima (três linhas de 33,33 e
+  imposto/margem quebrados) fecha no centavo exato.
+- Validade: padrão 15 com campo em branco, `null` ou lixo; virada de mês, de ano e
+  de ano bissexto; `0` emite proposta sem prazo; data inválida devolve vazio.
+- Campo novo no state: `novoEstado` nasce com 15, orçamento salvo antes da v5.11
+  ganha o padrão, orçamento com valor próprio preserva.
+- **Guardas**: orçamento vazio e imposto + margem ≥ 100% não geram proposta — o
+  `printArea` fica intocado e sai um toast.
+- Item sem preço: sai como `a definir`, não muda o total, e a expressão interna
+  "sem preço" não vaza.
+- **O relatório interno continua como era**: carimbo `Uso interno`, custo total,
+  impostos, margem, aviso de não enviar ao cliente e responsável — tudo no lugar.
+
+> As fixtures desta suíte não usam nenhuma das palavras proibidas em descrição ou
+> observação de propósito. Se alguém escrever "custo" numa observação, o documento
+> vai imprimir — a asserção cobre o **gerador**, não o conteúdo digitado.
+
 ## Como escrever uma suíte nova
 
 ```js
-/* Suíte 7 — descrição curta (versão). */
+/* Suíte 8 — descrição curta (versão). */
 const criar = require('./harness');
 let falhas = 0;
 const ok = (nome, cond, extra) => {

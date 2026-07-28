@@ -1,4 +1,4 @@
-# Estado atual do app — v5.10
+# Estado atual do app — v5.11
 
 Mapeamento do `index.html` como está em produção (`cenografia-pricing.vercel.app`).
 Documento de referência para qualquer alteração futura.
@@ -13,9 +13,9 @@ entregas das fases 2 e 2.1 (v5.7 → v5.9.1) mudaram.
 
 | Onde | Valor |
 |---|---|
-| `APP_VERSION` no topo do `<script>` | `'5.10'` |
+| `APP_VERSION` no topo do `<script>` | `'5.11'` |
 | `SCHEMA_VERSION` | `3` |
-| Rodapé do app | `KMF Orçamento v5.10 · schema v3` |
+| Rodapé do app | `KMF Orçamento v5.11 · schema v3` |
 | Rodapé do PDF | idem + data de geração |
 
 Desde a v5.7 a versão é única fonte da verdade no código e visível na tela — antes
@@ -24,6 +24,7 @@ existia só na mensagem de commit e não havia como saber o que estava rodando.
 Histórico:
 
 ```
+v5.11   PDF de proposta para o cliente final
 v5.10   dados da empresa impressos na proposta, razão social
 v5.9.2  suíte de testes versionada, conferência de integridade
 v5.9.1  migração eager de schema 3, item sem preço, docs
@@ -60,8 +61,9 @@ Estrutura · Mão de obra · Logística e locações · Parâmetros financeiros.
 com linha exibe um badge de subtotal.
 
 Abaixo: faixa de **Preço de venda** (preço, custo, impostos, lucro), card de
-**Composição** (barra empilhada + barras por setor) e as ações
-**Relatório interno (PDF)** e **Exportar interno (CSV)**.
+**Composição** (barra empilhada + barras por setor) e as três ações
+**Proposta (cliente)**, **Relatório interno** e **Exportar interno (CSV)**, com uma
+nota curta explicando qual dos dois PDFs pode sair da casa.
 
 Banners condicionais: `#avisoSalvar` (gravação falhou — fixo no topo, v5.8),
 `#bannerExemplo`, `#bannerMigrado`, `#avisoGuard` (imposto% + margem% ≥ 100%).
@@ -84,7 +86,7 @@ Painel admin das listas globais + **card de Backup dos dados** (v5.8). Detalhado
 ```js
 {
   schemaVersion: 3,
-  meta: { nome, num, cliente, responsavel, data, tipoItem, obs },
+  meta: { nome, num, cliente, responsavel, data, tipoItem, obs, validadeDias },
   itensProntos: [], materiais: [], impressao: [], estrutura: [],
   maoObra:   { producao: [], montagem: {diariasMontagem, valorMontagem, diariasDesmontagem, valorDesmontagem} },
   logistica: { transporte: {frete, combustivel, pedagio, estacionamento, hospedagem, alimentacao, outros},
@@ -277,7 +279,39 @@ chega a ser criado quando só o nome está preenchido. Sem nome, cai no rótulo 
 Até a v5.9.2, CNPJ, telefone, e-mail e cidade eram coletados em "Meus dados", gravados
 em `cen_v3_config` e **nunca lidos** — só `config.nome` chegava ao PDF (bug **Q**).
 
-Não existe uma **proposta para o cliente**. O único PDF é interno.
+### PDF de proposta (`imprimirProposta()`) — v5.11
+
+O documento que vai para o cliente. Mesmo esqueleto, mesmas classes e mesmo CSS do
+relatório interno (`secaoTab()` é compartilhada pelos dois; a proposta só passa
+colunas diferentes) — o que muda é o que **não** entra.
+
+**Não entram, por definição:** custo, percentual e valor de imposto, margem, lucro,
+composição por setor, valor unitário de custo e o carimbo `Uso interno`. A suíte `t7`
+prende isso por asserção, inclusive com regex case-insensitive.
+
+**Entram:** `blocoEmpresa(config)` completo · projeto, cliente, proposta nº e data ·
+itens agrupados por setor com descrição, quantidade, unidade e **valor de venda da
+linha** · subtotal por setor · total · observações · rodapé com a validade.
+
+O valor de venda por linha é o custo da linha vezes `preço / custo`. Como o gross-up
+é proporcional, cada linha carrega a sua fatia de imposto e margem sem que nenhum dos
+dois apareça, e a soma das linhas é o preço de venda. O resíduo de arredondamento
+(centavos) é jogado na **maior** linha: sem isso os subtotais não fecham com o total,
+e proposta cujas parcelas não somam o total é proposta contestada.
+
+**Guardas — a proposta não é emitida** quando imposto% + margem% ≥ 100% (preço
+travado em zero) ou quando não há nenhuma linha com valor. Nos dois casos sai um
+toast e o `printArea` não é tocado. Enviar uma proposta de R$ 0,00 é pior que não
+enviar nenhuma.
+
+Item pronto sem preço sai como **`a definir`**, nunca como R$ 0,00, e não entra no
+total — a expressão interna "sem preço" não vaza para o cliente.
+
+**Validade:** campo `Validade (dias)` em Dados do projeto, `meta.validadeDias`, padrão
+`VALIDADE_PADRAO = 15`. Imprime `Proposta válida até dd/mm/aaaa`, contado a partir de
+`meta.data` (ou de hoje, se vazia), via `somarDias()` em horário **local** — mesma
+razão de `hoje()`. Campo em branco ou com lixo cai no padrão; **zero** é o jeito de
+emitir proposta sem prazo, e some a linha do rodapé.
 
 ### CSV (`exportCSV()`)
 
@@ -373,10 +407,12 @@ alterar retroativamente orçamentos já fechados**. Os três estão resolvidos, 
 que verificam que nenhum total mudou na migração.
 
 A v5.9.2 fecha a fase: a suíte de testes passou a ser versionada em `testes/`
-(166 asserções, `node testes\run.js`) e a aba Configurações ganhou a **conferência de
-integridade**, que detecta orçamento cujo valor tenha mudado por trás — o único
-caminho para achar estrago anterior à v5.9, que o app não desfaz sozinho.
+(`node testes\run.js`) e a aba Configurações ganhou a **conferência de integridade**,
+que detecta orçamento cujo valor tenha mudado por trás — o único caminho para achar
+estrago anterior à v5.9, que o app não desfaz sozinho.
 
-O que sobra é de outra natureza: acabamento de UX (14 bugs de baixa gravidade), código
-morto da v4.x, e duas lacunas estruturais — **não existe proposta para o cliente**
-(o único PDF é interno) e **a suíte não roda em CI**, dependendo de disciplina manual.
+As duas lacunas estruturais que sobravam foram fechadas depois: a suíte passou a rodar
+em **CI** a cada push (v5.9.2) e a **proposta para o cliente** voltou a existir na
+**v5.11**, com 344 asserções no total garantindo que ela não vaze custo, imposto nem
+margem. O que sobra agora é acabamento de UX (13 bugs de baixa gravidade) e código
+morto da v4.x.
