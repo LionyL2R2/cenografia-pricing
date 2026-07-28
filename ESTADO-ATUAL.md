@@ -1,9 +1,9 @@
-# Estado atual do app — v5.9.2
+# Estado atual do app — v5.10
 
 Mapeamento do `index.html` como está em produção (`cenografia-pricing.vercel.app`).
 Documento de referência para qualquer alteração futura.
 
-Atualizado em 27/07/2026 · schema de dados **3**.
+Atualizado em 28/07/2026 · schema de dados **3**.
 Versão anterior deste documento mapeava a v5.6; as seções abaixo refletem o que as
 entregas das fases 2 e 2.1 (v5.7 → v5.9.1) mudaram.
 
@@ -13,9 +13,9 @@ entregas das fases 2 e 2.1 (v5.7 → v5.9.1) mudaram.
 
 | Onde | Valor |
 |---|---|
-| `APP_VERSION` no topo do `<script>` | `'5.9.2'` |
+| `APP_VERSION` no topo do `<script>` | `'5.10'` |
 | `SCHEMA_VERSION` | `3` |
-| Rodapé do app | `KMF Orçamento v5.9.1 · schema v3` |
+| Rodapé do app | `KMF Orçamento v5.10 · schema v3` |
 | Rodapé do PDF | idem + data de geração |
 
 Desde a v5.7 a versão é única fonte da verdade no código e visível na tela — antes
@@ -24,6 +24,7 @@ existia só na mensagem de commit e não havia como saber o que estava rodando.
 Histórico:
 
 ```
+v5.10   dados da empresa impressos na proposta, razão social
 v5.9.2  suíte de testes versionada, conferência de integridade
 v5.9.1  migração eager de schema 3, item sem preço, docs
 v5.9    orçamentos auto-contidos, preços congelados na linha   ← schema 3
@@ -156,7 +157,7 @@ consulta `cen_v3_itens`. Escolher um item do catálogo **copia** os três valore
 |---|---|---|
 | `cen_v3_auto` | objeto `state` | rascunho atual, autosave com debounce de 350 ms |
 | `cen_v3_budgets` | `{ [id]: state + snapshot }` | orçamentos salvos |
-| `cen_v3_config` | `{nome, doc, tel, email, cidade}` | "Meus dados" |
+| `cen_v3_config` | `{nome, razaoSocial, doc, tel, email, cidade}` | "Meus dados". Passa por `normConfig()` na leitura: config gravado antes da v5.10 ganha `razaoSocial: ''` em vez de `undefined` |
 | `cen_v3_seen` | `true` | onboarding visto |
 | `cen_v3_opcoes` | `{materiais:[], producao:[], impressao:[]}` | descrições dos dropdowns |
 | `cen_v3_itens` | `[{nome, unidade, preco}]` | catálogo de itens prontos |
@@ -185,7 +186,10 @@ backup pré-migração dobraria o tamanho do arquivo exportado.
    qualquer orçamento e no conteúdo importado.
 5. **`migrar()` / `normalizarNovo()` / `linhasLegado()`** — converte o formato v3/v4
    (tabela plana `itens` ou `secoes`) para o modelo por setores, usando as alíquotas
-   históricas `LEG_TAX`. Marca `migrado: true`.
+   históricas `LEG_TAX`. Marca `migrado: true`. Copia `nome`, `num`, `cliente`,
+   `responsavel`, `data` e `obs` de `meta` — `responsavel` era **descartado** até a
+   v5.10, e como é o único campo de meta que aparece só no PDF, a perda passava
+   despercebida na tela. `tipoItem` continua fora: o formato legado não tem o campo.
 
 ### 4.4 Salvaguardas de schema
 
@@ -263,8 +267,15 @@ e subtotal, resultado financeiro e rodapé com a versão do app.
 Linha de item pronto sem preço sai como **`— sem preço`**, nunca como R$ 0,00, com nota
 explicando que ela não entra no subtotal (v5.9.1).
 
-**Não entram:** CNPJ, telefone, e-mail e cidade da empresa — são coletados em "Meus
-dados", gravados em `cen_v3_config` e nunca lidos. Só `config.nome` é usado.
+O cabeçalho traz o bloco da empresa montado por **`blocoEmpresa(cfg)`** (v5.10), função
+pura e testada à parte: nome em destaque e, abaixo em corpo menor, razão social,
+`CNPJ/CPF <doc>`, telefone e e-mail na mesma linha separados por `·`, e cidade. **Cada
+linha só sai se o campo tiver valor** — nunca um rótulo órfão, e o bloco de detalhe nem
+chega a ser criado quando só o nome está preenchido. Sem nome, cai no rótulo padrão
+`KMF Cenografia`, como antes.
+
+Até a v5.9.2, CNPJ, telefone, e-mail e cidade eram coletados em "Meus dados", gravados
+em `cen_v3_config` e **nunca lidos** — só `config.nome` chegava ao PDF (bug **Q**).
 
 Não existe uma **proposta para o cliente**. O único PDF é interno.
 
@@ -279,7 +290,7 @@ sai com célula vazia em vez de `0,00`.
 
 Os 19 itens mapeados na v5.6, com o status atual.
 
-### Corrigidos (5)
+### Corrigidos (6)
 
 | # | Bug | Corrigido em |
 |---|---|---|
@@ -288,12 +299,13 @@ Os 19 itens mapeados na v5.6, com o status atual.
 | C | `coletarOpcoes` comparava nomes case-sensitive e criava "madeira" ao lado de "Madeira" | v5.9 — passou a usar `normNome` |
 | F | `hoje()` usava UTC e adiantava o dia depois das 21h | v5.8 — data local |
 | P | README descrevia `TAX_RULES`, removido na v4.x | v5.9.1 |
+| Q | `config.doc`, `config.tel`, `config.email`, `config.cidade` eram write-only | v5.10 — `blocoEmpresa()` imprime os quatro no cabeçalho do PDF, mais a nova razão social |
 
 Corrigido também um bug novo, encontrado na fase 2.1: trocar de um item **com** preço
 para um item **sem** preço mantinha o preço do anterior na linha (um Trainel herdava
 os R$ 1.200 de um Stand, sem sinal nenhum). v5.9.1.
 
-### Continuam abertos (14)
+### Continuam abertos (13)
 
 | # | Bug | Gravidade |
 |---|---|---|
@@ -308,7 +320,7 @@ os R$ 1.200 de um Stand, sem sinal nenhum). v5.9.1.
 | M | `esc()` não escapa apóstrofo — seguro hoje porque só `uid()` é interpolado em handlers | latente |
 | N | `state.migrado` nunca é limpo: o banner de migração fica para sempre, sem botão de dispensar | baixa |
 | O | `collapsed` não é persistido — os cards sempre reabrem expandidos | baixa |
-| Q | `config.doc`, `config.tel`, `config.email`, `config.cidade` são write-only. `LEG_TAX` e o caminho legado só rodam para dados v3/v4 | código morto |
+| Q' | `LEG_TAX` e o caminho legado de tributação só rodam para dados v3/v4 (o que era a segunda metade do bug Q; a primeira foi corrigida na v5.10) | código morto |
 | R | ~120 linhas de CSS do modo avançado da v4.x sem HTML correspondente (`.modebar`, `.switch`, `.nota-stub`, `.trib-box`, `.chip-sug`, `.badge`, `.cat-row`, `table.itab.adv`…) | limpeza |
 | S | CSV imprime linhas de transporte e montagem zeradas, o PDF filtra — dois relatórios com número de linhas diferente | baixa |
 

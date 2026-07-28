@@ -429,7 +429,9 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
   #printArea{display:block;font-size:12.5px;color:#111;padding:0 4mm}
   .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #15181C;padding-bottom:12px;margin-bottom:18px}
   .p-head h1{font-size:20px;font-weight:800;letter-spacing:-.01em}
-  .p-head .emp{font-size:12px;line-height:1.55;color:#333}
+  .p-head .emp{font-size:12px;line-height:1.55;color:#333;margin-top:4px}
+  .p-head .emp .emp-nome{font-size:13.5px;font-weight:800;color:#15181C;letter-spacing:-.01em}
+  .p-head .emp .emp-det{font-size:10.5px;line-height:1.5;color:#555;margin-top:2px}
   .p-head .prop{text-align:right;font-size:12px;line-height:1.6}
   .p-head .prop b{font-size:14px}
   table.p-tab{width:100%;border-collapse:collapse;margin:10px 0 16px}
@@ -736,6 +738,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
     <h3>Meus dados (aparecem na proposta)</h3>
     <div class="field-grid">
       <div class="full"><label>Nome da empresa / seu nome</label><input id="c_nome" placeholder="KMF Cenografia"></div>
+      <div class="full"><label>Razão social</label><input id="c_razao" placeholder="KMF Cenografia e Montagens Ltda"></div>
       <div><label>CNPJ / CPF</label><input id="c_doc" placeholder="00.000.000/0001-00"></div>
       <div><label>Telefone / WhatsApp</label><input id="c_tel" placeholder="(11) 90000-0000"></div>
       <div><label>E-mail</label><input id="c_email" placeholder="contato@…"></div>
@@ -796,7 +799,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    ============================================================ */
 
 /* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
-const APP_VERSION = '5.9.2';
+const APP_VERSION = '5.10';
 /* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
    schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
 const SCHEMA_VERSION = 3;
@@ -835,7 +838,14 @@ const round2 = v => Math.round((Number(v)||0)*100)/100;
 const num  = v => { const n = Number(v); return isFinite(n) ? n : 0; };
 
 let state  = novoEstado();
-let config = lsGet(LS.config, {nome:'',doc:'',tel:'',email:'',cidade:''});
+/* normaliza o config gravado: garante que todo campo existe como string, mesmo em
+   navegador que salvou antes de o campo passar a existir (razaoSocial, v5.10) */
+function normConfig(c){
+  const o = (c && typeof c==='object' && !Array.isArray(c)) ? c : {};
+  const s = v => String(v==null ? '' : v);
+  return { nome:s(o.nome), razaoSocial:s(o.razaoSocial), doc:s(o.doc), tel:s(o.tel), email:s(o.email), cidade:s(o.cidade) };
+}
+let config = normConfig(lsGet(LS.config, {}));
 let collapsed = {};   // estado de recolhimento dos cards (só UI)
 /* listas globais de opções (salvas à parte do orçamento). Depois de migrarOpcoes()
    o localStorage é a fonte única: já contém as opções-base (OPC_BASE/ITENS_PRONTOS)
@@ -1185,6 +1195,7 @@ function migrar(raw){
   st.meta.nome = meta.nome || '';
   st.meta.num  = meta.num  || '';
   st.meta.cliente = meta.cliente || '';
+  st.meta.responsavel = meta.responsavel || '';
   st.meta.data = meta.data || hoje();
   st.meta.obs  = meta.obs || '';
   st.materiais = linhasLegado(raw, meta).map(l=>({
@@ -1726,11 +1737,12 @@ function novoOrcamento(){
 
 /* ---------- config ---------- */
 function abrirConfig(){
-  c_nome.value=config.nome; c_doc.value=config.doc; c_tel.value=config.tel; c_email.value=config.email; c_cidade.value=config.cidade;
+  c_nome.value=config.nome; c_razao.value=config.razaoSocial; c_doc.value=config.doc;
+  c_tel.value=config.tel; c_email.value=config.email; c_cidade.value=config.cidade;
   document.getElementById('modalConfig').classList.add('open');
 }
 function salvarConfig(){
-  config={nome:c_nome.value,doc:c_doc.value,tel:c_tel.value,email:c_email.value,cidade:c_cidade.value};
+  config=normConfig({nome:c_nome.value,razaoSocial:c_razao.value,doc:c_doc.value,tel:c_tel.value,email:c_email.value,cidade:c_cidade.value});
   lsSet(LS.config,config); fecharModais(); toast('Dados salvos');
 }
 function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
@@ -2301,6 +2313,27 @@ function exportarConferencia(){
    resultado financeiro (custo, imposto, margem, preço). Documento de
    uso interno (expõe custo e margem) — não é a proposta do cliente.
    ============================================================ */
+
+/* bloco da empresa no cabeçalho do PDF. Regra: só entra linha com valor
+   preenchido — nunca um rótulo órfão. O nome sai em destaque; razão social,
+   documento, contato e cidade descem agrupados em corpo menor. Telefone e
+   e-mail dividem a mesma linha, separados por "·", e a linha some se os dois
+   estiverem vazios. Sem nome o cabeçalho cai no rótulo padrão, como antes. */
+function blocoEmpresa(cfg){
+  const c = (cfg && typeof cfg==='object') ? cfg : {};
+  const t = v => String(v==null ? '' : v).trim();
+  const contato = [t(c.tel), t(c.email)].filter(Boolean).join(' · ');
+  const det = [
+    t(c.razaoSocial),
+    t(c.doc) ? 'CNPJ/CPF '+t(c.doc) : '',
+    contato,
+    t(c.cidade)
+  ].filter(Boolean);
+  return `<div class="emp"><div class="emp-nome">${esc(t(c.nome)||'KMF Cenografia')}</div>`
+       + (det.length ? `<div class="emp-det">${det.map(l=>`<div>${esc(l)}</div>`).join('')}</div>` : '')
+       + `</div>`;
+}
+
 function imprimir(){
   const r=resultado(); const m=state.meta;
   const n2  = v => (Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:2});           // dimensões / qtd
@@ -2388,7 +2421,7 @@ function imprimir(){
     <div class="p-head">
       <div>
         <h1>Relatório interno de orçamento</h1>
-        <div class="emp">${esc(config.nome||'KMF Cenografia')}</div>
+        ${blocoEmpresa(config)}
       </div>
       <div class="prop"><span class="p-uso">Uso interno</span></div>
     </div>

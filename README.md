@@ -14,7 +14,7 @@ Em produção: https://cenografia-pricing.vercel.app (deploy automático no push
 
 - Single-file HTML (`index.html`) — sem backend, sem build step, sem dependências, sem framework.
 - Persistência local via `localStorage` do navegador.
-- Versão atual: **v5.9.2** · schema de dados **3** (exibidos no rodapé do app e do PDF).
+- Versão atual: **v5.10** · schema de dados **3** (exibidos no rodapé do app e do PDF).
 
 A regra de arquivo único vale para o **app**. Os testes ficam em `testes/`.
 
@@ -168,7 +168,7 @@ Dados do usuário (entram no backup):
 |---|---|
 | `cen_v3_auto` | rascunho atual (autosave, debounce 350 ms) |
 | `cen_v3_budgets` | orçamentos salvos, `{ [id]: orçamento + snapshot }` |
-| `cen_v3_config` | dados da empresa ("Meus dados") |
+| `cen_v3_config` | dados da empresa ("Meus dados"): `nome`, `razaoSocial`, `doc`, `tel`, `email`, `cidade` — todos impressos no cabeçalho do PDF |
 | `cen_v3_seen` | onboarding já visto |
 | `cen_v3_opcoes` | listas de descrição dos dropdowns |
 | `cen_v3_itens` | catálogo de itens prontos |

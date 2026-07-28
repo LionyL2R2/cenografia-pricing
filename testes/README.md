@@ -23,8 +23,9 @@ t2.js     33 PASS   0 FALHA   backup, quota e fuso horário (v5.8)
 t3.js     44 PASS   0 FALHA   orçamentos auto-contidos (v5.9)
 t4.js     38 PASS   0 FALHA   migração eager e item sem preço (v5.9.1)
 t5.js     31 PASS   0 FALHA   conferência de integridade (v5.9.2)
+t6.js     68 PASS   0 FALHA   dados da empresa no PDF e migração legada de responsavel (v5.10)
 ------------------------------------------------------------
-TOTAL: 166 PASS / 0 FALHA em 5 suítes
+TOTAL: 235 PASS / 0 FALHA em 6 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -134,10 +135,29 @@ fechado, que é o pior defeito possível neste projeto.
 - Export em CSV: nome com data, cabeçalho, marcação `DIVERGENTE`, linhas de item
   pronto do divergente e a versão do app no rodapé.
 
+### `t6.js` — dados da empresa no PDF e migração legada de responsavel (v5.10)
+
+- `blocoEmpresa()` com todos os campos: nome em destaque, razão social, `CNPJ/CPF`,
+  telefone e e-mail na mesma linha, cidade.
+- Com só o nome: o bloco de detalhe **nem é criado**.
+- Sem nenhum campo (`{}`, `undefined`, `null`, tudo em branco, só espaços): cai no
+  nome padrão, sem bloco de detalhe.
+- **Nenhum rótulo sem valor e nenhum `<div>` vazio**, em qualquer combinação parcial —
+  inclusive só telefone ou só e-mail, que não podem deixar o `·` órfão.
+- Escape de HTML no nome e na razão social.
+- O PDF inteiro (`imprimir()`), capturando o `innerHTML` do `printArea`, nos três
+  cenários; e o resto do relatório continua saindo quando o config está vazio.
+- `normConfig()` sobre config gravado antes da v5.10: ganha `razaoSocial: ''`, preserva
+  o resto, sobrevive a valor corrompido e força string.
+- Round-trip do modal: `abrirConfig()` preenche o input, `salvarConfig()` persiste os
+  seis campos em `cen_v3_config`, e o valor salvo chega ao PDF.
+- Ramo legado de `migrar()`: `meta.responsavel` preservado (era descartado), junto de
+  `nome`, `num`, `cliente` e `obs`, com o total intacto — e o nome chega ao PDF.
+
 ## Como escrever uma suíte nova
 
 ```js
-/* Suíte 6 — descrição curta (versão). */
+/* Suíte 7 — descrição curta (versão). */
 const criar = require('./harness');
 let falhas = 0;
 const ok = (nome, cond, extra) => {
