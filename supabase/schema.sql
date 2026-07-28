@@ -215,8 +215,12 @@ revoke all on
 -- 6 · NOVO USUÁRIO
 --
 -- Dispara no primeiro login pelo Google. Cria o perfil (já aproveitando nome e
--- e-mail que o Google mandou) e semeia o catálogo de itens prontos, para a
--- conta nova não abrir vazia.
+-- e-mail que o Google mandou) e semeia catálogo e dropdowns, para a conta nova
+-- não abrir vazia.
+--
+-- O que é semeado aqui é EXATAMENTE o que o index.html semeia hoje no
+-- localStorage (ITENS_PRONTOS e OPC_BASE). Se um dia a lista do app mudar, esta
+-- função muda junto — são a mesma decisão de produto em dois lugares.
 --
 -- security definer porque roda no contexto do Auth, onde auth.uid() ainda é
 -- null e as policies barrariam o insert. search_path fixo em public para a
@@ -236,11 +240,24 @@ begin
     new.email
   );
 
+  -- catálogo de itens prontos · espelha ITENS_PRONTOS do index.html
   insert into public.itens_catalogo (user_id, nome, unidade, preco) values
     (new.id, 'Trainel',          'm²',   null),
     (new.id, 'Banner com ilhós', 'm²',   null),
     (new.id, 'Stand',            'peça', null),
     (new.id, 'Toten',            'peça', null);
+
+  -- listas de dropdown · espelha OPC_BASE do index.html
+  insert into public.opcoes (user_id, setor, valor) values
+    (new.id, 'materiais', 'Madeira'),
+    (new.id, 'materiais', 'Placa MDF'),
+    (new.id, 'materiais', 'Metalon'),
+    (new.id, 'materiais', 'Fita de LED'),
+    (new.id, 'producao',  'Marceneiro'),
+    (new.id, 'producao',  'Adesivador'),
+    (new.id, 'producao',  'Eletricista'),
+    (new.id, 'impressao', 'Lona'),
+    (new.id, 'impressao', 'Adesivo');
 
   return new;
 end;

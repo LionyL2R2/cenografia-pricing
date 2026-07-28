@@ -11,6 +11,43 @@ Esta pasta é a **fase 1**: schema, RLS e auth. O `index.html` ainda não foi to
 | `schema.sql` | tabelas, índices, triggers, RLS e policies. Roda uma vez, é idempotente |
 | `testes-rls.sql` | prova que um usuário não enxerga o do outro. Roda quantas vezes quiser |
 
+## O projeto
+
+| | |
+|---|---|
+| **Project ref** | `dztbtrklcjuiokofmygj` |
+| **Project URL** | `https://dztbtrklcjuiokofmygj.supabase.co` |
+| **Callback OAuth** | `https://dztbtrklcjuiokofmygj.supabase.co/auth/v1/callback` |
+| **Configuração do app** | [`config.js`](../config.js) na raiz — commitado, veja abaixo |
+
+O **callback OAuth** é o valor que vai em **Authorized redirect URIs** no Google Cloud
+Console. É a única URL que o Google precisa conhecer.
+
+## Sobre as chaves
+
+**A anon key é pública por design, e está commitada no `config.js`.**
+
+Ela vai embutida no JavaScript que qualquer visitante baixa. Não existe forma de
+escondê-la num app que roda no navegador — o Supabase a projetou assim. Ela identifica
+o **projeto**, não o usuário: quem diz quem você é são as claims do JWT que o login do
+Google devolve.
+
+**A segurança está no RLS, não no sigilo da chave.** Com a anon key e sem sessão, não
+se lê nem se grava uma linha: não há policy para o papel `anon`, e as tabelas nem
+sequer têm `grant` para ele. `testes-rls.sql` tem um bloco dedicado a provar isso.
+Tirar a chave do repositório não protegeria nada — ela continuaria disponível no site
+publicado, que é onde alguém mal-intencionado olharia primeiro.
+
+> **A `service_role` key NUNCA entra no repositório nem no navegador.**
+> Ela **ignora RLS por definição**: quem a tem lê e escreve qualquer linha de qualquer
+> usuário. Ela só existe para uso em servidor. Não coloque no `config.js`, não coloque
+> no `index.html`, não cole em issue, print ou chat. Se algum dia ela vazar, o
+> conserto é **Project Settings → API → Reset** — e só isso resolve, porque não dá para
+> "despublicar" uma chave.
+>
+> Como conferir se uma chave é a certa: o payload do JWT (o pedaço do meio, em base64)
+> tem `"role":"anon"` na correta e `"role":"service_role"` na perigosa.
+
 > **Estado de verificação:** o SQL desta pasta foi escrito e revisado, mas **ainda não
 > foi executado** — não há Postgres neste ambiente de desenvolvimento. O primeiro `Run`
 > no SQL Editor é o teste de fogo. Se algo quebrar, quebra no passo 3 abaixo, antes de
@@ -80,10 +117,9 @@ Este é o passo que mais confunde, por causa de dois campos parecidos. A regra:
      http://localhost:5500
      https://cenografia-pricing.vercel.app
      ```
-   - **Authorized redirect URIs** — **só o callback do Supabase**, com o ref do seu
-     projeto (o mesmo pedaço da Project URL):
+   - **Authorized redirect URIs** — **só o callback do Supabase**:
      ```
-     https://xxxxxxxx.supabase.co/auth/v1/callback
+     https://dztbtrklcjuiokofmygj.supabase.co/auth/v1/callback
      ```
    - **Create**. O Google mostra o **Client ID** e o **Client secret** — copie os dois.
 
@@ -127,14 +163,11 @@ sessão morre no meio do caminho.
 
 ### 7 · Configurar o app
 
-Na raiz do repositório:
+Nada a fazer: o [`config.js`](../config.js) da raiz já vem preenchido e commitado, com
+a Project URL e a anon key deste projeto. Veja "Sobre as chaves" acima para o porquê
+de isso ser seguro.
 
-```powershell
-copy config.example.js config.js
-```
-
-Preencha `config.js` com a **Project URL** e a **anon key** do passo 2. O arquivo está
-no `.gitignore` e não vai para o repositório.
+Trocar de projeto Supabase = trocar os dois valores desse arquivo. Mais nada.
 
 ### 8 · Rodar o teste de RLS
 
@@ -150,31 +183,16 @@ todos os cruzamentos (ler, atualizar, apagar e gravar no nome do outro) e termin
 
 ---
 
-## Deploy no Vercel — leia antes de publicar
+## Deploy no Vercel
 
-`config.js` está no `.gitignore`, então ele **não sobe no push** e o site publicado
-fica sem `SUPABASE_URL`. Isso é consequência direta do requisito de não commitar
-chave. Três saídas, da mais simples para a mais trabalhosa:
+Nada a configurar. `config.js` é um arquivo commitado como qualquer outro, então sobe
+no push e o site publicado já nasce configurado. Sem variável de ambiente, sem build
+step, sem `package.json` — a regra de arquivo único continua de pé.
 
-1. **Commitar o `config.js` mesmo assim.** A anon key é pública por design: ela vai
-   embutida no JS que todo visitante baixa, esteja no git ou não. Tirá-la do
-   repositório não esconde nada de ninguém — protege apenas contra bots que varrem
-   GitHub, e esses acham a chave no site publicado do mesmo jeito. É a opção que a
-   maioria dos projetos Supabase de front-end puro adota.
-2. **Gerar o `config.js` no deploy.** Em Project Settings → Environment Variables no
-   Vercel, crie `SUPABASE_URL` e `SUPABASE_ANON_KEY`, e configure um Build Command que
-   escreva o arquivo:
-   ```
-   node -e "require('fs').writeFileSync('config.js','window.SUPABASE_URL='+JSON.stringify(process.env.SUPABASE_URL)+';window.SUPABASE_ANON_KEY='+JSON.stringify(process.env.SUPABASE_ANON_KEY)+';')"
-   ```
-   Mantém a chave fora do git, ao custo de introduzir um passo de build — que é
-   justamente o que este projeto evita por princípio.
-3. **Embutir os valores direto no `index.html`.** Resolve, mas mistura configuração com
-   código e obriga a editar o app para trocar de projeto Supabase.
-
-**Recomendação:** opção 1. O ganho de segurança das outras duas é zero, e a 2 quebra a
-regra de "sem build step" que sustenta o projeto inteiro. A decisão é sua — nada foi
-commitado ainda.
+A alternativa seria manter a chave fora do git e gerar o `config.js` num Build Command
+a partir de variáveis de ambiente do Vercel. Foi considerada e descartada: o ganho de
+segurança é zero (a chave é pública de qualquer jeito, veja "Sobre as chaves") e o
+custo é introduzir exatamente o passo de build que o projeto evita por princípio.
 
 ---
 
@@ -206,8 +224,16 @@ update: nem o app nem um update manual conseguem alterar. `updated_at` é sempre
 `now()` do servidor — hora de navegador não é confiável.
 
 **Novo usuário** (trigger em `auth.users`): cria o perfil, já aproveitando nome e
-e-mail que vieram do Google, e semeia o catálogo com Trainel, Banner com ilhós, Stand
-e Toten (`preco null`), para a conta não abrir vazia.
+e-mail que vieram do Google, e semeia o que o app semeia hoje no `localStorage`, para
+a conta não abrir vazia:
+
+- **catálogo** (`ITENS_PRONTOS`): Trainel · Banner com ilhós · Stand · Toten, com a
+  unidade certa e `preco null`
+- **dropdowns** (`OPC_BASE`): `materiais` Madeira · Placa MDF · Metalon · Fita de LED ·
+  `producao` Marceneiro · Adesivador · Eletricista · `impressao` Lona · Adesivo
+
+As duas listas são a mesma decisão de produto em dois lugares: mexeu numa, mexa na
+outra. `testes-rls.sql` compara item a item, então divergência aparece como FALHA.
 
 **`orcamentos.dados`** é `jsonb` com o objeto de estado inteiro, no mesmo formato que o
 app grava hoje no `localStorage`. As colunas soltas (`numero`, `nome`, `cliente_nome`,
@@ -221,11 +247,6 @@ vira `null` (`on delete set null`) e o orçamento continua sabendo para quem foi
 
 ## Pendências conhecidas da fase 1
 
-- **`opcoes` não é semeada.** O trigger de novo usuário semeia só `itens_catalogo`,
-  que foi o pedido. Hoje o app semeia também os dropdowns (`OPC_BASE`: Madeira, Placa
-  MDF, Metalon, Fita de LED · Marceneiro, Adesivador, Eletricista · Lona, Adesivo).
-  Do jeito que está, conta nova abre com os dropdowns vazios. Decidir na fase 2: ou
-  semear no trigger, ou deixar o app semear no primeiro login.
 - **Sem restrição de duplicata.** O app evita opção repetida comparando sem acento e
   sem caixa (`normNome`). O banco não tem `unique` equivalente — dois registros iguais
   entram sem reclamar. Um índice único funcional resolveria, ao custo de um erro de

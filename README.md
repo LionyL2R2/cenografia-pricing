@@ -196,9 +196,11 @@ no `index.html`**: o app segue rodando 100% em `localStorage`. Veja
 [`supabase/README.md`](supabase/README.md) para o passo a passo do painel do Supabase
 e do Google Cloud Console.
 
-Configuração local: copie `config.example.js` para `config.js` e preencha. `config.js`
-está no `.gitignore` — leia a seção "Deploy no Vercel" antes de publicar, porque isso
-tem consequência para o site em produção.
+Configuração: `config.js` na raiz, **commitado de propósito**. A anon key do Supabase é
+pública por design — vai embutida no JS que todo visitante baixa, esteja no git ou não —
+e a segurança vem do RLS, não do sigilo dela. A `service_role` key nunca entra no
+repositório nem no navegador. Detalhes em
+[`supabase/README.md`](supabase/README.md#sobre-as-chaves).
 
 ## Documentação
 

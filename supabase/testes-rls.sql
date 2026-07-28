@@ -100,6 +100,23 @@ select public._rls_checar('trigger: item de peça com a unidade certa', 'peça',
 select public._rls_checar('trigger: preço do catálogo nasce nulo', '0',
   (select count(*) from public.itens_catalogo where user_id in (select id from public._rls_ids) and preco is not null)::text);
 
+-- dropdowns semeados · tem que bater com OPC_BASE do index.html, item a item
+select public._rls_checar('trigger: 9 opções por usuário', '18',
+  (select count(*) from public.opcoes where user_id in (select id from public._rls_ids))::text);
+select public._rls_checar('trigger: opções de materiais', 'Fita de LED,Madeira,Metalon,Placa MDF',
+  (select string_agg(distinct valor, ',' order by valor) from public.opcoes
+    where setor = 'materiais' and user_id in (select id from public._rls_ids)));
+select public._rls_checar('trigger: opções de produção', 'Adesivador,Eletricista,Marceneiro',
+  (select string_agg(distinct valor, ',' order by valor) from public.opcoes
+    where setor = 'producao' and user_id in (select id from public._rls_ids)));
+select public._rls_checar('trigger: opções de impressão', 'Adesivo,Lona',
+  (select string_agg(distinct valor, ',' order by valor) from public.opcoes
+    where setor = 'impressao' and user_id in (select id from public._rls_ids)));
+select public._rls_checar('trigger: nenhum setor fora dos três do app', '0',
+  (select count(*) from public.opcoes
+    where user_id in (select id from public._rls_ids)
+      and setor not in ('materiais','producao','impressao'))::text);
+
 -- ============================================================================
 -- 2 · Cada um insere os seus dados, como ele mesmo, passando pela policy
 -- ============================================================================
@@ -142,7 +159,10 @@ set local role authenticated;
 -- ============================================================================
   select public._rls_checar('ana enxerga só o próprio cliente',   'Cliente da Ana',   (select string_agg(nome, ',' order by nome) from public.clientes));
   select public._rls_checar('ana enxerga só o próprio orçamento', 'Orçamento da Ana', (select string_agg(nome, ',' order by nome) from public.orcamentos));
-  select public._rls_checar('ana enxerga só a própria opção',     'Madeira da Ana',   (select string_agg(valor, ',' order by valor) from public.opcoes));
+  select public._rls_checar('ana enxerga as próprias opções (9 semeadas + 1 criada)', '10',
+    (select count(*) from public.opcoes)::text);
+  select public._rls_checar('ana não enxerga a opção do Bruno', '0',
+    (select count(*) from public.opcoes where valor = 'Madeira do Bruno')::text);
   select public._rls_checar('ana enxerga só o próprio perfil',    '1', (select count(*) from public.perfis)::text);
   select public._rls_checar('ana enxerga só o próprio catálogo',  '4', (select count(*) from public.itens_catalogo)::text);
   select public._rls_checar('ana não acha o orçamento do Bruno nem filtrando pelo valor', '0',
@@ -201,7 +221,10 @@ set local role authenticated;
 
   select public._rls_checar('bruno enxerga só o próprio cliente',   'Cliente do Bruno',   (select string_agg(nome, ',' order by nome) from public.clientes));
   select public._rls_checar('bruno enxerga só o próprio orçamento', 'Orçamento do Bruno', (select string_agg(nome, ',' order by nome) from public.orcamentos));
-  select public._rls_checar('bruno enxerga só a própria opção',     'Madeira do Bruno',   (select string_agg(valor, ',' order by valor) from public.opcoes));
+  select public._rls_checar('bruno enxerga as próprias opções (9 semeadas + 1 criada)', '10',
+    (select count(*) from public.opcoes)::text);
+  select public._rls_checar('bruno não enxerga a opção da Ana', '0',
+    (select count(*) from public.opcoes where valor = 'Madeira da Ana')::text);
   select public._rls_checar('bruno enxerga só o próprio catálogo',  '4', (select count(*) from public.itens_catalogo)::text);
   select public._rls_checar('o orçamento do Bruno continua intacto', 'Orçamento do Bruno',
     (select nome from public.orcamentos where snapshot_total = 2000));
