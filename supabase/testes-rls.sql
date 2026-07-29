@@ -117,6 +117,25 @@ select public._rls_checar('trigger: nenhum setor fora dos três do app', '0',
     where user_id in (select id from public._rls_ids)
       and setor not in ('materiais','producao','impressao'))::text);
 
+-- ordem das listas · tem que sair do banco na MESMA ordem do index.html
+select public._rls_checar('ordem: materiais na sequência do OPC_BASE', 'Madeira,Placa MDF,Metalon,Fita de LED',
+  (select string_agg(valor, ',' order by ordem) from public.opcoes
+    where setor = 'materiais' and user_id = (select id from public._rls_ids where apelido = 'ana')));
+select public._rls_checar('ordem: producao na sequência do OPC_BASE', 'Marceneiro,Adesivador,Eletricista',
+  (select string_agg(valor, ',' order by ordem) from public.opcoes
+    where setor = 'producao' and user_id = (select id from public._rls_ids where apelido = 'ana')));
+select public._rls_checar('ordem: impressao na sequência do OPC_BASE', 'Lona,Adesivo',
+  (select string_agg(valor, ',' order by ordem) from public.opcoes
+    where setor = 'impressao' and user_id = (select id from public._rls_ids where apelido = 'ana')));
+select public._rls_checar('ordem: catálogo na sequência do ITENS_PRONTOS', 'Trainel,Banner com ilhós,Stand,Toten',
+  (select string_agg(nome, ',' order by ordem) from public.itens_catalogo
+    where user_id = (select id from public._rls_ids where apelido = 'ana')));
+select public._rls_checar('ordem: nenhuma posição repetida dentro do mesmo setor', '0',
+  (select count(*) from (
+     select setor, ordem from public.opcoes
+      where user_id = (select id from public._rls_ids where apelido = 'ana')
+      group by setor, ordem having count(*) > 1) d)::text);
+
 -- ============================================================================
 -- 2 · Cada um insere os seus dados, como ele mesmo, passando pela policy
 -- ============================================================================
@@ -179,6 +198,98 @@ set local role authenticated;
     select public._rls_checar('ana não dá DELETE no orçamento do Bruno', '0', (select count(*) from alvo)::text);
   with alvo as (delete from public.clientes where doc = '222' returning 1)
     select public._rls_checar('ana não apaga o cliente do Bruno', '0', (select count(*) from alvo)::text);
+
+-- ============================================================================
+-- 4.1 · NORMALIZAÇÃO DE FRONTEIRA ('' → null na gravação)
+--
+-- O app escreve vazio como '', o banco como null. Os triggers de normalização
+-- fecham essa diferença na gravação. Este bloco prova que nenhum caminho
+-- escapa — e o pedaço do `preco` é o mais importante da suíte inteira.
+--
+-- Continua rodando como a Ana. Tudo que é criado aqui é apagado no fim do
+-- bloco, para as contagens das seções seguintes continuarem valendo.
+-- ============================================================================
+
+  -- ---------- texto: '' e só-espaços viram null ----------
+  insert into public.clientes (nome, razao_social, doc, telefone, email, cidade, observacoes)
+    values ('Normalização', '', '   ', '', '  ', '', '');
+  select public._rls_checar('texto: string vazia vira null', '0',
+    (select count(*) from public.clientes
+      where nome = 'Normalização'
+        and (razao_social = '' or doc = '' or telefone = '' or email = '' or cidade = '' or observacoes = ''))::text);
+  select public._rls_checar('texto: só-espaços também vira null', '6',
+    (select (razao_social is null)::int + (doc is null)::int + (telefone is null)::int
+          + (email is null)::int + (cidade is null)::int + (observacoes is null)::int
+       from public.clientes where nome = 'Normalização')::text);
+  select public._rls_checar('texto: valor de verdade não é tocado', 'Normalização',
+    (select nome from public.clientes where nome = 'Normalização'));
+
+  insert into public.orcamentos (nome, numero, nome_projeto, tipo_item, cliente_nome, observacoes, dados)
+    values ('Norm Orc', '', '  ', '', '', '', '{}'::jsonb);
+  select public._rls_checar('orçamento: os cinco campos de texto vazios viram null', '5',
+    (select (numero is null)::int + (nome_projeto is null)::int + (tipo_item is null)::int
+          + (cliente_nome is null)::int + (observacoes is null)::int
+       from public.orcamentos where nome = 'Norm Orc')::text);
+
+  -- ---------- as duas colunas novas de orcamentos existem e guardam valor ----------
+  update public.orcamentos set nome_projeto = 'Túnel Sensorial', tipo_item = 'Túnel cenográfico'
+    where nome = 'Norm Orc';
+  select public._rls_checar('nome_projeto guarda meta.nome, separado de snapshot.nome', 'Norm Orc|Túnel Sensorial',
+    (select nome || '|' || nome_projeto from public.orcamentos where nome = 'Norm Orc'));
+  select public._rls_checar('tipo_item tem coluna própria, sem abrir o jsonb', 'Túnel cenográfico',
+    (select tipo_item from public.orcamentos where nome = 'Norm Orc'));
+
+  -- ---------- preço: o caso que imprime R$ 0,00 na proposta do cliente ----------
+  -- "sem preço" tem que ser null. Se virar 0, o item sai como R$ 0,00 num
+  -- documento que vai para o cliente — o app estaria oferecendo de graça.
+  insert into public.itens_catalogo (nome, unidade, preco, ordem)
+    values ('Norm Sem Preço', 'm²', null, 90);
+  select public._rls_checar('preço: null continua null, não vira zero', 'null',
+    (select coalesce(preco::text, 'null') from public.itens_catalogo where nome = 'Norm Sem Preço'));
+  select public._rls_checar('preço: nenhum item do catálogo tem preço zero', '0',
+    (select count(*) from public.itens_catalogo where preco = 0)::text);
+
+  insert into public.itens_catalogo (nome, unidade, preco, ordem)
+    values ('Norm Com Preço', 'm²', 90, 91);
+  select public._rls_checar('preço: valor real é preservado', '90',
+    (select preco::text from public.itens_catalogo where nome = 'Norm Com Preço'));
+
+do $$
+declare v_barrou boolean := false;
+begin
+  begin
+    insert into public.itens_catalogo (nome, unidade, preco, ordem)
+      values ('Norm Preço Zero', 'm²', 0, 92);
+  exception when check_violation then
+    v_barrou := true;
+  end;
+  perform public._rls_checar('preço: INSERT com zero é rejeitado alto, não vira R$ 0,00', 'true', v_barrou::text);
+end;
+$$;
+
+do $$
+declare v_barrou boolean := false;
+begin
+  begin
+    update public.itens_catalogo set preco = 0 where nome = 'Norm Com Preço';
+  exception when check_violation then
+    v_barrou := true;
+  end;
+  perform public._rls_checar('preço: UPDATE para zero também é rejeitado', 'true', v_barrou::text);
+end;
+$$;
+
+  select public._rls_checar('preço: o item continua com o valor que tinha', '90',
+    (select preco::text from public.itens_catalogo where nome = 'Norm Com Preço'));
+
+  -- limpeza do bloco, para as contagens seguintes não mudarem
+  delete from public.itens_catalogo where nome like 'Norm %';
+  delete from public.orcamentos where nome = 'Norm Orc';
+  delete from public.clientes  where nome = 'Normalização';
+  select public._rls_checar('limpeza: o catálogo da Ana voltou aos 4 semeados', '4',
+    (select count(*) from public.itens_catalogo)::text);
+  select public._rls_checar('limpeza: a Ana voltou a ter 1 orçamento', '1',
+    (select count(*) from public.orcamentos)::text);
 
 -- ============================================================================
 -- 5 · WITH CHECK: não dá para gravar linha no nome de outro

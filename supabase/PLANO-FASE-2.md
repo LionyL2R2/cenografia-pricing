@@ -185,8 +185,8 @@ migrarBudgets (:2716) ── init
 |---|---|---|
 | `nome` | `nome` | ✅ |
 | `unidade` | `unidade` | ✅ |
-| `preco` | `preco` | ⚠️ **`''` no app, `null` no banco.** `semPreco()` (`:1366`) testa `''`/`null`, mas `normItem()` (`:865`) grava `''`. Precisa de conversão explícita nos dois sentidos, ou "sem preço" vira `0` e o app passa a vender de graça. |
-| *(ordem do array)* | — | ❌ **sem coluna `ordem`.** O painel admin lista na ordem do array; o banco devolve sem ordem garantida. A lista vai reembaralhar a cada login. |
+| `preco` | `preco` | ✅ **resolvido** pela normalização de fronteira (§3.7). `''` vira `null` ao gravar, `null` vira `''` ao ler. O banco ainda barra `0` por CHECK. |
+| *(ordem do array)* | `ordem` | ✅ **resolvido** — coluna `int not null default 0`, semeada 0..3 pelo trigger |
 
 ### 3.3 `cen_v3_opcoes` → `opcoes`
 
@@ -194,7 +194,7 @@ migrarBudgets (:2716) ── init
 |---|---|---|
 | chave do objeto (`materiais`/`producao`/`impressao`) | `setor` | ✅ |
 | cada string do array | `valor` | ✅ |
-| *(ordem do array)* | — | ❌ **sem coluna `ordem`**, mesmo problema do catálogo |
+| *(ordem do array)* | `ordem` | ✅ **resolvido** — ordem é **por setor**, porque no app são três arrays independentes |
 
 Estrutura muda de **3 arrays** para **N linhas**. `opcoesDe(sec)` (`:870`) e
 `admAplicar` (`:1998`) precisam montar/desmontar essa forma.
@@ -206,38 +206,38 @@ O registro tem duas partes: o `state` do orçamento e o `snapshot` de listagem.
 | Campo | Coluna | Situação |
 |---|---|---|
 | chave do mapa (`id`) | `id` | ✅ vira o uuid da linha |
-| `snapshot.nome` | `nome` | ⚠️ **conflito de nomes**, ver abaixo |
+| `snapshot.nome` | `nome` | ✅ o nome do **orçamento**, validado por unicidade |
+| `meta.nome` | `nome_projeto` | ✅ **resolvido** — coluna própria, ver abaixo |
+| `meta.tipoItem` / `snapshot.tipoItem` | `tipo_item` | ✅ **resolvido** — coluna própria, para listar sem abrir o jsonb |
 | `meta.num` | `numero` | ✅ |
 | `meta.data` | `data` | ✅ |
 | `meta.validadeDias` | `validade_dias` | ✅ |
 | `meta.obs` | `observacoes` | ✅ |
 | `meta.cliente` (texto livre) | `cliente_nome` | ✅ |
-| — | `cliente_id` | ⚠️ **sem origem.** O app não tem cadastro de cliente; `meta.cliente` é texto solto. A coluna e a FK existem, mas nada as preenche. |
+| — | `cliente_id` | ⏸️ **fica sem uso até a fase 3.** A coluna e a FK existem; `clientes` fica como tabela vazia. `cliente_nome` continua sendo texto solto, exatamente como hoje. |
 | `schemaVersion` | `schema_version` | ✅ |
 | `snapshot.total` | `snapshot_total` | ✅ |
 | `snapshot.salvoEm` (epoch ms) | `updated_at` | ⚠️ tipo diferente (`number` → `timestamptz`). Toda ordenação por `salvoEm` (`:1744`, `:1843`) muda de fonte. |
 | **o `state` inteiro** | `dados` (jsonb) | ✅ |
 | `_projId` | *(é o `id` da linha)* | ✅ deixa de existir como campo |
-| `meta.nome` | — | ❌ **sem coluna própria** — colide com `snapshot.nome` |
-| `meta.responsavel` | — | ❌ **sem coluna.** Fica só dentro de `dados`. Não dá para listar nem filtrar por responsável. |
-| `meta.tipoItem` / `snapshot.tipoItem` | — | ❌ **sem coluna, e é exibido na tela Início** (`:1828`, `:1865`). Ou vira coluna, ou toda listagem passa a abrir o jsonb. |
-| `snapshot.appVersion` | — | ❌ **sem coluna.** Perde-se a rastreabilidade de qual versão gravou. |
+| `meta.responsavel` | — | ⏸️ **fica dentro de `dados`, por decisão.** Nenhuma tela lista nem filtra por responsável — promovê-lo a coluna seria peso sem uso. Aparece só no PDF interno. |
+| `snapshot.appVersion` | — | ⏸️ **fica dentro de `dados`, por decisão.** Mesma razão. |
 | `migrado` (flag de banner) | — | dentro de `dados`, ok |
 | `_legacy` | — | dentro de `dados`, ok |
 
-> **O conflito de nomes é o achado mais importante desta seção.** O app tem **dois**
-> nomes diferentes: `meta.nome` ("Nome do projeto", campo do formulário) e
-> `snapshot.nome` (nome do orçamento, escolhido no modal de salvar, com validação de
-> unicidade em `nomeColide`). `nomeDe()` (`:1700`) prefere o `snapshot`. Eles podem
-> divergir: `salvarOrcamento` grava um `snapshot.nome` sem tocar em `meta.nome`.
-> A tabela tem **uma** coluna `nome`. Decidir: adicionar `nome_projeto`, ou aceitar que
-> os dois passam a ser o mesmo campo — o que muda comportamento visível.
+> **Dois nomes, duas colunas — decidido: não unificar.** O app tem `meta.nome` ("Nome
+> do projeto", campo do formulário) e `snapshot.nome` (nome do orçamento, escolhido no
+> modal de salvar, validado por unicidade em `nomeColide`). `nomeDe()` (`:1700`)
+> prefere o `snapshot`, e os dois podem divergir — `salvarOrcamento` grava um sem tocar
+> no outro. Unificar mudaria comportamento visível, então a tabela ganhou
+> **`nome_projeto`**: `nome` = orçamento, `nome_projeto` = projeto. A distinção que
+> existe no app existe igual no banco.
 
 ### 3.5 Sem equivalente nenhum no schema
 
 | Chave | O que é | Encaminhamento proposto |
 |---|---|---|
-| **`cen_v3_auto`** | **o rascunho** — `state` inteiro, salvo a cada 350 ms | ❌ **não tem tabela.** É a maior lacuna. Ver 3.6. |
+| **`cen_v3_auto`** | **o rascunho** — `state` inteiro, salvo a cada 350 ms | ❌ **não tem tabela, e vai continuar sem.** Ver 3.6. |
 | `cen_v3_seen` | onboarding já visto | vira coluna `onboarding_visto boolean` em `perfis` |
 | `cen_v3_opcseed` | listas-base já semeadas | **fica obsoleta** — o trigger semeia no servidor |
 | `cen_v3_mig3` | varredura eager já rodou | continua local; só existe por causa de dado legado |
@@ -259,6 +259,81 @@ Três caminhos, e **a recomendação é o terceiro**:
    caro e, com dois dispositivos abertos, ativamente nocivo — um sobrescreveria o
    outro no meio da digitação. Custo aceito e explícito: **rascunho não trafega entre
    dispositivos**; o que trafega é o que foi salvo.
+
+### 3.7 Normalização de fronteira — o contrato de "vazio"
+
+O app e o banco discordam sobre como se escreve vazio:
+
+| | vazio é | por quê |
+|---|---|---|
+| **app** | `''` | `normConfig()` (`:852`), `normItem()` (`:865`) e `semPreco()` (`:1384`) trabalham com string vazia; um `<input>` vazio devolve `''` |
+| **banco** | `null` | é o que permite `is null`, índice parcial, e distinguir "não preenchido" de "preenchido com nada" |
+
+Sem uma regra única, o mesmo campo grava ora `''` ora `null` conforme o caminho, e toda
+comparação passa a ter que cobrir os dois. A regra é **uma só, aplicada nas duas
+pontas**:
+
+> **Gravando: `''` → `null`. Lendo: `null` → `''`.**
+
+#### As duas funções (lado JS, a escrever na fase 2)
+
+```
+paraBanco(valor)  →  '' | '   ' | null | undefined  ⇒  null
+                     qualquer outro texto           ⇒  o texto sem espaços nas pontas
+
+doBanco(valor)    →  null | undefined               ⇒  ''
+                     qualquer outro valor           ⇒  o valor como veio
+```
+
+São puras, sem dependência de DOM ou de rede — **testáveis pela suíte existente**, no
+harness, sem Supabase nenhum. Aplicadas a **todo campo de texto** e a **`preco`**.
+
+#### Onde cada uma entra
+
+| Sentido | Onde | Aplicada a |
+|---|---|---|
+| `paraBanco` | ao montar o payload de `upsert`, na fila de escrita (§4.2) | todo campo de texto das 5 tabelas + `itens_catalogo.preco` |
+| `doBanco` | ao hidratar memória a partir da resposta do Supabase (§4.1) | os mesmos campos |
+
+O espelho no `localStorage` guarda a forma do **app** (`''`), não a do banco. Assim
+`render()` e todo o cálculo continuam vendo exatamente o que veem hoje, e nenhuma
+função de UI precisa saber que existe banco.
+
+#### `preco` é o caso perigoso, e por isso tem teste dedicado
+
+`preco` não é texto, mas entra na mesma regra — e é o único campo onde errar custa
+dinheiro de verdade:
+
+- `semPreco()` (`:1384`) trata `''`/`null` como **"sem preço"**;
+- item sem preço sai como **`a definir`** na proposta e **não entra no total**
+  (`imprimirProposta()`, coberto pela `t7`);
+- se `''` virar **`0`** na volta do banco, `semPreco()` passa a devolver `false`, o item
+  vira uma linha de **R$ 0,00** num documento que vai para o cliente, e entra no total
+  como zero. **O app estaria oferecendo o item de graça, sem ninguém perceber.**
+
+Três camadas contra isso, nesta ordem:
+
+1. **`paraBanco`/`doBanco`** — `''` ⇄ `null`, nunca `0`;
+2. **CHECK `itens_catalogo_preco_nunca_zero`** no banco — `preco is null or preco > 0`.
+   Um `0` que escape da normalização é **rejeitado alto na gravação**, em vez de virar
+   preço real. Ausência de preço se escreve `null`, nunca `0`;
+3. **testes**: `supabase/testes-rls.sql` já cobre o lado do banco (`preço: INSERT com
+   zero é rejeitado`, `preço: UPDATE para zero também é rejeitado`, `preço: null
+   continua null, não vira zero`). Na fase 2, a suíte JS ganha o par de ida e volta:
+   `doBanco(paraBanco('')) === ''` e, principalmente, **`paraBanco('') !== 0`**.
+
+> A `t4` já cobre o comportamento local de item sem preço e a `t7` já prende
+> `a definir` na proposta. Se a conversão passar por essas funções, **as duas suítes
+> viram rede de segurança da migração de graça** — nenhuma asserção nova precisa
+> existir para pegar a regressão mais cara.
+
+#### O trigger no banco é redundante de propósito
+
+`schema.sql` §4.1 aplica `nullif(btrim(col), '')` em todo campo de texto das 5 tabelas.
+Isso duplica o que `paraBanco` já faz — e é intencional: fecha os caminhos que **não
+passam pelo app**, como import de backup, correção manual no SQL Editor e qualquer
+cliente futuro. As funções são explícitas campo a campo, e não genéricas por `to_jsonb`,
+para que uma coluna nova não entre calada no conjunto normalizado sem alguém decidir.
 
 ---
 
@@ -334,7 +409,7 @@ encostam no Supabase** — são preparação pura e reduzem o tamanho do salto.
 | **4** | **SDK por CDN + `config.js`** | dois `<script>` **antes** do inline (ver risco 6.1). Cria `db` (cliente ou `null`) | Suíte verde: sem `window.supabase`, `db` é `null` e o app roda 100% local |
 | **5** | **Tela de login** | gate de tela cheia, botão Google, `signOut`. Com `db === null`, entra direto em modo local | Suíte verde (harness cai no modo local). Manual: login, logout, sessão expirada |
 | **6** | **Leitura remota de `perfis`** | menor coleção, um registro. Hidrata `config` do servidor | Manual: dois navegadores, mesmo usuário |
-| **7** | **Leitura remota de `opcoes` + `itens_catalogo`** | resolve `''` ↔ `null` e a ordem (§3.2/3.3) | `t8` sobre as funções puras de conversão |
+| **7** | **`paraBanco`/`doBanco` + leitura de `opcoes` e `itens_catalogo`** | o par de normalização (§3.7) e leitura ordenada por `ordem` | `t8` sobre as duas funções puras — inclusive **`paraBanco('') !== 0`**. `t4` e `t7` cobrem a regressão de preço de graça |
 | **8** | **Escrita com fila** | fila persistida + worker + aviso de falha | `t8`: fila enfileira, drena, faz backoff, sobrevive a reload |
 | **9** | **`orcamentos`: leitura e escrita** | a etapa grande. Escrita por linha. Resolve os gaps do §3.4 | `t8` + **`t3`/`t4`/`t5` continuam sendo a rede de segurança**: nenhum total pode mudar |
 | **10** | **Rascunho e onboarding** | `auto` fica local (§3.6); `seen` vai para `perfis` | Manual: F5 no meio da digitação, offline |
@@ -390,15 +465,18 @@ fuso, PDF e proposta. Nada disso deveria mudar na fase 2 — se mudar, é bug.
 
 | Risco | Onde | Consequência |
 |---|---|---|
-| **`''` vs `null` no preço** | §3.2 | item "sem preço" vira R$ 0,00 na proposta do cliente. **Pior defeito possível.** `t4` cobre o comportamento local e vai pegar isso — se a conversão passar por lá. |
-| **Ordem das listas** | §3.2/3.3 | dropdowns reembaralham a cada login. Cosmético, mas irrita todo dia. |
-| **Dois nomes, uma coluna** | §3.4 | orçamento salvo pode aparecer com o nome errado na lista |
-| **`tipoItem` sem coluna** | §3.4 | tela Início perde informação, ou passa a abrir jsonb para listar |
+| **`''` vs `null` no preço** | §3.7 | item "sem preço" vira R$ 0,00 na proposta do cliente. **Continua sendo o pior defeito possível**, mesmo com o schema resolvido: as três camadas da §3.7 protegem a gravação, mas quem escreve `doBanco` errado ainda quebra na leitura. `t4` e `t7` pegam. |
 | **Escrita do mapa inteiro** | §1.2 | N `UPDATE`s por clique se a etapa 9 não quebrar em escrita por linha |
 | **`validarNomeModal` async** | §2.3 | validação pisca errado ao digitar rápido |
 | **Espelho compartilhado** | §4.3 | **um usuário vê dados do outro**. É o único risco de segurança da lista. |
 | **`autosave` contra a rede** | §2.3 | escrita a cada 350 ms de digitação |
 | **Migração eager sem dado legado** | `:1128` | não há dado legado no Supabase; a varredura só faz sentido sobre o espelho local. Manter, mas com escopo claro. |
+
+**Resolvidos no schema** (eram riscos nesta lista, saíram daqui): ordem das listas
+(coluna `ordem`), dois nomes numa coluna só (`nome_projeto`) e `tipoItem` sem coluna
+(`tipo_item`). Ficaram fora por decisão explícita, não por esquecimento:
+`meta.responsavel` e `snapshot.appVersion` seguem dentro de `dados`, e `clientes` fica
+como tabela vazia até a fase 3 — `cliente_nome` continua texto solto, como hoje.
 
 ### 6.4 O que **não** muda
 

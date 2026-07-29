@@ -73,22 +73,28 @@ create table if not exists public.clientes (
 );
 
 -- catálogo de itens prontos (nome + unidade + preço padrão)
+-- `ordem` preserva a sequência da lista: o app trabalha com array e o painel
+-- admin exibe na ordem de inserção. Sem esta coluna a lista reembaralharia a
+-- cada login, porque SELECT sem ORDER BY não garante ordem nenhuma.
 create table if not exists public.itens_catalogo (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null default auth.uid() references auth.users(id) on delete cascade,
   nome          text,
   unidade       text,
   preco         numeric,
+  ordem         int not null default 0,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 
 -- listas de dropdown por setor (materiais · producao · impressao)
+-- `ordem` é por SETOR: o app tem três arrays independentes, não uma lista só.
 create table if not exists public.opcoes (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null default auth.uid() references auth.users(id) on delete cascade,
   setor         text,
   valor         text,
+  ordem         int not null default 0,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -100,7 +106,19 @@ create table if not exists public.orcamentos (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid not null default auth.uid() references auth.users(id) on delete cascade,
   numero         text,
+  -- ATENÇÃO: o app tem DOIS nomes, e eles são campos distintos de propósito.
+  --   nome          = snapshot.nome, o nome do ORÇAMENTO, escolhido no modal de
+  --                   salvar e validado por unicidade em nomeColide()
+  --   nome_projeto  = meta.nome, o campo "Nome do projeto" do formulário
+  -- Eles podem divergir: salvarOrcamento() grava um sem tocar no outro.
+  -- Unificar mudaria comportamento visível — não unificar.
   nome           text,
+  nome_projeto   text,
+  -- meta.tipoItem. Tem coluna própria porque a tela Início exibe o tipo em cada
+  -- card: sem ela, listar exigiria abrir o jsonb de todo orçamento.
+  tipo_item      text,
+  -- cliente_id fica sem uso até a fase 3: hoje o app não tem cadastro de
+  -- cliente, só o texto livre de meta.cliente, que vai em cliente_nome.
   cliente_id     uuid references public.clientes(id) on delete set null,
   -- denormalizado de propósito: se o cliente for apagado, o orçamento continua
   -- sabendo para quem foi feito. cliente_id vira null, cliente_nome fica.
@@ -109,11 +127,42 @@ create table if not exists public.orcamentos (
   validade_dias  int default 15,
   observacoes    text,
   schema_version int default 3,
+  -- o state inteiro, no mesmo formato que o app grava hoje no localStorage.
+  -- meta.responsavel e snapshot.appVersion vivem AQUI DENTRO, sem coluna
+  -- própria: nenhuma tela lista nem filtra por eles, então promovê-los a
+  -- coluna seria peso sem uso.
   dados          jsonb not null default '{}'::jsonb,
   snapshot_total numeric,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
+
+-- ============================================================================
+-- 2.1 · COLUNAS ADICIONADAS DEPOIS
+--
+-- `create table if not exists` não altera tabela que já existe. Este bloco
+-- existe para quem já rodou uma versão anterior deste arquivo: acrescenta as
+-- colunas novas sem tocar nos dados. Em projeto novo é no-op.
+-- ============================================================================
+alter table if exists public.orcamentos     add column if not exists nome_projeto text;
+alter table if exists public.orcamentos     add column if not exists tipo_item    text;
+alter table if exists public.opcoes         add column if not exists ordem        int not null default 0;
+alter table if exists public.itens_catalogo add column if not exists ordem        int not null default 0;
+
+-- Preço zero é proibido no catálogo, e a razão é específica deste app:
+-- "sem preço" é representado por vazio, e vazio que virar 0 sai como R$ 0,00
+-- na PROPOSTA DO CLIENTE — o app estaria oferecendo o item de graça, sem
+-- ninguém perceber. Com este CHECK, um 0 que escape da normalização é
+-- rejeitado alto na gravação em vez de virar preço real.
+-- Ausência de preço se escreve `null`, nunca `0`.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'itens_catalogo_preco_nunca_zero') then
+    alter table public.itens_catalogo
+      add constraint itens_catalogo_preco_nunca_zero check (preco is null or preco > 0);
+  end if;
+end;
+$$;
 
 -- ============================================================================
 -- 3 · ÍNDICES
@@ -126,10 +175,12 @@ create index if not exists itens_catalogo_user_id_idx on public.itens_catalogo(u
 create index if not exists opcoes_user_id_idx         on public.opcoes(user_id);
 create index if not exists orcamentos_user_id_idx     on public.orcamentos(user_id);
 
-create index if not exists opcoes_user_setor_idx      on public.opcoes(user_id, setor);
 create index if not exists orcamentos_cliente_id_idx  on public.orcamentos(cliente_id);
 -- lista da tela Início: mais recentes primeiro, do usuário logado
 create index if not exists orcamentos_user_updated_idx on public.orcamentos(user_id, updated_at desc);
+-- as duas leituras que montam os dropdowns já saem ordenadas do banco
+create index if not exists opcoes_user_setor_ordem_idx on public.opcoes(user_id, setor, ordem);
+create index if not exists itens_user_ordem_idx        on public.itens_catalogo(user_id, ordem);
 
 -- ============================================================================
 -- 4 · TRIGGERS DE CARIMBO
@@ -145,6 +196,98 @@ create trigger carimbo_clientes       before insert or update on public.clientes
 create trigger carimbo_itens_catalogo before insert or update on public.itens_catalogo for each row execute function public.tg_carimbo();
 create trigger carimbo_opcoes         before insert or update on public.opcoes         for each row execute function public.tg_carimbo();
 create trigger carimbo_orcamentos     before insert or update on public.orcamentos     for each row execute function public.tg_carimbo();
+
+-- ============================================================================
+-- 4.1 · NORMALIZAÇÃO DE FRONTEIRA — sentido da GRAVAÇÃO ('' → null)
+--
+-- O app e o banco discordam sobre como se escreve "vazio":
+--   · no app,   vazio é `''`   — normConfig(), normItem() e semPreco() usam ''
+--   · no banco, vazio é `null` — é o que permite `is null`, índice parcial e
+--                                distinguir "não preenchido" de "preenchido
+--                                com nada"
+-- Sem uma regra única, o mesmo campo grava ora `''` ora `null` conforme o
+-- caminho, e toda comparação passa a precisar cobrir os dois.
+--
+-- A regra é aplicada nas DUAS pontas, e de propósito:
+--   · aqui, no banco, para nenhum caminho de gravação escapar — nem app novo,
+--     nem import de backup, nem UPDATE manual no SQL Editor;
+--   · no app, na fase 2, com o par de funções descrito em PLANO-FASE-2.md
+--     (§3.7) — porque o sentido da LEITURA (null → '') só pode existir lá.
+--
+-- Cada função é explícita, campo a campo. Dava para fazer genérico com
+-- to_jsonb/jsonb_populate_record, mas aí um campo novo entraria calado no
+-- conjunto normalizado sem ninguém decidir — e o custo de errar aqui é alto.
+-- btrim antes: " " é vazio digitado, e vira null igual.
+-- ============================================================================
+create or replace function public.tg_normalizar_perfis()
+returns trigger language plpgsql as $$
+begin
+  new.nome_empresa := nullif(btrim(new.nome_empresa), '');
+  new.razao_social := nullif(btrim(new.razao_social), '');
+  new.doc          := nullif(btrim(new.doc), '');
+  new.telefone     := nullif(btrim(new.telefone), '');
+  new.email        := nullif(btrim(new.email), '');
+  new.cidade       := nullif(btrim(new.cidade), '');
+  return new;
+end;
+$$;
+
+create or replace function public.tg_normalizar_clientes()
+returns trigger language plpgsql as $$
+begin
+  new.nome         := nullif(btrim(new.nome), '');
+  new.razao_social := nullif(btrim(new.razao_social), '');
+  new.doc          := nullif(btrim(new.doc), '');
+  new.telefone     := nullif(btrim(new.telefone), '');
+  new.email        := nullif(btrim(new.email), '');
+  new.cidade       := nullif(btrim(new.cidade), '');
+  new.observacoes  := nullif(btrim(new.observacoes), '');
+  return new;
+end;
+$$;
+
+create or replace function public.tg_normalizar_itens_catalogo()
+returns trigger language plpgsql as $$
+begin
+  new.nome    := nullif(btrim(new.nome), '');
+  new.unidade := nullif(btrim(new.unidade), '');
+  return new;
+end;
+$$;
+
+create or replace function public.tg_normalizar_opcoes()
+returns trigger language plpgsql as $$
+begin
+  new.setor := nullif(btrim(new.setor), '');
+  new.valor := nullif(btrim(new.valor), '');
+  return new;
+end;
+$$;
+
+create or replace function public.tg_normalizar_orcamentos()
+returns trigger language plpgsql as $$
+begin
+  new.numero       := nullif(btrim(new.numero), '');
+  new.nome         := nullif(btrim(new.nome), '');
+  new.nome_projeto := nullif(btrim(new.nome_projeto), '');
+  new.tipo_item    := nullif(btrim(new.tipo_item), '');
+  new.cliente_nome := nullif(btrim(new.cliente_nome), '');
+  new.observacoes  := nullif(btrim(new.observacoes), '');
+  return new;
+end;
+$$;
+
+drop trigger if exists normalizar_perfis         on public.perfis;
+drop trigger if exists normalizar_clientes       on public.clientes;
+drop trigger if exists normalizar_itens_catalogo on public.itens_catalogo;
+drop trigger if exists normalizar_opcoes         on public.opcoes;
+drop trigger if exists normalizar_orcamentos     on public.orcamentos;
+
+create trigger normalizar_perfis         before insert or update on public.perfis         for each row execute function public.tg_normalizar_perfis();
+create trigger normalizar_clientes       before insert or update on public.clientes       for each row execute function public.tg_normalizar_clientes();
+create trigger normalizar_itens_catalogo before insert or update on public.itens_catalogo for each row execute function public.tg_normalizar_itens_catalogo();
+create trigger normalizar_opcoes         before insert or update on public.opcoes         for each row execute function public.tg_normalizar_opcoes();
+create trigger normalizar_orcamentos     before insert or update on public.orcamentos     for each row execute function public.tg_normalizar_orcamentos();
 
 -- ============================================================================
 -- 5 · ROW LEVEL SECURITY
@@ -240,24 +383,26 @@ begin
     new.email
   );
 
-  -- catálogo de itens prontos · espelha ITENS_PRONTOS do index.html
-  insert into public.itens_catalogo (user_id, nome, unidade, preco) values
-    (new.id, 'Trainel',          'm²',   null),
-    (new.id, 'Banner com ilhós', 'm²',   null),
-    (new.id, 'Stand',            'peça', null),
-    (new.id, 'Toten',            'peça', null);
+  -- catálogo de itens prontos · espelha ITENS_PRONTOS do index.html, na ordem
+  -- em que aparecem lá. preco null = "sem preço padrão", nunca 0.
+  insert into public.itens_catalogo (user_id, nome, unidade, preco, ordem) values
+    (new.id, 'Trainel',          'm²',   null, 0),
+    (new.id, 'Banner com ilhós', 'm²',   null, 1),
+    (new.id, 'Stand',            'peça', null, 2),
+    (new.id, 'Toten',            'peça', null, 3);
 
-  -- listas de dropdown · espelha OPC_BASE do index.html
-  insert into public.opcoes (user_id, setor, valor) values
-    (new.id, 'materiais', 'Madeira'),
-    (new.id, 'materiais', 'Placa MDF'),
-    (new.id, 'materiais', 'Metalon'),
-    (new.id, 'materiais', 'Fita de LED'),
-    (new.id, 'producao',  'Marceneiro'),
-    (new.id, 'producao',  'Adesivador'),
-    (new.id, 'producao',  'Eletricista'),
-    (new.id, 'impressao', 'Lona'),
-    (new.id, 'impressao', 'Adesivo');
+  -- listas de dropdown · espelha OPC_BASE do index.html. A ordem é por SETOR,
+  -- porque no app são três arrays independentes.
+  insert into public.opcoes (user_id, setor, valor, ordem) values
+    (new.id, 'materiais', 'Madeira',     0),
+    (new.id, 'materiais', 'Placa MDF',   1),
+    (new.id, 'materiais', 'Metalon',     2),
+    (new.id, 'materiais', 'Fita de LED', 3),
+    (new.id, 'producao',  'Marceneiro',  0),
+    (new.id, 'producao',  'Adesivador',  1),
+    (new.id, 'producao',  'Eletricista', 2),
+    (new.id, 'impressao', 'Lona',        0),
+    (new.id, 'impressao', 'Adesivo',     1);
 
   return new;
 end;
