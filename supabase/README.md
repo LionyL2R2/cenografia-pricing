@@ -172,15 +172,55 @@ Trocar de projeto Supabase = trocar os dois valores desse arquivo. Mais nada.
 
 ### 8 · Rodar o teste de RLS
 
-**SQL Editor** → **New query** → cole `testes-rls.sql` inteiro → **Run**.
+**SQL Editor** → **New query** → cole o `testes-rls.sql` **inteiro** → **Run**.
 
-- Sai uma tabela com todas as linhas em `PASS` → isolamento ok.
-- Sai um erro vermelho `RLS FUROU — ...` → tem furo, e a mensagem diz qual verificação
-  falhou, o que era esperado e o que veio.
+Não rode pedaço por pedaço, não selecione um trecho e rode só ele: o corpo do teste é
+um bloco `DO` único, e um pedaço solto dele não é SQL válido. É o arquivo todo, num
+Run só.
 
-O script cria dois usuários fictícios, faz cada um gravar os próprios dados, tenta
-todos os cruzamentos (ler, atualizar, apagar e gravar no nome do outro) e termina em
-`ROLLBACK` — não sobra nada no banco. Rode de novo sempre que mexer em policy.
+**Como ler o resultado**
+
+| O que aparece | Significa |
+|---|---|
+| grade com **tudo `PASS`** | isolamento ok |
+| alguma linha **`FALHA`** | tem furo. As falhas vêm **em cima**, e cada linha traz o teste, o esperado e o que veio |
+| **erro vermelho** | o teste não chegou ao fim. Nada foi deixado no banco (ver abaixo) |
+
+As duas primeiras linhas são `GUARDA:` e existem para o teste não mentir — elas provam
+que a troca de papel pegou. **Se uma delas falhar, ignore o resto do resultado**: o
+teste rodou como superusuário, que ignora RLS, e todo o resto passaria mesmo com o RLS
+quebrado.
+
+**Pode rodar quantas vezes quiser**, em sequência. A primeira coisa que o script faz é
+limpar o que uma execução anterior tenha deixado.
+
+**O que o teste faz:** cria dois usuários fictícios (`ana@teste-rls.local` e
+`bruno@teste-rls.local`), faz cada um gravar os próprios dados e tenta todos os
+cruzamentos — ler, atualizar, apagar e gravar no nome do outro. Também confere o
+trigger de novo usuário, a ordem das listas, a normalização de vazio, o `preco` que
+nunca pode virar zero, o acesso anônimo e o cascade ao apagar a conta.
+
+**Não deixa sujeira:** os usuários fictícios e tudo que cascateia deles são apagados no
+fim do bloco. Se o bloco falhar no meio, o Postgres desfaz o statement inteiro e o
+efeito é o mesmo. Fica no banco apenas a tabela `public._rls_resultado`, que é a grade
+que você acabou de ler — com RLS ligada e sem policy, então o PostgREST não a expõe. A
+execução seguinte a recria. Para apagá-la à mão:
+
+```sql
+drop table if exists public._rls_resultado;
+```
+
+> **Por que o script não usa `BEGIN`/`ROLLBACK`.** A primeira versão usava, e falhava
+> no SQL Editor com `ERROR: 42P01: relation "public._rls_ids" does not exist`. O SQL
+> Editor não é o `psql`: ele pode despachar os statements por conexões diferentes do
+> pool, e uma tabela criada dentro de uma transação **ainda não commitada** é invisível
+> para o statement seguinte. A versão atual não abre transação nenhuma e concentra o
+> teste num único `DO` — que já é atômico por ser um statement só. O papel do
+> `ROLLBACK` passou a ser feito por limpeza explícita.
+
+> **Se o `insert into auth.users` falhar** com erro de coluna `NOT NULL`, uma versão
+> mais nova do Auth acrescentou coluna obrigatória. Acrescente a coluna e um valor ao
+> `insert` do bloco `SETUP`, no começo do `DO`.
 
 ---
 
