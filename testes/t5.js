@@ -104,7 +104,7 @@ ok('divergências vêm primeiro', r.slice(0, nDiv).every(x => x.divergente) && r
   r.map(x => [x.id, x.divergente]));
 
 // ---------- nada é corrigido automaticamente ----------
-const depois = ctx.lsGet('cen_v3_budgets', {});
+const depois = K.store.ler('cen_v3_budgets', {});
 ok('conferência NÃO altera os orçamentos', JSON.stringify(depois.herdado) === JSON.stringify(HERDADO), depois.herdado);
 ok('conferência NÃO altera o total gravado', depois.herdado.snapshot.total === 540);
 

@@ -60,6 +60,11 @@ ok('nenhuma opção de dropdown carregada em memória',
   real.V.opcoesCustom.materiais.length === 0 && real.V.opcoesCustom.producao.length === 0 && real.V.opcoesCustom.impressao.length === 0,
   real.V.opcoesCustom);
 ok('nenhum item de catálogo carregado em memória', real.V.itensCustom.length === 0, real.V.itensCustom);
+/* Os dados da empresa eram lidos no TOPO do script, na avaliação do arquivo: sem
+   login, sem dono, e mesmo assim já estavam na memória do navegador. Hoje quem lê
+   é hidratarMemoria(), dentro de init(), que não roda sem sessão. */
+ok('dados da empresa NÃO entram na memória sem sessão',
+  real.V.config.nome === '' && real.V.config.email === '', real.V.config);
 
 /* O login não funciona sem cliente: clicar no botão não pode explodir nem abrir
    o app por outro caminho. */
@@ -103,7 +108,84 @@ ok('definir a marca depois do boot não abre o app retroativamente',
   { bootado: marcaErrada.V.appBootado, gate: marcaErrada.V.gateEstado });
 
 /* ============================================================
-   4 · A tag do supabase-js continua compatível com o recorte do harness.
+   4 · CHAVE POR USUÁRIO — dois logins no mesmo navegador não se cruzam.
+   O RLS não alcança o localStorage: sem prefixo, o usuário B abre a tela Início
+   e vê os orçamentos do usuário A. É o único furo de confidencialidade que o
+   login sozinho não fecha.
+   ============================================================ */
+const ns = criar({ cen_v3_seen: true, cen_v3_opcseed: true, cen_v3_mig3: true });
+
+ok('sem usuário, a chave não ganha prefixo (é o caso do harness)',
+  ns.K.store.chave('cen_v3_budgets') === 'cen_v3_budgets', ns.K.store.chave('cen_v3_budgets'));
+ns.K.store.usuario('u-aaa');
+ok('com usuário, a chave ganha o uid',
+  ns.K.store.chave('cen_v3_budgets') === 'cen_v3_u-aaa_budgets', ns.K.store.chave('cen_v3_budgets'));
+ok('chave fora do padrão cen_v3_ não é prefixada',
+  ns.K.store.chave('outra_coisa') === 'outra_coisa', ns.K.store.chave('outra_coisa'));
+ok('store sabe dizer de quem são as chaves', ns.K.store.donoAtual() === 'u-aaa', ns.K.store.donoAtual());
+
+/* O isolamento de verdade: grava com um uid, lê com outro. */
+ns.store.clear();
+ns.K.store.usuario('');
+ns.K.store.gravar('cen_v3_budgets', { orfao: 'de ninguém' });   // dado sem dono, como o que já existe hoje
+ns.K.store.usuario('u-aaa');
+ok('usuário logado NÃO enxerga a chave sem prefixo (nada é adotado)',
+  ns.K.store.ler('cen_v3_budgets', null) === null, ns.K.store.ler('cen_v3_budgets', null));
+
+ns.K.store.gravar('cen_v3_budgets', { de: 'aaa' });
+ns.K.store.usuario('u-bbb');
+ok('usuário B não enxerga o orçamento de A',
+  ns.K.store.ler('cen_v3_budgets', null) === null, ns.K.store.ler('cen_v3_budgets', null));
+ns.K.store.gravar('cen_v3_budgets', { de: 'bbb' });
+ns.K.store.usuario('u-aaa');
+ok('A continua vendo o próprio orçamento, intacto',
+  ns.K.store.ler('cen_v3_budgets', {}).de === 'aaa', ns.K.store.ler('cen_v3_budgets', {}));
+
+const fisicas = Array.from(ns.store.keys()).sort();
+ok('as três formas coexistem fisicamente, sem se sobrescrever',
+  fisicas.join(',') === 'cen_v3_budgets,cen_v3_u-aaa_budgets,cen_v3_u-bbb_budgets', fisicas);
+ok('a chave órfã continua órfã — nenhuma migração de adoção aconteceu',
+  ns.store.get('cen_v3_budgets') === JSON.stringify({ orfao: 'de ninguém' }), ns.store.get('cen_v3_budgets'));
+
+/* Os acessos crus (rollback, export) não passam pelo store, mas a CHAVE passa:
+   é o que garante que o rollback restaure o namespace certo. */
+ok('store.chave traduz também as chaves de controle interno',
+  ns.K.store.chave(ns.K.LS_INT.preMig3) === 'cen_v3_u-aaa_backup_pre_mig3', ns.K.store.chave(ns.K.LS_INT.preMig3));
+
+/* ============================================================
+   5 · O ARQUIVO de backup continua sem prefixo.
+   O backup é do usuário, não do uid dele: um arquivo exportado tem que poder ser
+   lido de volta. A tradução acontece nas duas fronteiras, nunca no arquivo.
+   ============================================================ */
+const bkp = criar({ cen_v3_seen: true, cen_v3_opcseed: true, cen_v3_mig3: true });
+bkp.K.store.usuario('u-ccc');
+bkp.K.store.gravar('cen_v3_budgets', { p1: { snapshot: { id: 'p1', nome: 'Stand', total: 100 } } });
+bkp.K.store.gravar('cen_v3_config', { nome: 'KMF' });
+
+let arquivo = null;
+bkp.ctx.Blob = function (partes) { arquivo = partes[0]; };
+bkp.ctx.URL = { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} };
+bkp.ctx.document.createElement = () => ({ download: '', href: '', click() {} });
+bkp.ctx.exportarBackup();
+const pay = JSON.parse(arquivo);
+
+ok('o arquivo grava a chave sem prefixo', 'cen_v3_budgets' in pay.dados, Object.keys(pay.dados));
+ok('nenhuma chave do arquivo carrega o uid',
+  Object.keys(pay.dados).every(k => k.indexOf('u-ccc') < 0), Object.keys(pay.dados));
+ok('o conteúdo exportado é o do usuário logado',
+  !!(pay.dados['cen_v3_budgets'] && pay.dados['cen_v3_budgets'].p1), pay.dados['cen_v3_budgets']);
+
+/* e a volta: um arquivo sem prefixo entra no namespace de quem está logado */
+bkp.ctx.location = { reload: () => {} };
+bkp.ctx.aplicarBackup({ dados: { cen_v3_budgets: { p2: { snapshot: { id: 'p2', nome: 'Toten' } } } } });
+ok('o import grava no namespace do usuário, não na chave crua',
+  !!bkp.store.get('cen_v3_u-ccc_budgets') && bkp.store.get('cen_v3_u-ccc_budgets').indexOf('p2') >= 0,
+  bkp.store.get('cen_v3_u-ccc_budgets'));
+ok('o import não escreveu na chave sem prefixo',
+  bkp.store.has('cen_v3_budgets') === false, Array.from(bkp.store.keys()));
+
+/* ============================================================
+   6 · A tag do supabase-js continua compatível com o recorte do harness.
    É o risco 6.1 do PLANO-FASE-2: um type="module" ou um script externo depois do
    inline derrubaria todas as outras suítes de uma vez, e o sintoma seria confuso.
    ============================================================ */

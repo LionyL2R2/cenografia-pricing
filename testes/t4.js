@@ -79,14 +79,14 @@ const refAuto = seedAuto.itensProntos.reduce((a, l) => a + tItem_v2(l, CAT_ORIG)
 const { ctx, K, V, store } = criar(SEED);
 
 ok('APP_VERSION é uma string', typeof K.APP_VERSION === 'string', K.APP_VERSION);
-ok('flag de migracao foi marcada', ctx.lsGet(K.LS_INT.mig3, false) === true);
-ok('backup pre-migracao foi gravado', !!ctx.lsGet(K.LS_INT.preMig3, null));
-const pre = ctx.lsGet(K.LS_INT.preMig3, null);
+ok('flag de migracao foi marcada', K.store.ler(K.LS_INT.mig3, false) === true);
+ok('backup pre-migracao foi gravado', !!K.store.ler(K.LS_INT.preMig3, null));
+const pre = K.store.ler(K.LS_INT.preMig3, null);
 ok('backup guarda o conteudo ORIGINAL de budgets', pre.budgets === JSON.stringify(seedBudgets));
 ok('backup guarda o conteudo ORIGINAL de auto', pre.auto === JSON.stringify(seedAuto));
 ok('backup NAO entra nas chaves exportadas', !Object.values(K.LS).includes(K.LS_INT.preMig3) && !Object.values(K.LS).includes(K.LS_INT.mig3));
 
-const depois = ctx.lsGet('cen_v3_budgets', {});
+const depois = K.store.ler('cen_v3_budgets', {});
 const nMig = Object.keys(depois).filter(id => depois[id].schemaVersion === 3).length;
 console.log(`\norcamentos no store: ${Object.keys(depois).length} | migrados p/ schema 3: ${nMig}\n`);
 // 10 registros no store: 9 no formato novo (8 + o "mentiroso") + 1 legado v3/v4 pulado
@@ -101,8 +101,8 @@ Object.keys(refBudgets).forEach(id => {
   if (t !== refBudgets[id]) divergentes.push({ id, v2: refBudgets[id], v3: t });
 });
 ok('varredura eager: NENHUM total mudou (10 orcamentos)', divergentes.length === 0, divergentes);
-ok('rascunho tambem migrou', ctx.lsGet('cen_v3_auto', {}).schemaVersion === 3);
-ok('rascunho: total inalterado', ctx.subItensProntos(ctx.migrar(ctx.lsGet('cen_v3_auto', {}))) === refAuto);
+ok('rascunho tambem migrou', K.store.ler('cen_v3_auto', {}).schemaVersion === 3);
+ok('rascunho: total inalterado', ctx.subItensProntos(ctx.migrar(K.store.ler('cen_v3_auto', {}))) === refAuto);
 ok('snapshot preservado na migracao', depois.id0.snapshot && depois.id0.snapshot.nome === 'Orcamento 0', depois.id0.snapshot);
 ok('materiais preservados na migracao', depois.id0.materiais.length === 1);
 
@@ -118,13 +118,13 @@ V.itensCustom = [
 ];
 let divergentes2 = [];
 Object.keys(refBudgets).forEach(id => {
-  const t = ctx.subItensProntos(ctx.migrar(ctx.lsGet('cen_v3_budgets', {})[id]));
+  const t = ctx.subItensProntos(ctx.migrar(K.store.ler('cen_v3_budgets', {})[id]));
   if (t !== refBudgets[id]) divergentes2.push({ id, v2: refBudgets[id], agora: t });
 });
 ok('apos mudar TODO o catalogo: nenhum total mudou', divergentes2.length === 0, divergentes2);
 
 // ---------- a varredura nao roda duas vezes ----------
-const h2 = criar(Object.assign({}, SEED, { cen_v3_budgets: ctx.lsGet('cen_v3_budgets', {}), cen_v3_mig3: true }));
+const h2 = criar(Object.assign({}, SEED, { cen_v3_budgets: K.store.ler('cen_v3_budgets', {}), cen_v3_mig3: true }));
 ok('varredura nao repete com a flag marcada', h2.ctx.migrarTudoParaSchema3() === null);
 
 // ---------- rollback: falha no meio restaura tudo e NAO marca a flag ----------
@@ -142,7 +142,7 @@ console.log('-- fim --\n');
 h3.localStorage.setItem = setReal;
 ok('falha devolve null', r3 === null, r3);
 ok('rollback: budgets restaurado byte a byte', h3.store.get('cen_v3_budgets') === originalBudgets);
-ok('rollback: flag NAO foi marcada', h3.ctx.lsGet(K.LS_INT.mig3, false) === false, h3.ctx.lsGet(K.LS_INT.mig3, false));
+ok('rollback: flag NAO foi marcada', h3.K.store.ler(K.LS_INT.mig3, false) === false, h3.K.store.ler(K.LS_INT.mig3, false));
 
 // ---------- import roda as migracoes no conteudo, ignorando o cabecalho ----------
 const h4 = criar({ cen_v3_itens: CAT_ORIG, cen_v3_opcseed: true, cen_v3_seen: true, cen_v3_mig3: true });
@@ -157,13 +157,13 @@ const payload = {
 const refImp = payload.dados.cen_v3_budgets.imp.itensProntos.reduce((a, l) => a + tItem_v2(l, CAT_ORIG), 0);
 const refImpAuto = payload.dados.cen_v3_auto.itensProntos.reduce((a, l) => a + tItem_v2(l, CAT_ORIG), 0);
 h4.ctx.aplicarBackup(payload);
-const impB = h4.ctx.lsGet('cen_v3_budgets', {}).imp;
+const impB = h4.K.store.ler('cen_v3_budgets', {}).imp;
 ok('import migrou o orcamento importado', impB.schemaVersion === 3, impB.schemaVersion);
 ok('import congelou a unidade', impB.itensProntos[0].unidade === 'peça', impB.itensProntos[0]);
 ok('import preservou o total', h4.ctx.subItensProntos(h4.ctx.migrar(impB)) === refImp, { esperado: refImp });
-ok('import migrou o rascunho', h4.ctx.lsGet('cen_v3_auto', {}).schemaVersion === 3);
-ok('import preservou o total do rascunho', h4.ctx.subItensProntos(h4.ctx.migrar(h4.ctx.lsGet('cen_v3_auto', {}))) === refImpAuto);
-ok('import marca a flag de migracao', h4.ctx.lsGet(K.LS_INT.mig3, false) === true);
+ok('import migrou o rascunho', h4.K.store.ler('cen_v3_auto', {}).schemaVersion === 3);
+ok('import preservou o total do rascunho', h4.ctx.subItensProntos(h4.ctx.migrar(h4.K.store.ler('cen_v3_auto', {}))) === refImpAuto);
+ok('import marca a flag de migracao', h4.K.store.ler(K.LS_INT.mig3, false) === true);
 
 // ================= ITEM PRONTO SEM PRECO =================
 const h5 = criar({ cen_v3_itens: CAT_ORIG, cen_v3_opcseed: true, cen_v3_seen: true, cen_v3_mig3: true });

@@ -140,7 +140,7 @@ ok('abrirConfig preenche o nome no input', ctx.c_nome.value === CHEIO.nome, ctx.
 ctx.c_razao.value = 'Nova Razão Ltda';
 ctx.salvarConfig();
 ok('salvarConfig guarda a razão social no state', V.config.razaoSocial === 'Nova Razão Ltda', V.config);
-const gravado = ctx.lsGet(K.LS.config, {});
+const gravado = K.store.ler(K.LS.config, {});
 ok('salvarConfig persiste a razão social no localStorage', gravado.razaoSocial === 'Nova Razão Ltda', gravado);
 ok('salvarConfig persiste os seis campos',
   ['nome', 'razaoSocial', 'doc', 'tel', 'email', 'cidade'].every(k => k in gravado), Object.keys(gravado));

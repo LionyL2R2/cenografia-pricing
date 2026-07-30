@@ -1,5 +1,5 @@
 /* Suíte 2 — backup, quota e fuso horário (v5.8).
-   Cobre: hoje() local, lsSet devolvendo true/false, export das 7 chaves,
+   Cobre: hoje() local, store.gravar devolvendo true/false, export das 7 chaves,
    validação do arquivo de backup, resumo, e import substituindo tudo. */
 
 /* O teste de data local só tem sentido num fuso onde local != UTC — num
@@ -34,27 +34,27 @@ const vmHoje = ctx.hoje();
 ctx.Date = RealDate;
 ok('23h30 BRT continua sendo 27/07 (UTC diria 28)', vmHoje === '2026-07-27', { local: vmHoje, utc: fixa.toISOString().slice(0, 10) });
 
-// ---------- lsSet devolve true/false ----------
-ok('lsSet devolve true quando grava', ctx.lsSet('teste_ok', { a: 1 }) === true);
-ok('valor gravado e legivel', ctx.lsGet('teste_ok', null).a === 1);
+// ---------- store.gravar devolve true/false ----------
+ok('store.gravar devolve true quando grava', K.store.gravar('teste_ok', { a: 1 }) === true);
+ok('valor gravado e legivel', K.store.ler('teste_ok', null).a === 1);
 
 // quota estourada -> false, sem engolir
 const setItemReal = ctx.localStorage.setItem;
 ctx.localStorage.setItem = () => { const e = new Error('QuotaExceededError'); e.name = 'QuotaExceededError'; throw e; };
 console.log('\n-- erro esperado abaixo --');
-const r = ctx.lsSet('teste_quota', { b: 2 });
+const r = K.store.gravar('teste_quota', { b: 2 });
 console.log('-- fim --\n');
-ok('lsSet devolve false quando a quota estoura', r === false, r);
+ok('store.gravar devolve false quando a quota estoura', r === false, r);
 ctx.localStorage.setItem = setItemReal;
 
 // ---------- export ----------
 store.clear();
-ctx.lsSet('cen_v3_budgets', { id1: { snapshot: { id: 'id1', nome: 'Stand Expo', total: 5000 } }, id2: { snapshot: { id: 'id2', nome: 'Portal ACME', total: 900 } } });
-ctx.lsSet('cen_v3_itens', [{ nome: 'Trainel', unidade: 'm²' }, { nome: 'Toten', unidade: 'peça' }]);
-ctx.lsSet('cen_v3_opcoes', { materiais: ['Madeira', 'MDF'], producao: ['Marceneiro'], impressao: [] });
-ctx.lsSet('cen_v3_config', { nome: 'KMF Cenografia', doc: '', tel: '', email: '', cidade: '' });
-ctx.lsSet('cen_v3_auto', { meta: { nome: 'rascunho' } });
-ctx.lsSet('cen_v3_seen', true);
+K.store.gravar('cen_v3_budgets', { id1: { snapshot: { id: 'id1', nome: 'Stand Expo', total: 5000 } }, id2: { snapshot: { id: 'id2', nome: 'Portal ACME', total: 900 } } });
+K.store.gravar('cen_v3_itens', [{ nome: 'Trainel', unidade: 'm²' }, { nome: 'Toten', unidade: 'peça' }]);
+K.store.gravar('cen_v3_opcoes', { materiais: ['Madeira', 'MDF'], producao: ['Marceneiro'], impressao: [] });
+K.store.gravar('cen_v3_config', { nome: 'KMF Cenografia', doc: '', tel: '', email: '', cidade: '' });
+K.store.gravar('cen_v3_auto', { meta: { nome: 'rascunho' } });
+K.store.gravar('cen_v3_seen', true);
 
 let baixado = null;
 ctx.Blob = function (partes) { baixado = partes[0]; };
@@ -96,23 +96,23 @@ ok('aceita backup parcial', ctx.validarBackup({ dados: { cen_v3_budgets: {} } })
 
 // ---------- import substitui TUDO ----------
 store.clear();
-ctx.lsSet('cen_v3_budgets', { antigo: { snapshot: { id: 'antigo', nome: 'Some' } } });
-ctx.lsSet('cen_v3_config', { nome: 'Empresa Velha' });
-ctx.lsSet('cen_v3_seen', true);
+K.store.gravar('cen_v3_budgets', { antigo: { snapshot: { id: 'antigo', nome: 'Some' } } });
+K.store.gravar('cen_v3_config', { nome: 'Empresa Velha' });
+K.store.gravar('cen_v3_seen', true);
 let recarregou = false;
 ctx.location = { reload: () => { recarregou = true; } };
 ctx.aplicarBackup(pay);
-ok('orcamentos substituidos', Object.keys(ctx.lsGet('cen_v3_budgets', {})).join(',') === 'id1,id2', ctx.lsGet('cen_v3_budgets', {}));
-ok('orcamento antigo sumiu', !ctx.lsGet('cen_v3_budgets', {}).antigo);
-ok('config substituida', ctx.lsGet('cen_v3_config', {}).nome === 'KMF Cenografia');
+ok('orcamentos substituidos', Object.keys(K.store.ler('cen_v3_budgets', {})).join(',') === 'id1,id2', K.store.ler('cen_v3_budgets', {}));
+ok('orcamento antigo sumiu', !K.store.ler('cen_v3_budgets', {}).antigo);
+ok('config substituida', K.store.ler('cen_v3_config', {}).nome === 'KMF Cenografia');
 
 // chave ausente no backup e REMOVIDA, nao mantida
 store.clear();
-ctx.lsSet('cen_v3_budgets', { x: {} });
-ctx.lsSet('cen_v3_config', { nome: 'Deve Sumir' });
+K.store.gravar('cen_v3_budgets', { x: {} });
+K.store.gravar('cen_v3_config', { nome: 'Deve Sumir' });
 ctx.aplicarBackup({ app: 'cenografia-pricing', dados: { cen_v3_budgets: { novo: { snapshot: { nome: 'N' } } } } });
 ok('chave ausente no backup e removida', ctx.localStorage.getItem('cen_v3_config') === null, ctx.localStorage.getItem('cen_v3_config'));
-ok('chave presente foi aplicada', !!ctx.lsGet('cen_v3_budgets', {}).novo);
+ok('chave presente foi aplicada', !!K.store.ler('cen_v3_budgets', {}).novo);
 
 setTimeout(() => {
   ok('import dispara reload', recarregou === true);

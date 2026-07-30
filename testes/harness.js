@@ -16,6 +16,9 @@
  * - `K`     constantes de topo (APP_VERSION, SCHEMA_VERSION, LS, LS_INT…).
  * - `V`     getters/setters das variáveis `let` de topo (state, itensCustom…).
  * - `store` o Map por trás do localStorage falso, para inspeção direta.
+ *           CUIDADO: não confundir com `K.store`, que é o objeto `store` DO APP
+ *           (`store.ler`, `store.gravar`, `store.chave`, `store.usuario`). Este
+ *           aqui é o Map cru; aquele é a camada de armazenamento do index.html.
  * - `document` o document falso, com `body.classList` de verdade — é por ele que
  *           se vê se o app foi revelado (classe `app-pronto`) ou não.
  *
@@ -144,6 +147,7 @@ module.exports = function criar(seed, opcoes) {
   try { o.OPC_BASE = OPC_BASE; } catch(e){}
   try { o.MODO_TESTE = MODO_TESTE; } catch(e){}
   try { o.db = db; } catch(e){}
+  try { o.store = store; } catch(e){}
   return o;
 })();
 globalThis.__v = {

@@ -25,9 +25,9 @@ t4.js     38 PASS   0 FALHA   migração eager e item sem preço (v5.9.1)
 t5.js     31 PASS   0 FALHA   conferência de integridade (v5.9.2)
 t6.js     67 PASS   0 FALHA   dados da empresa no PDF e migração legada de responsavel (v5.10)
 t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
-t8.js     31 PASS   0 FALHA   o app não abre sem login (fase 2)
+t8.js     47 PASS   0 FALHA   o app não abre sem login (fase 2)
 ------------------------------------------------------------
-TOTAL: 375 PASS / 0 FALHA em 8 suítes
+TOTAL: 391 PASS / 0 FALHA em 8 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -211,6 +211,12 @@ voltar.
   `MODO_TESTE` é resolvido uma vez só.
 - **A saída oferecida é recarregar**, não entrar assim mesmo: o botão "Tentar de
   novo" chama `location.reload()`.
+- **Chave por usuário**: `store.chave()` sem dono é identidade, com dono vira
+  `cen_v3_<uid>_*`. Grava com um uid, lê com outro, e o dado não atravessa; a
+  chave sem prefixo continua invisível e intocada — nada é adotado.
+- **O arquivo de backup continua sem prefixo**: export lê do namespace e grava a
+  chave crua no arquivo; import lê a chave crua e grava no namespace. A tradução
+  fica nas duas fronteiras, nunca dentro do arquivo.
 - **Risco 6.1 do `PLANO-FASE-2`**: asserções sobre as próprias tags do
   `index.html` — uma única tag de abertura sem atributos, nenhum `type="module"`,
   todo script externo antes do inline, e o recorte do harness sem tag de script
