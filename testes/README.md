@@ -26,8 +26,9 @@ t5.js     31 PASS   0 FALHA   conferência de integridade (v5.9.2)
 t6.js     67 PASS   0 FALHA   dados da empresa no PDF e migração legada de responsavel (v5.10)
 t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
 t8.js     47 PASS   0 FALHA   o app não abre sem login (fase 2)
+t9.js     64 PASS   0 FALHA   mão de obra sem soma dupla e sugestão (v5.12)
 ------------------------------------------------------------
-TOTAL: 391 PASS / 0 FALHA em 8 suítes
+TOTAL: 455 PASS / 0 FALHA em 9 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -222,6 +223,46 @@ voltar.
   todo script externo antes do inline, e o recorte do harness sem tag de script
   dentro. Se alguém mexer nas tags, esta suíte falha com o motivo escrito, em vez
   de as outras sete caírem juntas sem explicação.
+
+### `t9.js` — mão de obra sem soma dupla e sugestão de preenchimento (v5.12)
+
+Duas mudanças que mexem em dinheiro, cada uma com a sua rede.
+
+**A soma dobrada.** Até a v5.11 o card de mão de obra somava Produção +
+Montagem + Desmontagem como três custos independentes. Montagem e desmontagem
+não são diárias adicionais — são o detalhamento de onde as diárias de produção
+foram gastas, e a diária de montagem já está lançada na linha da função.
+
+- **O caso do enunciado, prendido literalmente**: 8 diárias a R$ 100, com 4 de
+  montagem e 4 de desmontagem, tem que dar **R$ 800** — e a asserção diz também,
+  explicitamente, que não pode dar R$ 1.600.
+- Mexer nos campos de detalhamento (inclusive pôr 99 em cada um) não move um
+  centavo do custo.
+- `valorMontagem`/`valorDesmontagem` saíram do modelo: um orçamento salvo antes
+  disso é ignorado pelo cálculo e os dois campos vão para `_legacy` pelo caminho
+  normal de campo desconhecido — preservados, nunca somando de novo.
+- **Validação sem bloqueio**: detalhar mais diárias do que foram lançadas
+  levanta aviso e não muda o total. Diária quebrada (0,5 + 0,5) não dispara
+  falso alarme de arredondamento.
+- **Na proposta do cliente** montagem e desmontagem continuam aparecendo como
+  serviço descrito, com a quantidade de diárias e **sem valor** — saem como
+  `incluso`, não como `a definir`, não entram no gross-up e não carregam resíduo
+  de arredondamento.
+
+**A sugestão de preenchimento.** Campo de valor em branco com referência
+conhecida mostra a referência, em cinza, com um link `usar R$ X`.
+
+- Ordem das fontes: **catálogo → último valor usado no mesmo nome → nada.** Item
+  com preço no catálogo sugere o catálogo; item no catálogo *sem* preço cai no
+  histórico; item nunca visto não sugere nada.
+- "Último" é o mais recente por `salvoEm`, não o primeiro encontrado.
+- Cobre os seis setores, e setor não se mistura com setor: `MDF 18mm` usado em
+  Materiais não sugere nada em Estrutura.
+- **Zero gravado no passado não vira sugestão.** Zero significa "de graça", e
+  oferecê-lo de volta é a mesma família do `''` que vira `0` na proposta.
+- **A rede principal**: com sugestão viva e campo vazio, o subtotal do setor e o
+  custo total são **zero**. O valor só entra depois do clique — e aí a sugestão
+  some.
 
 ## Como escrever uma suíte nova
 

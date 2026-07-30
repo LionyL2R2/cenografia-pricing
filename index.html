@@ -406,6 +406,12 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 .lnk-preco:hover{background:#F9DCC8}
 .lnk-preco:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .preco-dif.sem-preco{color:var(--ink-3);font-style:italic}
+/* sugestão de preenchimento (v5.12) — nunca preenche sozinha, só oferece */
+.sugestao{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:4px;font-size:11px;white-space:nowrap}
+.sugestao:empty{display:none}
+.sug-fonte{color:var(--ink-3);font-style:italic;cursor:help}
+/* subhead de contagem: não é dinheiro, então não usa a cor de valor */
+.sh-sub.sh-info{color:var(--ink-2);font-weight:600}
 .cell-tot{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap}
 .trib-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .trib-aviso{background:#FEF6EC;border:1px solid #F3D6A8;color:#92580B;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin-top:10px;line-height:1.5}
@@ -685,13 +691,13 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
     <div id="list-producao"></div>
     <div class="add-bar"><button class="btn obra" onclick="addFuncao()">+ Adicionar função</button></div>
 
-    <div class="subhead">Montagem e desmontagem <span class="sh-sub" id="sub-montagem">R$ 0,00</span></div>
+    <div class="subhead">Montagem e desmontagem <span class="sh-sub sh-info" id="sub-montagem">0 de 0 diárias</span></div>
+    <p class="fin-nota" style="margin-top:0">Detalhamento das diárias <b>já lançadas em Produção</b> — quantas foram de montagem e quantas de desmontagem. <b>Não é custo adicional</b>: a diária de montagem vale o mesmo que qualquer outra e já está somada acima.</p>
     <div class="field-grid">
       <div><label>Diárias de montagem</label><input id="mont_dm" type="number" min="0" step="any" placeholder="0" oninput="setMont('diariasMontagem',this.value)"></div>
-      <div><label>Valor por diária (montagem)</label><input id="mont_vm" type="text" inputmode="decimal" placeholder="0,00" oninput="setMontMoney('valorMontagem',this.value)" onblur="fmtMoneyInput(this)"></div>
       <div><label>Diárias de desmontagem</label><input id="mont_dd" type="number" min="0" step="any" placeholder="0" oninput="setMont('diariasDesmontagem',this.value)"></div>
-      <div><label>Valor por diária (desmontagem)</label><input id="mont_vd" type="text" inputmode="decimal" placeholder="0,00" oninput="setMontMoney('valorDesmontagem',this.value)" onblur="fmtMoneyInput(this)"></div>
     </div>
+    <div class="aviso" id="avisoMontagem"></div>
   </div>
 </div>
 
@@ -706,13 +712,13 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
   <div class="card-body">
     <div class="subhead">Transporte <span class="sh-sub" id="sub-transporte">R$ 0,00</span></div>
     <div class="field-grid">
-      <div><label>Frete / caminhão</label><input id="tr_frete" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('frete',this.value)" onblur="fmtMoneyInput(this)"></div>
-      <div><label>Combustível</label><input id="tr_comb" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('combustivel',this.value)" onblur="fmtMoneyInput(this)"></div>
-      <div><label>Pedágio</label><input id="tr_ped" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('pedagio',this.value)" onblur="fmtMoneyInput(this)"></div>
-      <div><label>Estacionamento</label><input id="tr_est" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('estacionamento',this.value)" onblur="fmtMoneyInput(this)"></div>
-      <div><label>Hospedagem</label><input id="tr_hosp" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('hospedagem',this.value)" onblur="fmtMoneyInput(this)"></div>
-      <div><label>Alimentação</label><input id="tr_alim" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('alimentacao',this.value)" onblur="fmtMoneyInput(this)"></div>
-      <div><label>Outros</label><input id="tr_outros" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('outros',this.value)" onblur="fmtMoneyInput(this)"></div>
+      <div><label>Frete / caminhão</label><input id="tr_frete" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('frete',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-frete"></div></div>
+      <div><label>Combustível</label><input id="tr_comb" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('combustivel',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-combustivel"></div></div>
+      <div><label>Pedágio</label><input id="tr_ped" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('pedagio',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-pedagio"></div></div>
+      <div><label>Estacionamento</label><input id="tr_est" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('estacionamento',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-estacionamento"></div></div>
+      <div><label>Hospedagem</label><input id="tr_hosp" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('hospedagem',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-hospedagem"></div></div>
+      <div><label>Alimentação</label><input id="tr_alim" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('alimentacao',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-alimentacao"></div></div>
+      <div><label>Outros</label><input id="tr_outros" type="text" inputmode="decimal" placeholder="0,00" oninput="setTrans('outros',this.value)" onblur="fmtMoneyInput(this)"><div class="sugestao" id="sug-outros"></div></div>
     </div>
 
     <div class="subhead">Locação de equipamentos <span class="sh-sub" id="sub-locacoes">R$ 0,00</span></div>
@@ -880,7 +886,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
    ============================================================ */
 
 /* versão do app (única fonte da verdade — aparece no rodapé e no PDF) */
-const APP_VERSION = '5.11';
+const APP_VERSION = '5.12';
 /* versão do schema de um orçamento gravado. Todo orçamento salvo carrega
    schemaVersion; quem não tem o campo é assumido como 1 (formato pré-v5.7). */
 const SCHEMA_VERSION = 3;
@@ -982,7 +988,7 @@ function novoEstado(){
     materiais:[],
     impressao:[],
     estrutura:[],
-    maoObra:{ producao:[], montagem:{ diariasMontagem:'', valorMontagem:'', diariasDesmontagem:'', valorDesmontagem:'' } },
+    maoObra:{ producao:[], montagem:{ diariasMontagem:'', diariasDesmontagem:'' } },
     logistica:{ transporte:{ frete:'', combustivel:'', pedagio:'', estacionamento:'', hospedagem:'', alimentacao:'', outros:'' }, locacoes:[] },
     financeiro:{ tributacao:'', impostoPct:'', margemPct:'' },
     migrado:false
@@ -1145,6 +1151,146 @@ function catalogoDivergiu(l){
   if(atual===null) return null;
   return round2(ref)!==round2(atual) ? atual : null;
 }
+/* ============================================================
+   SUGESTÃO DE PREENCHIMENTO (v5.12)
+
+   Campo de valor em branco, com referência conhecida, mostra a referência. A
+   ordem das fontes é: preço do catálogo → último valor usado para o MESMO nome
+   em orçamento salvo → nada.
+
+   A regra que manda em tudo: sugestão NÃO é preenchimento. Ela aparece como
+   placeholder cinza e como um link "usar R$ X". Nada entra no total sem clique.
+   Um valor que se preenche sozinho vira preço enviado ao cliente sem ninguém
+   ter decidido por ele — que é a mesma família do bug de preço herdado que a
+   auto-contenção (v5.9) fechou.
+   ============================================================ */
+const CAMPO_SUG = {
+  itensprontos: {lista:s=>s.itensProntos,       nome:'item',        valor:'valorUnit'},
+  materiais:    {lista:s=>s.materiais,          nome:'desc',        valor:'valorUnit'},
+  impressao:    {lista:s=>s.impressao,          nome:'desc',        valor:'valorM2'},
+  estrutura:    {lista:s=>s.estrutura,          nome:'desc',        valor:'valorUnit'},
+  producao:     {lista:s=>s.maoObra.producao,   nome:'funcao',      valor:'valorDiaria'},
+  locacoes:     {lista:s=>s.logistica.locacoes, nome:'equipamento', valor:'valorDia'}
+};
+/* índice {tipo|nome: {valor, salvoEm}} montado sob demanda a partir dos
+   orçamentos salvos. null = precisa remontar (salvou, duplicou, excluiu). */
+let historicoValores = null;
+function invalidarHistorico(){ historicoValores = null; }
+
+function reconstruirHistorico(){
+  const idx={};
+  /* zero não é referência: significa "de graça", não "foi este o valor".
+     Sugerir zero seria a mesma armadilha de '' virando 0 na proposta. */
+  const reg=(tipo,nome,valor,quando)=>{
+    const n=normNome(nome); if(!n) return;
+    if(valor===''||valor==null) return;
+    const v=Number(valor);
+    if(!isFinite(v)||v<=0) return;
+    const k=tipo+'|'+n, ant=idx[k];
+    if(!ant || quando>=ant.salvoEm) idx[k]={valor:v, salvoEm:quando};
+  };
+  const b=store.ler(LS.budgets,{});
+  Object.keys(b).forEach(id=>{
+    const rec=b[id];
+    if(!rec || typeof rec!=='object') return;
+    const q=Number((rec.snapshot&&rec.snapshot.salvoEm)||0)||0;
+    Object.keys(CAMPO_SUG).forEach(tipo=>{
+      const c=CAMPO_SUG[tipo];
+      let arr=null;
+      try{ arr=c.lista(rec); }catch(e){ arr=null; }   // registro legado: setor pode não existir
+      if(!Array.isArray(arr)) return;
+      arr.forEach(l=>{ if(l && typeof l==='object') reg(tipo, l[c.nome], l[c.valor], q); });
+    });
+    const tr = rec.logistica && rec.logistica.transporte;
+    if(tr && typeof tr==='object') Object.keys(tr).forEach(k=>reg('transporte', k, tr[k], q));
+  });
+  historicoValores=idx;
+}
+function ultimoValorUsado(tipo, nome){
+  if(!historicoValores) reconstruirHistorico();
+  const e=historicoValores[tipo+'|'+normNome(nome)];
+  return e ? e.valor : null;
+}
+/* devolve o valor sugerido, ou null. Só item pronto tem catálogo; os outros
+   setores caem direto no histórico. */
+function sugestaoValor(tipo, nome){
+  const n=String(nome||'').trim();
+  if(!n) return null;
+  if(tipo==='itensprontos'){
+    const p=precoCatalogo(n);
+    if(p!==null && p>0) return p;
+  }
+  return ultimoValorUsado(tipo, n);
+}
+function fonteSugestao(tipo, nome){
+  return (tipo==='itensprontos' && precoCatalogo(nome)!==null) ? 'catálogo' : 'último uso';
+}
+function campoVazio(v){ return v===''||v==null; }
+/* placeholder do campo: a sugestão em cinza. Continua sendo placeholder — o
+   input segue com value="" e nada disso entra no cálculo. */
+function phSug(tipo, nome, atual){
+  if(!campoVazio(atual)) return '0,00';
+  const v=sugestaoValor(tipo,nome);
+  return v===null ? '0,00' : moneyInput(v);
+}
+/* a caixa vem SEMPRE, mesmo vazia (`.sugestao:empty` some no CSS): assim
+   atualizarSugestaoLinha() tem onde escrever sem reconstruir a linha */
+function linkSug(tipo, id, nome, atual){
+  return `<div class="sugestao" data-sug="${esc(id)}">${botoesSug(tipo,id,nome,atual)}</div>`;
+}
+function botoesSug(tipo, id, nome, atual){
+  if(!campoVazio(atual)) return '';
+  const v=sugestaoValor(tipo,nome);
+  if(v===null) return '';
+  const f=fonteSugestao(tipo,nome);
+  const t=f==='catálogo' ? 'preço cadastrado no catálogo' : 'último valor que você usou neste mesmo item';
+  return `<span class="sug-fonte" title="Sugestão pelo ${t}. Nada é preenchido sozinho.">${f}</span>` +
+         `<button type="button" class="lnk-preco" onclick="usarSugestao('${tipo}','${esc(id)}')">usar ${esc(fmt(v))}</button>`;
+}
+/* redesenha só o bloco de sugestão e o placeholder daquela linha */
+function atualizarSugestaoLinha(tipo, id){
+  const c=CAMPO_SUG[tipo]; if(!c) return;
+  const l=c.lista(state).find(x=>x.id===id); if(!l) return;
+  const nome=l[c.nome], atual=l[c.valor];
+  const box=document.querySelector(`#list-${tipo} [data-sug="${id}"]`);
+  if(box) box.innerHTML=botoesSug(tipo,id,nome,atual);
+  const inp=document.querySelector(`#list-${tipo} tr[data-id="${id}"] .col-valor input`);
+  if(inp) inp.placeholder=phSug(tipo,nome,atual);
+}
+function usarSugestao(tipo, id){
+  const c=CAMPO_SUG[tipo]; if(!c) return;
+  const l=c.lista(state).find(x=>x.id===id); if(!l) return;
+  const v=sugestaoValor(tipo, l[c.nome]); if(v===null) return;
+  l[c.valor]=v;
+  /* item pronto: quem vem do catálogo passa a ter referência, para o aviso de
+     "catálogo mudou" continuar funcionando nesta linha */
+  if(tipo==='itensprontos'){ const p=precoCatalogo(l.item); if(p!==null) l.precoRef=p; }
+  renderSec(tipo); recalc();
+  toast('Valor preenchido: '+fmt(v));
+}
+/* transporte não é lista: os campos têm nome fixo e um id de sugestão próprio */
+const CAMPOS_TRANSPORTE = ['frete','combustivel','pedagio','estacionamento','hospedagem','alimentacao','outros'];
+const INPUT_TRANSPORTE = {frete:'tr_frete', combustivel:'tr_comb', pedagio:'tr_ped', estacionamento:'tr_est', hospedagem:'tr_hosp', alimentacao:'tr_alim', outros:'tr_outros'};
+function renderSugestoesTransporte(){
+  const tr=state.logistica.transporte;
+  CAMPOS_TRANSPORTE.forEach(k=>{
+    const alvo=document.getElementById('sug-'+k);
+    const inp=document.getElementById(INPUT_TRANSPORTE[k]);
+    const vazio=campoVazio(tr[k]);
+    const v=vazio ? sugestaoValor('transporte',k) : null;
+    if(inp) inp.placeholder = v===null ? '0,00' : moneyInput(v);
+    if(!alvo) return;
+    alvo.innerHTML = v===null ? '' :
+      `<span class="sug-fonte">último uso</span><button type="button" class="lnk-preco" onclick="usarSugestaoTransporte('${k}')">usar ${esc(fmt(v))}</button>`;
+  });
+}
+function usarSugestaoTransporte(campo){
+  const v=sugestaoValor('transporte', campo); if(v===null) return;
+  state.logistica.transporte[campo]=v;
+  render(); recalc();
+  toast('Valor preenchido: '+fmt(v));
+}
+
 function ipM2(l){ return num(l.largura)*num(l.altura); }
 /* item pronto: m² → m²×qtd×valor/m² · peça → qtd×valor unit. */
 function tItem(l){ return ipUnidade(l)==='m²' ? ipM2(l)*num(l.qtd)*num(l.valorUnit) : num(l.qtd)*num(l.valorUnit); }
@@ -1162,8 +1308,25 @@ function subMateriais(s=state){ return s.materiais.reduce((a,l)=>a+tMat(l),0); }
 function subImpressao(s=state){ return s.impressao.reduce((a,l)=>a+tImp(l),0); }
 function subEstrutura(s=state){ return s.estrutura.reduce((a,l)=>a+tEst(l),0); }
 function subProducao(s=state){ return s.maoObra.producao.reduce((a,l)=>a+tProd(l),0); }
-function subMontagem(s=state){ const m=s.maoObra.montagem; return num(m.diariasMontagem)*num(m.valorMontagem)+num(m.diariasDesmontagem)*num(m.valorDesmontagem); }
-function subMaoObra(s=state){ return subProducao(s)+subMontagem(s); }
+/* ---------- montagem e desmontagem NÃO somam (v5.12) ----------
+   Até a v5.11 o card somava Produção + Montagem + Desmontagem como três custos
+   independentes, e cobrava a mesma diária duas vezes: 8 diárias a R$ 100, com 4
+   de montagem e 4 de desmontagem, davam R$ 1.600 num custo real de R$ 800.
+
+   Montagem e desmontagem não são diárias adicionais — são o DETALHAMENTO de onde
+   as diárias de produção foram gastas. A diária de montagem custa o mesmo que
+   qualquer outra diária, e ela já está lançada na linha da função. Por isso os
+   campos "valor por diária (montagem/desmontagem)" deixaram de existir: o valor
+   da diária é único e mora na linha de Produção.
+
+   O custo de mão de obra é, e só é, a soma das linhas de Produção. */
+function diariasProducao(s=state){ return s.maoObra.producao.reduce((a,l)=>a+num(l.diarias),0); }
+function diariasDetalhadas(s=state){ const m=s.maoObra.montagem; return num(m.diariasMontagem)+num(m.diariasDesmontagem); }
+/* detalhar mais diárias do que foram lançadas é incoerência, não erro fatal:
+   avisa na tela e deixa o usuário resolver. Tolerância de fração para não
+   acusar diferença de arredondamento em diária quebrada (0,5 + 0,5 = 1). */
+function detalhamentoExcede(s=state){ return diariasDetalhadas(s) > diariasProducao(s) + 1e-9; }
+function subMaoObra(s=state){ return subProducao(s); }
 function subTransporte(s=state){ const t=s.logistica.transporte; return ['frete','combustivel','pedagio','estacionamento','hospedagem','alimentacao','outros'].reduce((a,k)=>a+num(t[k]),0); }
 function subLocacoes(s=state){ return s.logistica.locacoes.reduce((a,l)=>a+tLoc(l),0); }
 function subLogistica(s=state){ return subTransporte(s)+subLocacoes(s); }
@@ -1312,6 +1475,10 @@ function restaurarPreMig3(pre){
    Agora vai para state._legacy[caminho] e um aviso vai para o console. Nada é perdido. */
 const CHAVES_RAIZ      = ['schemaVersion','meta','itensProntos','materiais','impressao','estrutura','maoObra','logistica','financeiro','migrado','_projId','snapshot','_legacy'];
 const CHAVES_MAOOBRA   = ['producao','montagem'];
+/* v5.12: valorMontagem e valorDesmontagem saíram do modelo. Um orçamento salvo
+   antes disso ainda os traz; eles vão para _legacy pelo caminho normal de campo
+   desconhecido — não são apagados, e não voltam a somar nunca mais. */
+const CHAVES_MONTAGEM  = ['diariasMontagem','diariasDesmontagem'];
 const CHAVES_LOGISTICA = ['transporte','locacoes'];
 
 function preservarDesconhecidos(st, src, conhecidas, caminho){
@@ -1367,7 +1534,9 @@ function normalizarNovo(raw){
   st.estrutura    = listaOu(st, src, 'estrutura',    novaEstrutura,  'estrutura');
   if(src.maoObra && typeof src.maoObra==='object'){
     st.maoObra.producao = listaOu(st, src.maoObra, 'producao', novaFuncao, 'maoObra.producao');
-    st.maoObra.montagem = Object.assign(st.maoObra.montagem, src.maoObra.montagem||{});
+    const mSrc = (src.maoObra.montagem && typeof src.maoObra.montagem==='object') ? src.maoObra.montagem : {};
+    CHAVES_MONTAGEM.forEach(k=>{ if(mSrc[k]!==undefined) st.maoObra.montagem[k]=mSrc[k]; });
+    preservarDesconhecidos(st, mSrc, CHAVES_MONTAGEM, 'maoObra.montagem');
     preservarDesconhecidos(st, src.maoObra, CHAVES_MAOOBRA, 'maoObra');
   }
   if(src.logistica && typeof src.logistica==='object'){
@@ -1445,15 +1614,14 @@ function render(){
   // mão de obra · montagem
   const mo=state.maoObra.montagem;
   mont_dm.value = (mo.diariasMontagem==null?'':mo.diariasMontagem);
-  mont_vm.value = moneyInput(mo.valorMontagem);
   mont_dd.value = (mo.diariasDesmontagem==null?'':mo.diariasDesmontagem);
-  mont_vd.value = moneyInput(mo.valorDesmontagem);
   // logística · transporte
   const tr=state.logistica.transporte;
   tr_frete.value=moneyInput(tr.frete); tr_comb.value=moneyInput(tr.combustivel);
   tr_ped.value=moneyInput(tr.pedagio); tr_est.value=moneyInput(tr.estacionamento);
   tr_hosp.value=moneyInput(tr.hospedagem); tr_alim.value=moneyInput(tr.alimentacao);
   tr_outros.value=moneyInput(tr.outros);
+  renderSugestoesTransporte();
   // financeiro
   f_imposto.value=pctBR(state.financeiro.impostoPct);
   f_margem.value=pctBR(state.financeiro.margemPct);
@@ -1508,7 +1676,7 @@ function rowQtdUnid(sec, l, unidOpts, descHtml){
     <td data-l="Descrição">${descHtml || `<input value="${esc(l.desc)}" placeholder="Descrição" oninput="setLin('${sec}','${l.id}','desc',this.value)">`}</td>
     <td class="col-unid" data-l="Unidade">${selUnidade(unidOpts,l.unidade,sec,l.id)}</td>
     <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('${sec}','${l.id}','qtd',this.value)"></td>
-    <td class="r col-valor" data-l="Valor unit."><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('${sec}','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-valor" data-l="Valor unit."><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="${esc(phSug(sec,l.desc,l.valorUnit))}" oninput="setLinMoney('${sec}','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">${linkSug(sec,l.id,l.desc,l.valorUnit)}</td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
     ${acts(sec,l.id)}
   </tr>`;
@@ -1573,7 +1741,7 @@ function renderItensProntos(){
       </div></td>
       ${dimCells}
       <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('itensprontos','${l.id}','qtd',this.value)"></td>
-      <td class="r col-valor" data-l="${ehM2?'Valor/m²':'Valor unit.'}"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="0,00" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">${avisoPreco(l)}</td>
+      <td class="r col-valor" data-l="${ehM2?'Valor/m²':'Valor unit.'}"><input class="in-num in-valor" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorUnit))}" placeholder="${esc(phSug('itensprontos',l.item,l.valorUnit))}" oninput="setLinMoney('itensprontos','${l.id}','valorUnit',this.value)" onblur="fmtMoneyInput(this)">${avisoPreco(l)}${linkSug('itensprontos',l.id,l.item,l.valorUnit)}</td>
       <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
       ${acts('itensprontos',l.id)}
     </tr>`;
@@ -1602,7 +1770,7 @@ function renderImpressao(){
     <td class="r col-dim" data-l="Altura (m)"><input class="in-num" type="number" min="0" step="any" value="${esc(l.altura)}" placeholder="0" oninput="setLin('impressao','${l.id}','altura',this.value)"></td>
     <td class="r col-m2 cell-m2" data-m2="${l.id}" data-l="m²">—</td>
     <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('impressao','${l.id}','qtd',this.value)"></td>
-    <td class="r col-valor" data-l="Valor/m²"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorM2))}" placeholder="0,00" oninput="setLinMoney('impressao','${l.id}','valorM2',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-valor" data-l="Valor/m²"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorM2))}" placeholder="${esc(phSug('impressao',l.desc,l.valorM2))}" oninput="setLinMoney('impressao','${l.id}','valorM2',this.value)" onblur="fmtMoneyInput(this)">${linkSug('impressao',l.id,l.desc,l.valorM2)}</td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
     ${acts('impressao',l.id)}
   </tr>`).join('');
@@ -1615,7 +1783,7 @@ function renderProducao(){
   const rows=state.maoObra.producao.map(l=>`<tr data-id="${l.id}">
     <td data-l="Função">${descCell('producao',l.id,'funcao',l.funcao)}</td>
     <td class="r col-qtd" data-l="Diárias"><input class="in-num" type="number" min="0" step="any" value="${esc(l.diarias)}" oninput="setLin('producao','${l.id}','diarias',this.value)"></td>
-    <td class="r col-valor" data-l="Valor/diária"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDiaria))}" placeholder="0,00" oninput="setLinMoney('producao','${l.id}','valorDiaria',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-valor" data-l="Valor/diária"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDiaria))}" placeholder="${esc(phSug('producao',l.funcao,l.valorDiaria))}" oninput="setLinMoney('producao','${l.id}','valorDiaria',this.value)" onblur="fmtMoneyInput(this)">${linkSug('producao',l.id,l.funcao,l.valorDiaria)}</td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
     ${acts('producao',l.id)}
   </tr>`).join('');
@@ -1629,7 +1797,7 @@ function renderLocacoes(){
     <td data-l="Equipamento"><input value="${esc(l.equipamento)}" placeholder="Ex: Empilhadeira" oninput="setLin('locacoes','${l.id}','equipamento',this.value)"></td>
     <td class="r col-qtd" data-l="Qtd"><input class="in-num" type="number" min="0" step="any" value="${esc(l.qtd)}" oninput="setLin('locacoes','${l.id}','qtd',this.value)"></td>
     <td class="r col-qtd" data-l="Dias"><input class="in-num" type="number" min="0" step="any" value="${esc(l.dias)}" oninput="setLin('locacoes','${l.id}','dias',this.value)"></td>
-    <td class="r col-valor" data-l="Valor/dia"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDia))}" placeholder="0,00" oninput="setLinMoney('locacoes','${l.id}','valorDia',this.value)" onblur="fmtMoneyInput(this)"></td>
+    <td class="r col-valor" data-l="Valor/dia"><input class="in-num" type="text" inputmode="decimal" value="${esc(moneyInput(l.valorDia))}" placeholder="${esc(phSug('locacoes',l.equipamento,l.valorDia))}" oninput="setLinMoney('locacoes','${l.id}','valorDia',this.value)" onblur="fmtMoneyInput(this)">${linkSug('locacoes',l.id,l.equipamento,l.valorDia)}</td>
     <td class="r col-tot cell-tot" data-tot="${l.id}" data-l="Total">—</td>
     ${acts('locacoes',l.id)}
   </tr>`).join('');
@@ -1642,6 +1810,20 @@ function setTots(arr, fn){ arr.forEach(l=>{ const c=document.querySelector(`[dat
 function setM2s(arr, fn){ arr.forEach(l=>{ const c=document.querySelector(`[data-m2="${l.id}"]`); if(c) c.textContent=fmtM2(fn(l)); }); }
 function badge(sec,val){ const b=document.getElementById('badge-'+sec); if(b) b.textContent=fmt(val); }
 function setTxt(id,val){ const e=document.getElementById(id); if(e) e.textContent=fmt(val); }
+/* montagem/desmontagem não têm valor: o subhead mostra contagem, não dinheiro.
+   E avisa — sem bloquear — quando o detalhamento passa das diárias lançadas. */
+function atualizarMontagem(){
+  const det=diariasDetalhadas(), tot=diariasProducao();
+  const n=v=>(Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:2});
+  const e=document.getElementById('sub-montagem');
+  if(e) e.textContent=`${n(det)} de ${n(tot)} diária${tot===1?'':'s'}`;
+  const g=document.getElementById('avisoMontagem');
+  if(!g) return;
+  if(detalhamentoExcede()){
+    g.innerHTML=`Montagem + desmontagem somam <b>${n(det)} diárias</b>, mais que as <b>${n(tot)}</b> lançadas em Produção. O custo não muda — estes campos não somam — mas o detalhamento está inconsistente: ou falta uma função em Produção, ou sobra diária aqui.`;
+    g.classList.add('show');
+  } else g.classList.remove('show');
+}
 function seg(pct,color){ return pct>0 ? `<div style="width:${pct}%;background:${color}">${pct>=12?Math.round(pct)+'%':''}</div>` : ''; }
 
 function recalc(){
@@ -1661,7 +1843,7 @@ function recalc(){
   badge('maoobra', subMaoObra());
   badge('logistica', subLogistica());
   setTxt('sub-producao', subProducao());
-  setTxt('sub-montagem', subMontagem());
+  atualizarMontagem();
   setTxt('sub-transporte', subTransporte());
   setTxt('sub-locacoes', subLocacoes());
 
@@ -1721,8 +1903,15 @@ function lista(sec){
 function renderSec(sec){
   ({itensprontos:renderItensProntos, materiais:renderMateriais, impressao:renderImpressao, estrutura:renderEstrutura, producao:renderProducao, locacoes:renderLocacoes}[sec])?.();
 }
-function setLin(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=v; recalc(); } }
-function setLinMoney(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=parseMoney(v); recalc(); } }
+/* Mudou o NOME da linha ou o VALOR dela? A sugestão daquele campo pode ter
+   nascido ou morrido. Redesenha só o bloco de sugestão — reconstruir a linha
+   inteira aqui tiraria o foco do campo no meio da digitação. */
+function talvezSugestao(sec,id,f){
+  const c=CAMPO_SUG[sec];
+  if(c && (f===c.nome || f===c.valor)) atualizarSugestaoLinha(sec,id);
+}
+function setLin(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=v; talvezSugestao(sec,id,f); recalc(); } }
+function setLinMoney(sec,id,f,v){ const l=lista(sec).find(x=>x.id===id); if(l){ l[f]=parseMoney(v); talvezSugestao(sec,id,f); recalc(); } }
 function delLin(sec,id){ const arr=lista(sec); const i=arr.findIndex(x=>x.id===id); if(i>=0){ arr.splice(i,1); renderSec(sec); recalc(); } }
 function moveLin(sec,id,dir){
   const arr=lista(sec); const i=arr.findIndex(x=>x.id===id); const j=i+dir;
@@ -1780,8 +1969,7 @@ function addFuncao(){ state.maoObra.producao.push(novaFuncao()); renderProducao(
 function addLocacao(){ state.logistica.locacoes.push(novaLocacao()); renderLocacoes(); recalc(); focusLast('locacoes'); }
 
 function setMont(f,v){ state.maoObra.montagem[f]=v; recalc(); }
-function setMontMoney(f,v){ state.maoObra.montagem[f]=parseMoney(v); recalc(); }
-function setTrans(f,v){ state.logistica.transporte[f]=parseMoney(v); recalc(); }
+function setTrans(f,v){ state.logistica.transporte[f]=parseMoney(v); renderSugestoesTransporte(); recalc(); }
 
 function setFin(f,v){ state.financeiro[f]=parseMoney(v); if(f==='impostoPct') state.financeiro.tributacao=''; recalc(); }
 function tribPreset(tipo){
@@ -1845,6 +2033,7 @@ function persistirProjeto(id, nome){
   copia.schemaVersion=SCHEMA_VERSION;   // todo orçamento gravado carrega a versão do schema
   copia.snapshot={ id, nome, salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||'', appVersion:APP_VERSION };
   const b=store.ler(LS.budgets,{}); b[id]=copia; store.gravar(LS.budgets,b);
+  invalidarHistorico();          // o que acabou de ser salvo passa a valer como referência
   montarLoadSel();
 }
 function salvarOrcamento(){
@@ -2024,6 +2213,7 @@ function duplicarProjeto(id){
     if(copia.meta) copia.meta.nome=nome;
     copia.snapshot={ id:novoId, nome, salvoEm:Date.now(), total:snap.total||0, cliente:snap.cliente||copia.meta?.cliente||'', tipoItem:snap.tipoItem||copia.meta?.tipoItem||'' };
     const bb=store.ler(LS.budgets,{}); bb[novoId]=copia; store.gravar(LS.budgets,bb);
+    invalidarHistorico();
     montarLoadSel(); montarInicio(); toast('Cópia criada: '+nome);
   });
 }
@@ -2031,6 +2221,7 @@ function excluirProjeto(id){
   const p=projPorId(id); if(!p) return;
   confirmar('Excluir orçamento', `Excluir o orçamento "${p.nome}"? Esta ação não pode ser desfeita.`, ()=>{
     const b=store.ler(LS.budgets,{}); delete b[id]; store.gravar(LS.budgets,b);
+    invalidarHistorico();
     if(state._projId===id) state._projId=undefined;
     montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
   }, 'Sim, excluir');
@@ -2545,18 +2736,19 @@ function imprimir(){
     const rows=lsEst.map(l=>`<tr>${td(esc(l.desc||'—'))}${td(esc(l.unidade||''))}${td(n2(l.qtd),'r')}${td(mny(l.valorUnit),'r')}${td(mny(tEst(l)),'r')}</tr>`).join('');
     secoes.push(secao('Estrutura', subEstrutura(), head, rows, 5));
   }
-  // Mão de obra (produção + montagem/desmontagem)
+  // Mão de obra. Só Produção tem valor; montagem/desmontagem são detalhamento.
   const lsProd=state.maoObra.producao.filter(l=>String(l.funcao||'').trim()!==''||tProd(l)>0);
   const mo=state.maoObra.montagem;
-  const totM=num(mo.diariasMontagem)*num(mo.valorMontagem), totD=num(mo.diariasDesmontagem)*num(mo.valorDesmontagem);
   const extraMO=[];
-  if(totM>0||num(mo.diariasMontagem)>0||num(mo.valorMontagem)>0) extraMO.push(['Montagem',mo.diariasMontagem,mo.valorMontagem,totM]);
-  if(totD>0||num(mo.diariasDesmontagem)>0||num(mo.valorDesmontagem)>0) extraMO.push(['Desmontagem',mo.diariasDesmontagem,mo.valorDesmontagem,totD]);
+  if(num(mo.diariasMontagem)>0)    extraMO.push(['Montagem (detalhamento)',    mo.diariasMontagem]);
+  if(num(mo.diariasDesmontagem)>0) extraMO.push(['Desmontagem (detalhamento)', mo.diariasDesmontagem]);
   if(lsProd.length||extraMO.length){
     const head=`<th>Função / etapa</th><th class="r">Diárias</th><th class="r">Valor/diária</th><th class="r">Total</th>`;
     let rows=lsProd.map(l=>`<tr>${td(esc(l.funcao||'—'))}${td(n2(l.diarias),'r')}${td(mny(l.valorDiaria),'r')}${td(mny(tProd(l)),'r')}</tr>`).join('');
-    rows+=extraMO.map(([nm,di,va,to])=>`<tr>${td(esc(nm))}${td(n2(di),'r')}${td(mny(va),'r')}${td(mny(to),'r')}</tr>`).join('');
+    rows+=extraMO.map(([nm,di])=>`<tr>${td(esc(nm))}${td(n2(di),'r')}${td('—','r')}${td('já contado','r')}</tr>`).join('');
     secoes.push(secao('Mão de obra', subMaoObra(), head, rows, 4));
+    if(extraMO.length) secoes.push('<div class="p-obs">Montagem e desmontagem são <b>detalhamento</b> das diárias lançadas em Produção. Não somam ao subtotal.</div>');
+    if(detalhamentoExcede()) secoes.push('<div class="p-obs"><b>Atenção:</b> montagem + desmontagem somam mais diárias do que as lançadas em Produção.</div>');
   }
   // Logística e locações (transporte + locação de equipamentos)
   const tr=state.logistica.transporte;
@@ -2641,7 +2833,11 @@ function qtdBR(v){ return (Number(v)||0).toLocaleString('pt-BR',{maximumFraction
 function linhasProposta(s=state){
   const secs=[];
   const add=(titulo,linhas)=>{ if(linhas.length) secs.push({titulo,linhas}); };
-  const L=(desc,qtd,un,custo,sp)=>({desc:String(desc||'').trim()||'—', qtd, un:un||'', custo:num(custo), semPreco:!!sp});
+  /* `sp`   = sem preço  → sai como "a definir" e não entra no total
+     `inc`  = incluso    → linha DESCRITIVA, sem valor próprio: o custo dela já
+                           está em outra linha. Sai como "incluso", não entra no
+                           gross-up e não carrega resíduo de arredondamento. */
+  const L=(desc,qtd,un,custo,sp,inc)=>({desc:String(desc||'').trim()||'—', qtd, un:un||'', custo:num(custo), semPreco:!!sp, incluso:!!inc});
 
   /* item pronto: a quantidade que o cliente vê é a que está sendo vendida —
      m² totais (larg × alt × qtd) ou número de peças */
@@ -2662,13 +2858,15 @@ function linhasProposta(s=state){
     .filter(l=>String(l.desc||'').trim()!==''||tEst(l)>0)
     .map(l=>L(l.desc, num(l.qtd), l.unidade, tEst(l))));
 
+  /* Montagem e desmontagem continuam APARECENDO para o cliente — é serviço que
+     ele está contratando e quer ver descrito. Mas sem valor próprio: o custo já
+     está nas linhas de Produção, e repetir um valor aqui cobraria duas vezes. */
   const mo=s.maoObra.montagem;
-  const totM=num(mo.diariasMontagem)*num(mo.valorMontagem), totD=num(mo.diariasDesmontagem)*num(mo.valorDesmontagem);
   const lmo=s.maoObra.producao
     .filter(l=>String(l.funcao||'').trim()!==''||tProd(l)>0)
     .map(l=>L(l.funcao, num(l.diarias), 'diária(s)', tProd(l)));
-  if(totM>0||num(mo.diariasMontagem)>0||num(mo.valorMontagem)>0) lmo.push(L('Montagem', num(mo.diariasMontagem), 'diária(s)', totM));
-  if(totD>0||num(mo.diariasDesmontagem)>0||num(mo.valorDesmontagem)>0) lmo.push(L('Desmontagem', num(mo.diariasDesmontagem), 'diária(s)', totD));
+  if(num(mo.diariasMontagem)>0)    lmo.push(L('Montagem',    num(mo.diariasMontagem),    'diária(s)', 0, false, true));
+  if(num(mo.diariasDesmontagem)>0) lmo.push(L('Desmontagem', num(mo.diariasDesmontagem), 'diária(s)', 0, false, true));
   add('Mão de obra', lmo);
 
   const tr=s.logistica.transporte;
@@ -2694,8 +2892,8 @@ function propostaValores(s=state){
   const fator = r.custo>0 ? r.preco/r.custo : 0;
   const comValor=[];
   secs.forEach(sec=>sec.linhas.forEach(l=>{
-    l.valor = l.semPreco ? null : round2(l.custo*fator);
-    if(!l.semPreco) comValor.push(l);
+    l.valor = (l.semPreco || l.incluso) ? null : round2(l.custo*fator);
+    if(!l.semPreco && !l.incluso) comValor.push(l);
   }));
   const dif = round2(round2(r.preco) - round2(comValor.reduce((a,l)=>a+l.valor,0)));
   if(dif!==0 && comValor.length){
@@ -2724,7 +2922,7 @@ function imprimirProposta(){
   const head=`<th>Descrição</th><th class="r">Qtd</th><th>Un.</th><th class="r">Valor</th>`;
   const secoes=p.secoes.map(sec=>{
     const rows=sec.linhas.map(l=>
-      `<tr>${td(esc(l.desc))}${td(l.qtd==null?'—':qtdBR(l.qtd),'r')}${td(esc(l.un))}${td(l.semPreco?'a definir':mny(l.valor),'r')}</tr>`
+      `<tr>${td(esc(l.desc))}${td(l.qtd==null?'—':qtdBR(l.qtd),'r')}${td(esc(l.un))}${td(l.incluso?'incluso':(l.semPreco?'a definir':mny(l.valor)),'r')}</tr>`
     ).join('');
     return secaoTab(sec.titulo, sec.subtotal, head, rows, 4);
   }).join('');
@@ -2795,8 +2993,8 @@ function exportCSV(){
 
   state.maoObra.producao.forEach(l=>push('Mão de obra · Produção', l.funcao, `${nu(l.diarias)} diárias × ${nu(l.valorDiaria)}`, nu(tProd(l))));
   const mo=state.maoObra.montagem;
-  push('Mão de obra · Montagem', '', `${nu(mo.diariasMontagem)} diárias × ${nu(mo.valorMontagem)}`, nu(num(mo.diariasMontagem)*num(mo.valorMontagem)));
-  push('Mão de obra · Desmontagem', '', `${nu(mo.diariasDesmontagem)} diárias × ${nu(mo.valorDesmontagem)}`, nu(num(mo.diariasDesmontagem)*num(mo.valorDesmontagem)));
+  push('Mão de obra · Montagem (detalhamento)', '', `${nu(mo.diariasMontagem)} das diárias lançadas`, '');
+  push('Mão de obra · Desmontagem (detalhamento)', '', `${nu(mo.diariasDesmontagem)} das diárias lançadas`, '');
   push('Mão de obra — subtotal','','',nu(subMaoObra()));
 
   const tr=state.logistica.transporte;
@@ -2842,7 +3040,7 @@ function exemplo(){
     Object.assign(novaFuncao(),{funcao:'Marceneiro', diarias:6, valorDiaria:280}),
     Object.assign(novaFuncao(),{funcao:'Pintor', diarias:3, valorDiaria:240})
   ];
-  state.maoObra.montagem={ diariasMontagem:2, valorMontagem:600, diariasDesmontagem:1, valorDesmontagem:600 };
+  state.maoObra.montagem={ diariasMontagem:2, diariasDesmontagem:1 };   // 3 das 9 diárias lançadas acima
   state.logistica.transporte={ frete:1200, combustivel:300, pedagio:80, estacionamento:'', hospedagem:'', alimentacao:200, outros:'' };
   state.logistica.locacoes=[ Object.assign(novaLocacao(),{equipamento:'Empilhadeira', qtd:1, dias:2, valorDia:450}) ];
   state.financeiro={ tributacao:'servico', impostoPct:18.33, margemPct:25 };
