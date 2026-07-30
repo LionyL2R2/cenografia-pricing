@@ -5,14 +5,19 @@
  * módulo `vm` que vem com o Node.
  *
  *   const criar = require('./harness');
- *   const { ctx, K, V, store } = criar(seedOpcional);
+ *   const { ctx, K, V, store } = criar(seedOpcional, opcoesOpcionais);
  *
  * - `seed`  objeto {chave: valor} gravado no localStorage ANTES do script rodar.
  *           É o que permite testar o boot (migração eager, onboarding etc).
+ * - `opcoes.semMarcaDeTeste`  não injeta a marca `__CEN_HARNESS_DE_TESTE__`.
+ *           Simula o NAVEGADOR REAL: sem a marca e sem Supabase o app tem que
+ *           se recusar a abrir. É o que a t8 usa.
  * - `ctx`   funções do app (declarações `function` viram propriedade do contexto).
  * - `K`     constantes de topo (APP_VERSION, SCHEMA_VERSION, LS, LS_INT…).
  * - `V`     getters/setters das variáveis `let` de topo (state, itensCustom…).
  * - `store` o Map por trás do localStorage falso, para inspeção direta.
+ * - `document` o document falso, com `body.classList` de verdade — é por ele que
+ *           se vê se o app foi revelado (classe `app-pronto`) ou não.
  *
  * Nem `const` nem `let` de topo viram propriedade do contexto de um script `vm`
  * — só `function` e `var`. Por isso o epílogo no fim deste arquivo os exporta
@@ -48,7 +53,8 @@ function fakeEl(tag) {
    um erro de digitação no teste passa despercebido. */
 const PARECE_ID = /^[a-z]{1,6}_[a-z0-9_]+$/i;
 
-module.exports = function criar(seed) {
+module.exports = function criar(seed, opcoes) {
+  const opts = opcoes || {};
   const html = fs.readFileSync(APP, 'utf8');
   const js = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
 
@@ -68,7 +74,20 @@ module.exports = function criar(seed) {
     get length() { return store.size; }
   };
 
+  /* O body é o único elemento com classList DE VERDADE: é nele que o boot liga
+     `app-pronto`, e é por essa classe que o CSS revela o `.wrap`. Sem isso não
+     haveria como um teste provar que o app continuou escondido. */
+  const classesBody = new Set();
+  const body = fakeEl('body');
+  body.classList = {
+    add: c => classesBody.add(c),
+    remove: c => classesBody.delete(c),
+    toggle: c => (classesBody.has(c) ? classesBody.delete(c) : classesBody.add(c)),
+    contains: c => classesBody.has(c)
+  };
+
   const document = {
+    body,
     getElementById: () => fakeEl('div'),
     querySelector: () => fakeEl('div'),
     querySelectorAll: () => [],
@@ -90,6 +109,13 @@ module.exports = function criar(seed) {
   };
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
+
+  /* A marca que dispensa o login. É a ÚNICA porta de bypass que o app tem, e ela
+     só existe aqui — nenhum navegador define esta variável. Antes o bypass era a
+     ausência de Supabase, e isso significava que um config.js faltando ou um CDN
+     bloqueado abria o app inteiro sem autenticar. Ausência de Supabase agora é
+     erro; permissão é só esta linha. */
+  if (!opts.semMarcaDeTeste) sandbox.__CEN_HARNESS_DE_TESTE__ = true;
 
   const ctx = vm.createContext(new Proxy(sandbox, {
     has: () => true,
@@ -116,6 +142,8 @@ module.exports = function criar(seed) {
   try { o.UNID_IP = UNID_IP; } catch(e){}
   try { o.ITENS_PRONTOS = ITENS_PRONTOS; } catch(e){}
   try { o.OPC_BASE = OPC_BASE; } catch(e){}
+  try { o.MODO_TESTE = MODO_TESTE; } catch(e){}
+  try { o.db = db; } catch(e){}
   return o;
 })();
 globalThis.__v = {
@@ -123,10 +151,13 @@ globalThis.__v = {
   get itensCustom(){ return itensCustom; },   set itensCustom(v){ itensCustom = v; },
   get opcoesCustom(){ return opcoesCustom; }, set opcoesCustom(v){ opcoesCustom = v; },
   get config(){ return config; },             set config(v){ config = v; },
-  get ultimaConferencia(){ return ultimaConferencia; }
+  get ultimaConferencia(){ return ultimaConferencia; },
+  get appBootado(){ return appBootado; },
+  get gateEstado(){ return gateEstado; },
+  get sessaoAtual(){ return sessaoAtual; }
 };
 `;
 
   vm.runInContext(js + epilogo, ctx, { filename: 'index.html' });
-  return { ctx, K: sandbox.__k, V: sandbox.__v, localStorage, store };
+  return { ctx, K: sandbox.__k, V: sandbox.__v, localStorage, store, document };
 };

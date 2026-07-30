@@ -317,7 +317,8 @@ body.app-pronto .gate{display:none}
 .g-chip{background:#fff;border-radius:4px;width:20px;height:20px;flex:none;display:inline-flex;align-items:center;justify-content:center}
 .g-chip svg{width:14px;height:14px}
 .gate-status{margin-top:16px;font-size:12.5px;color:var(--ink-3);line-height:1.5;min-height:19px}
-.gate-status.erro{color:var(--erro)}
+.gate-status.erro{color:var(--erro);font-size:13px}
+#gateRetry{margin-top:14px}
 .gate-hide{display:none !important}
 
 /* ---------- menu da conta logada ---------- */
@@ -331,10 +332,6 @@ body.app-pronto .gate{display:none}
 .user-box.open .user-drop{display:block}
 .user-drop .u-mail{font-size:12px;color:var(--ink-2);word-break:break-all;line-height:1.45;margin-bottom:10px}
 .user-drop .btn{width:100%;justify-content:center}
-.modo-local{
-  font-size:11.5px;color:var(--ink-3);border:1px solid var(--line);
-  border-radius:999px;padding:4px 10px;white-space:nowrap;
-}
 
 /* ---------- backup (aba Configurações) ---------- */
 .backup-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
@@ -524,6 +521,7 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
       Entrar com Google
     </button>
     <div class="gate-status" id="gateStatus">Carregando…</div>
+    <button class="btn ghost gate-hide" id="gateRetry" onclick="tentarDeNovo()">Tentar de novo</button>
   </div>
 </div>
 
@@ -541,7 +539,6 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
       <option value="">Abrir…</option>
     </select>
     <button class="btn obra mini" onclick="novoOrcamento()">+ Novo orçamento</button>
-    <span class="modo-local" id="modoLocal" style="display:none" title="Sem conexão com o Supabase: nenhum login, nenhuma sincronização.">modo local</span>
     <div class="user-box" id="userBox" style="display:none">
       <button class="btn ghost mini" onclick="toggleUserMenu(event)" title="Conta"><span class="user-mail" id="userEmail"></span></button>
       <div class="user-drop">
@@ -2810,23 +2807,41 @@ function migrarBudgets(){
    sendo a fonte de verdade única; o Supabase entra só para o auth.
    ============================================================ */
 
-/* Cliente Supabase, ou null. `null` significa MODO LOCAL: sem CDN (harness de
-   teste, offline, file://) ou sem config.js. Nesse caso o app roda inteiro
-   exatamente como antes da fase 2 — só não tem login nem nuvem. É isso que
-   mantém as 344 asserções verdes sem nenhum mock de rede. */
+/* A marca do harness de teste — a ÚNICA porta que dispensa o login, e ela só
+   existe em testes/harness.js. Nenhum navegador define esta variável.
+
+   Antes, quem dispensava o login era a AUSÊNCIA de `db`. Isso queria dizer que um
+   config.js faltando, um CDN bloqueado ou um bloqueador de conteúdo abriam o app
+   inteiro sem autenticar — bypass de autenticação disfarçado de degradação
+   graciosa. Falta de Supabase agora é ERRO, nunca permissão. */
+const MODO_TESTE = (function(){
+  try{ return typeof __CEN_HARNESS_DE_TESTE__ !== 'undefined' && __CEN_HARNESS_DE_TESTE__ === true; }
+  catch(e){ return false; }
+})();
+
+/* Cliente Supabase, ou null quando o SDK/config não chegaram. Fora do harness,
+   `null` leva à tela de erro de conexão — não libera nada. */
+let motivoSemDb = '';
 const db = (function(){
   try{
-    if(typeof window==='undefined' || !window.supabase || !window.supabase.createClient) return null;
-    if(typeof SUPABASE_URL==='undefined' || typeof SUPABASE_ANON_KEY==='undefined') return null;
-    if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+    if(typeof window==='undefined' || !window.supabase || !window.supabase.createClient){
+      motivoSemDb = 'o supabase-js não carregou (CDN bloqueado, extensão de bloqueio ou sem internet)';
+      return null;
+    }
+    if(typeof SUPABASE_URL==='undefined' || typeof SUPABASE_ANON_KEY==='undefined' || !SUPABASE_URL || !SUPABASE_ANON_KEY){
+      motivoSemDb = 'o config.js não carregou, ou está sem URL/chave';
+      return null;
+    }
     return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }catch(e){
-    console.error('[cenografia] Supabase não inicializou; seguindo em modo local:', e);
+    motivoSemDb = 'o cliente do Supabase não inicializou (' + ((e && e.message) || e) + ')';
+    console.error('[cenografia] Supabase não inicializou:', e);
     return null;
   }
 })();
-let sessaoAtual = null;    // sessão do Supabase, ou null em modo local
-let appBootado  = false;   // init() roda uma vez só, venha de onde vier
+let sessaoAtual = null;         // sessão do Supabase, ou null
+let appBootado  = false;        // init() roda uma vez só, venha de onde vier
+let gateEstado  = 'carregando'; // 'carregando' | 'login' | 'erro' | 'app'
 
 function gateStatus(txt, erro){
   const el=document.getElementById('gateStatus');
@@ -2837,12 +2852,29 @@ function gateStatus(txt, erro){
 /* mostra o gate e libera o botão — o botão só aparece quando já sabemos que NÃO há
    sessão, para não piscar "Entrar" na frente de quem já está logado */
 function mostrarGate(msg){
+  gateEstado = 'login';
   if(document.body) document.body.classList.remove('app-pronto');
   const btn=document.getElementById('gateBtn');
   if(btn){ btn.classList.remove('gate-hide'); btn.disabled=false; }
+  const rtry=document.getElementById('gateRetry');
+  if(rtry) rtry.classList.add('gate-hide');
   gateStatus(msg||'', !!msg);
 }
+/* Sem Supabase o app não abre: sem ele não há como autenticar ninguém, e abrir
+   assim mesmo seria entregar a tela a quem não fez login. */
+function mostrarErroConexao(motivo){
+  gateEstado = 'erro';
+  if(document.body) document.body.classList.remove('app-pronto');
+  const btn=document.getElementById('gateBtn');
+  if(btn){ btn.classList.add('gate-hide'); btn.disabled=true; }
+  const rtry=document.getElementById('gateRetry');
+  if(rtry) rtry.classList.remove('gate-hide');
+  gateStatus('Não foi possível conectar ao servidor — '+(motivo||'causa desconhecida')+'. Sem conexão não há como entrar, e o app não abre.', true);
+  console.error('[cenografia] app bloqueado: '+(motivo||'causa desconhecida'));
+}
+function tentarDeNovo(){ location.reload(); }
 function mostrarApp(){
+  gateEstado = 'app';
   if(document.body) document.body.classList.add('app-pronto');
 }
 
@@ -2916,16 +2948,16 @@ function init(){
   else { state=novoEstado(); state.materiais.push(novoMaterial()); render(); irPara('inicio'); }
 }
 
-/* ---------- boot: gate de login, ou modo local ---------- */
+/* ---------- boot: harness, erro de conexão, ou gate de login ---------- */
 (function boot(){
   if(document.addEventListener) document.addEventListener('click', fecharUserMenu);
 
-  /* sem Supabase não há o que perguntar: sobe o app na hora, síncrono, como sempre foi */
-  if(!db){
-    const ml=document.getElementById('modoLocal'); if(ml) ml.style.display='';
-    subirApp();
-    return;
-  }
+  /* ambiente de teste: sobe o app na hora, síncrono, sem login. Único bypass, e
+     só é alcançável com a marca que o harness injeta. */
+  if(MODO_TESTE){ subirApp(); return; }
+
+  /* navegador real sem Supabase: erro, e o app fica fechado. Nunca modo local. */
+  if(!db){ mostrarErroConexao(motivoSemDb); return; }
 
   gateStatus('Carregando…');
   const semSessao = msg => { if(!appBootado) mostrarGate(msg); };

@@ -25,8 +25,9 @@ t4.js     38 PASS   0 FALHA   migração eager e item sem preço (v5.9.1)
 t5.js     31 PASS   0 FALHA   conferência de integridade (v5.9.2)
 t6.js     67 PASS   0 FALHA   dados da empresa no PDF e migração legada de responsavel (v5.10)
 t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
+t8.js     31 PASS   0 FALHA   o app não abre sem login (fase 2)
 ------------------------------------------------------------
-TOTAL: 344 PASS / 0 FALHA em 7 suítes
+TOTAL: 375 PASS / 0 FALHA em 8 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -184,6 +185,38 @@ fechado, que é o pior defeito possível neste projeto.
 > observação de propósito. Se alguém escrever "custo" numa observação, o documento
 > vai imprimir — a asserção cobre o **gerador**, não o conteúdo digitado.
 
+### `t8.js` — o app não abre sem login (fase 2)
+
+A única suíte que não testa cálculo: testa que o app **se recusa a abrir**.
+
+O bypass de login existe por um motivo legítimo — o harness não tem `fetch`, não
+tem `window.supabase` e não pode logar em lugar nenhum. O perigo é o critério: se
+quem dispensa o login for a **ausência de Supabase**, então um `config.js` que não
+subiu no deploy, um CDN fora do ar ou um bloqueador de anúncios abrem o app inteiro
+sem autenticar. Foi assim que a etapa 1 nasceu, e é isso que esta suíte impede de
+voltar.
+
+- **O critério é a marca, não a falta de config.** `criar(seed, {semMarcaDeTeste:true})`
+  roda o mesmo `index.html` com o mesmo seed, sem injetar `__CEN_HARNESS_DE_TESTE__`
+  — que é o que um navegador real tem. As duas execuções são comparadas lado a lado:
+  a única diferença entre app aberto e app fechado é a marca.
+- **Nada do conteúdo aparece**: `body` não recebe `app-pronto` (é essa classe que o
+  CSS usa para revelar o `.wrap`), `appBootado` é `false`, `gateEstado` é `'erro'`.
+- **Nada é escrito**: sem boot não roda migração de budgets, não semeia catálogo,
+  não marca onboarding. O `localStorage` fica byte a byte como o seed deixou, e o
+  orçamento semeado não vira memória — `state` continua virgem, `opcoesCustom` e
+  `itensCustom` vazios.
+- **Não há segunda porta**: `entrarComGoogle()` sem cliente não abre o app nem
+  explode; definir a marca **depois** do boot não abre nada retroativamente, porque
+  `MODO_TESTE` é resolvido uma vez só.
+- **A saída oferecida é recarregar**, não entrar assim mesmo: o botão "Tentar de
+  novo" chama `location.reload()`.
+- **Risco 6.1 do `PLANO-FASE-2`**: asserções sobre as próprias tags do
+  `index.html` — uma única tag de abertura sem atributos, nenhum `type="module"`,
+  todo script externo antes do inline, e o recorte do harness sem tag de script
+  dentro. Se alguém mexer nas tags, esta suíte falha com o motivo escrito, em vez
+  de as outras sete caírem juntas sem explicação.
+
 ## Como escrever uma suíte nova
 
 ```js
@@ -214,9 +247,21 @@ primeira linha do arquivo.
 | | |
 |---|---|
 | `ctx` | funções do app — só declarações `function` viram propriedade do contexto |
-| `K` | constantes de topo: `APP_VERSION`, `SCHEMA_VERSION`, `LS`, `LS_INT`, `TRIB`… |
-| `V` | getters/setters das variáveis `let` de topo: `state`, `itensCustom`, `opcoesCustom`, `config`, `ultimaConferencia` |
+| `K` | constantes de topo: `APP_VERSION`, `SCHEMA_VERSION`, `LS`, `LS_INT`, `TRIB`, `MODO_TESTE`, `db`… |
+| `V` | getters/setters das variáveis `let` de topo: `state`, `itensCustom`, `opcoesCustom`, `config`, `ultimaConferencia`, `appBootado`, `gateEstado`, `sessaoAtual` |
 | `store` | o `Map` por trás do localStorage falso, para inspeção direta |
+| `document` | o `document` falso. O `body` é o único elemento com `classList` de verdade: é nele que o boot liga `app-pronto`, e é por essa classe que o CSS revela o `.wrap` |
+
+### A marca de ambiente de teste
+
+`criar()` injeta `__CEN_HARNESS_DE_TESTE__ = true` no sandbox. É a **única** porta
+pela qual o app dispensa o login, e nenhum navegador a define. Passe
+`criar(seed, {semMarcaDeTeste:true})` para simular o navegador real — o app não
+abre, e é isso que a `t8` verifica.
+
+Não confie na ausência de `window.supabase` para significar "modo de teste": em
+produção ela significa CDN fora do ar, e abrir o app nesse caso é bypass de
+autenticação.
 
 Nem `const` nem `let` de topo viram propriedade do contexto de um script `vm` — só
 `function` e `var`. Por isso `K` e `V` existem: sem eles, `ctx.APP_VERSION` seria
