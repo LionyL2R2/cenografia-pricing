@@ -46,7 +46,9 @@ body{
   font-feature-settings:'cv05' 1;
   -webkit-font-smoothing:antialiased;
 }
-.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 96px}
+/* o app nasce oculto: quem revela é o boot, e só com sessão (ou em modo local) */
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 96px;display:none}
+body.app-pronto .wrap{display:block}
 b,strong{font-weight:600}
 .num{font-variant-numeric:tabular-nums}
 
@@ -294,6 +296,46 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .aviso-salvar b{font-weight:700}
 .aviso-salvar .btn{flex:none}
 
+/* ---------- gate de login (fase 2) ---------- */
+.gate{
+  position:fixed;inset:0;z-index:80;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  background:var(--bg);
+}
+body.app-pronto .gate{display:none}
+.gate-card{
+  width:100%;max-width:420px;text-align:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--sh-2);padding:38px 30px 30px;
+}
+.gate-card .logo-mark{width:58px;height:58px;margin:0 auto 16px}
+.gate-card h1{font-size:21px;margin-bottom:3px}
+.gate-sub{color:var(--ink-2);font-size:13px;margin-bottom:20px}
+.gate-txt{color:var(--ink-2);font-size:13px;line-height:1.65;margin-bottom:24px}
+.gate .btn{width:100%;justify-content:center;padding:11px 15px;font-size:14px}
+.gate .btn[disabled]{opacity:.6;cursor:default}
+.g-chip{background:#fff;border-radius:4px;width:20px;height:20px;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.g-chip svg{width:14px;height:14px}
+.gate-status{margin-top:16px;font-size:12.5px;color:var(--ink-3);line-height:1.5;min-height:19px}
+.gate-status.erro{color:var(--erro)}
+.gate-hide{display:none !important}
+
+/* ---------- menu da conta logada ---------- */
+.user-box{position:relative}
+.user-mail{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-drop{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:60;display:none;text-align:left;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);
+  box-shadow:var(--sh-2);padding:11px;min-width:212px;
+}
+.user-box.open .user-drop{display:block}
+.user-drop .u-mail{font-size:12px;color:var(--ink-2);word-break:break-all;line-height:1.45;margin-bottom:10px}
+.user-drop .btn{width:100%;justify-content:center}
+.modo-local{
+  font-size:11.5px;color:var(--ink-3);border:1px solid var(--line);
+  border-radius:999px;padding:4px 10px;white-space:nowrap;
+}
+
 /* ---------- backup (aba Configurações) ---------- */
 .backup-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .imp-resumo{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);padding:12px 14px;font-size:13px;line-height:1.9;margin-bottom:14px}
@@ -467,6 +509,24 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
   <button class="btn ghost mini" onclick="fecharAvisoSalvar()">Entendi</button>
 </div>
 
+<!-- Gate de login. Sem sessão o app não mostra NADA: nem card, nem aba, nem dado.
+     Some assim que o boot confirma a sessão (ou que o app cai em modo local). -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="logo-mark" title="KMF">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 373.912" aria-label="KMF"><path d="M28 75.8 Q28 35.8 68 35.8 H285.7 Q325.7 35.8 325.7 75.8 V293.5 Q325.7 333.5 285.7 333.5 H68 Q28 333.5 28 293.5 Z M189.69 264.20 L189.69 105.18 L294.17 184.69 Z M59.56 264.20 L59.56 105.18 L164.02 184.69 Z" fill="#F47A20" fill-rule="evenodd"/></svg>
+    </div>
+    <h1>Formação de Preço</h1>
+    <div class="gate-sub">KMF · planilha de orçamento de cenografia</div>
+    <p class="gate-txt">Monte o orçamento por setores, calcule o preço de venda com imposto e margem, e gere a proposta pronta para o cliente.</p>
+    <button class="btn obra gate-hide" id="gateBtn" onclick="entrarComGoogle()">
+      <span class="g-chip"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.8-2 5.1-4.4 6.7v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.2z"/><path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.3l-7.1-5.5c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.6-3.9-12.4-9.1H4.3v5.7C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.6 28.2c-.5-1.3-.7-2.7-.7-4.2s.3-2.9.7-4.2v-5.7H4.3C2.8 17 2 20.4 2 24s.8 7 2.3 9.9l7.3-5.7z"/><path fill="#EA4335" d="M24 10.7c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C35 4.1 30 2 24 2 15.4 2 7.9 6.9 4.3 14.1l7.3 5.7c1.8-5.2 6.6-9.1 12.4-9.1z"/></svg></span>
+      Entrar com Google
+    </button>
+    <div class="gate-status" id="gateStatus">Carregando…</div>
+  </div>
+</div>
+
 <div class="wrap">
 
 <header class="app">
@@ -481,6 +541,14 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
       <option value="">Abrir…</option>
     </select>
     <button class="btn obra mini" onclick="novoOrcamento()">+ Novo orçamento</button>
+    <span class="modo-local" id="modoLocal" style="display:none" title="Sem conexão com o Supabase: nenhum login, nenhuma sincronização.">modo local</span>
+    <div class="user-box" id="userBox" style="display:none">
+      <button class="btn ghost mini" onclick="toggleUserMenu(event)" title="Conta"><span class="user-mail" id="userEmail"></span></button>
+      <div class="user-drop">
+        <div class="u-mail" id="userDropMail"></div>
+        <button class="btn ghost mini" onclick="sairDaConta()">Sair</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -797,6 +865,16 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 
 <div id="toast"></div>
 <div id="printArea"></div>
+
+<!-- Supabase e config: os dois entram como script CLÁSSICO (build UMD) e os dois
+     vêm ANTES do script inline abaixo. Não é estilo, é requisito do harness de
+     teste (testes/harness.js:53), que recorta o JS do app entre a primeira tag de
+     abertura sem atributos e a última de fechamento: um type="module" ou um
+     arquivo externo carregado depois do inline derrubaria as 344 asserções de uma
+     vez. Ao mexer aqui, rode `node testes\run.js` antes de qualquer outra coisa. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+
 <script>
 /* ============================================================
    KMF Orçamento — modelo por setores.
@@ -2726,8 +2804,104 @@ function migrarBudgets(){
   if(changed) lsSet(LS.budgets,out);
 }
 
+/* ============================================================
+   Fase 2 · etapa 1 — Supabase carregado e login com Google.
+   NADA de dado trafega aqui. As 7 chaves do localStorage continuam
+   sendo a fonte de verdade única; o Supabase entra só para o auth.
+   ============================================================ */
+
+/* Cliente Supabase, ou null. `null` significa MODO LOCAL: sem CDN (harness de
+   teste, offline, file://) ou sem config.js. Nesse caso o app roda inteiro
+   exatamente como antes da fase 2 — só não tem login nem nuvem. É isso que
+   mantém as 344 asserções verdes sem nenhum mock de rede. */
+const db = (function(){
+  try{
+    if(typeof window==='undefined' || !window.supabase || !window.supabase.createClient) return null;
+    if(typeof SUPABASE_URL==='undefined' || typeof SUPABASE_ANON_KEY==='undefined') return null;
+    if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }catch(e){
+    console.error('[cenografia] Supabase não inicializou; seguindo em modo local:', e);
+    return null;
+  }
+})();
+let sessaoAtual = null;    // sessão do Supabase, ou null em modo local
+let appBootado  = false;   // init() roda uma vez só, venha de onde vier
+
+function gateStatus(txt, erro){
+  const el=document.getElementById('gateStatus');
+  if(!el) return;
+  el.textContent = txt || '';
+  if(erro) el.classList.add('erro'); else el.classList.remove('erro');
+}
+/* mostra o gate e libera o botão — o botão só aparece quando já sabemos que NÃO há
+   sessão, para não piscar "Entrar" na frente de quem já está logado */
+function mostrarGate(msg){
+  if(document.body) document.body.classList.remove('app-pronto');
+  const btn=document.getElementById('gateBtn');
+  if(btn){ btn.classList.remove('gate-hide'); btn.disabled=false; }
+  gateStatus(msg||'', !!msg);
+}
+function mostrarApp(){
+  if(document.body) document.body.classList.add('app-pronto');
+}
+
+function entrarComGoogle(){
+  if(!db) return;
+  const btn=document.getElementById('gateBtn');
+  if(btn) btn.disabled=true;
+  gateStatus('Abrindo o login do Google…');
+  const falhou=e=>mostrarGate('Não foi possível iniciar o login: '+((e&&e.message)||e));
+  try{
+    db.auth.signInWithOAuth({
+      provider:'google',
+      options:{ redirectTo: location.origin + location.pathname }
+    }).then(r=>{ if(r && r.error) falhou(r.error); }).catch(falhou);
+  }catch(e){ falhou(e); }
+}
+
+function sairDaConta(){
+  if(!db) return;
+  const recarregar=()=>location.reload();
+  db.auth.signOut().then(recarregar).catch(recarregar);
+}
+
+function toggleUserMenu(ev){
+  if(ev && ev.stopPropagation) ev.stopPropagation();
+  const box=document.getElementById('userBox');
+  if(box) box.classList.toggle('open');
+}
+function fecharUserMenu(){
+  const box=document.getElementById('userBox');
+  if(box) box.classList.remove('open');
+}
+
+/* há sessão: preenche o menu da conta e sobe o app */
+function aoEntrar(sessao){
+  sessaoAtual = sessao;
+  const email = (sessao && sessao.user && sessao.user.email) || '';
+  const a=document.getElementById('userEmail');    if(a) a.textContent=email;
+  const b=document.getElementById('userDropMail'); if(b) b.textContent=email;
+  const box=document.getElementById('userBox');    if(box) box.style.display='';
+  subirApp();
+}
+function subirApp(){
+  if(appBootado) return;
+  appBootado = true;
+  mostrarApp();
+  init();
+}
+/* voltando do Google a sessão ainda está sendo montada a partir da URL; sem isto o
+   gate piscaria "Entrar com Google" no meio do caminho de quem acabou de entrar */
+function voltandoDoLogin(){
+  try{
+    const h=String(location.hash||''), q=String(location.search||'');
+    return h.indexOf('access_token')>=0 || /[?&]code=/.test(q);
+  }catch(e){ return false; }
+}
+
 /* ---------- init ---------- */
-(function init(){
+function init(){
   const rv=document.getElementById('rodapeVersao');
   if(rv) rv.textContent=`KMF Orçamento v${APP_VERSION} · schema v${SCHEMA_VERSION}`;
   migrarBudgets();     // chave = nome → chave = ID
@@ -2740,6 +2914,40 @@ function migrarBudgets(){
   if(!visto){ lsSet(LS.seen,true); exemplo(); irPara('orcamento'); }
   else if(auto){ state=migrar(auto); render(); irPara('inicio'); }
   else { state=novoEstado(); state.materiais.push(novoMaterial()); render(); irPara('inicio'); }
+}
+
+/* ---------- boot: gate de login, ou modo local ---------- */
+(function boot(){
+  if(document.addEventListener) document.addEventListener('click', fecharUserMenu);
+
+  /* sem Supabase não há o que perguntar: sobe o app na hora, síncrono, como sempre foi */
+  if(!db){
+    const ml=document.getElementById('modoLocal'); if(ml) ml.style.display='';
+    subirApp();
+    return;
+  }
+
+  gateStatus('Carregando…');
+  const semSessao = msg => { if(!appBootado) mostrarGate(msg); };
+
+  db.auth.onAuthStateChange((evt, sessao)=>{
+    if(sessao) aoEntrar(sessao);
+    else if(evt==='SIGNED_OUT') location.reload();
+    else if(!voltandoDoLogin()) semSessao();
+  });
+
+  db.auth.getSession().then(r=>{
+    const s = r && r.data && r.data.session;
+    if(s) aoEntrar(s);
+    else if(!voltandoDoLogin()) semSessao();
+  }).catch(e=>{
+    console.error('[cenografia] falha ao ler a sessão:', e);
+    semSessao('Não foi possível falar com o servidor. Recarregue a página.');
+  });
+
+  /* rede de segurança: se a volta do Google travar, o gate reaparece em vez de
+     deixar o usuário olhando "Carregando…" para sempre */
+  if(voltandoDoLogin()) setTimeout(()=>semSessao('O login não foi concluído. Tente de novo.'), 10000);
 })();
 </script>
 </body>
