@@ -159,8 +159,9 @@ ok('store.chave traduz também as chaves de controle interno',
    ============================================================ */
 const bkp = criar({ cen_v3_seen: true, cen_v3_opcseed: true, cen_v3_mig3: true });
 bkp.K.store.usuario('u-ccc');
-bkp.K.store.gravar('cen_v3_budgets', { p1: { snapshot: { id: 'p1', nome: 'Stand', total: 100 } } });
-bkp.K.store.gravar('cen_v3_config', { nome: 'KMF' });
+/* as coleções vêm da memória — é ela a fonte de verdade nos dois modos */
+bkp.V.orcamentos = { p1: { snapshot: { id: 'p1', nome: 'Stand', total: 100 } } };
+bkp.V.config = bkp.ctx.normConfig({ nome: 'KMF' });
 
 let arquivo = null;
 bkp.ctx.Blob = function (partes) { arquivo = partes[0]; };

@@ -27,8 +27,9 @@ t6.js     67 PASS   0 FALHA   dados da empresa no PDF e migração legada de res
 t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
 t8.js     47 PASS   0 FALHA   o app não abre sem login (fase 2)
 t9.js     64 PASS   0 FALHA   mão de obra sem soma dupla e sugestão (v5.12)
+t10.js    73 PASS   0 FALHA   a fronteira com o banco (fase 2)
 ------------------------------------------------------------
-TOTAL: 455 PASS / 0 FALHA em 9 suítes
+TOTAL: 531 PASS / 0 FALHA em 10 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -263,6 +264,37 @@ conhecida mostra a referência, em cinza, com um link `usar R$ X`.
 - **A rede principal**: com sugestão viva e campo vazio, o subtotal do setor e o
   custo total são **zero**. O valor só entra depois do clique — e aí a sugestão
   some.
+
+### `t10.js` — a fronteira com o banco (fase 2)
+
+O app e o banco discordam sobre como se escreve vazio: para o app é `''`, para o
+banco é `null`. Esta suíte cobre a regra única que resolve isso — **gravando
+`''` → `null`, lendo `null` → `''`** — e o mapeamento entre um orçamento e uma
+linha da tabela. Tudo puro: nenhuma asserção precisa de Supabase.
+
+- `paraBanco` / `doBanco` em todas as formas de vazio, com a ida e volta
+  fechando no formato do **app**. Inclui a asserção nominal do §3.7 do plano:
+  **`paraBanco('') !== 0`**, comparada estritamente porque `'' == 0` é `true`
+  em JavaScript e a comparação frouxa passaria por engano.
+- **O preço, que é onde errar custa dinheiro.** `precoParaBanco` manda vazio,
+  zero, negativo e lixo para `null`; `precoDoBanco` traz `null` e `0` de volta
+  como `''`. O catálogo inteiro dá a volta pelo banco e o item sem preço volta
+  vazio, nunca zero — e o `precoCatalogo()` continua devolvendo `null` para ele.
+- **O efeito no documento do cliente**, ponta a ponta: a linha que voltou sem
+  preço é reconhecida por `semPreco()`, sai como `a definir` e não entra no
+  total. Logo abaixo, um **contraste explícito**: trocando o vazio por `0`, a
+  mesma linha deixa de ser "sem preço" e passa a sair com valor na proposta. É a
+  regressão que a regra existe para impedir, escrita para quem for mexer aqui
+  ver o que está em jogo.
+- **Orçamento ⇄ linha**: os dois nomes continuam em colunas separadas (`nome` do
+  orçamento, `nome_projeto` do formulário) e não foram unificados; texto vazio
+  vira `null` em todas as colunas; `validade_dias` e `snapshot_total` vazios
+  viram `null`, não `0`; `responsavel` continua dentro de `dados`, sem coluna.
+- **`salvoEm` agora vem de `updated_at`**, o relógio do servidor, e não do
+  navegador que salvou. A ordenação da tela Início é verificada com três
+  registros vindos do banco — é o que garante que o item 4 não quebrou a lista.
+- No harness `usarBanco()` é `false` e nenhuma gravação fica pendente de rede:
+  a suíte prova também que ela mesma não está falando com servidor nenhum.
 
 ## Como escrever uma suíte nova
 

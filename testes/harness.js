@@ -108,7 +108,10 @@ module.exports = function criar(seed, opcoes) {
     URL: { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} },
     FileReader: function () {},
     Date, Math, JSON, Number, String, Object, Array, Boolean,
-    isFinite, isNaN, parseInt, parseFloat, RegExp, Set, Map, Error
+    isFinite, isNaN, parseInt, parseFloat, RegExp, Set, Map, Error,
+    /* a camada de dados fala com o Supabase por promise; no harness ela cai no
+       ramo local, mas Promise.resolve continua sendo chamado */
+    Promise
   };
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
@@ -148,6 +151,9 @@ module.exports = function criar(seed, opcoes) {
   try { o.MODO_TESTE = MODO_TESTE; } catch(e){}
   try { o.db = db; } catch(e){}
   try { o.store = store; } catch(e){}
+  try { o.dados = dados; } catch(e){}
+  try { o.CHAVES_LS = CHAVES_LS; } catch(e){}
+  try { o.CHAVES_LOCAIS = CHAVES_LOCAIS; } catch(e){}
   return o;
 })();
 globalThis.__v = {
@@ -155,7 +161,9 @@ globalThis.__v = {
   get itensCustom(){ return itensCustom; },   set itensCustom(v){ itensCustom = v; },
   get opcoesCustom(){ return opcoesCustom; }, set opcoesCustom(v){ opcoesCustom = v; },
   get config(){ return config; },             set config(v){ config = v; },
+  get orcamentos(){ return orcamentos; },     set orcamentos(v){ orcamentos = v; },
   get ultimaConferencia(){ return ultimaConferencia; },
+  get inicioLista(){ return inicioLista; },
   get appBootado(){ return appBootado; },
   get gateEstado(){ return gateEstado; },
   get sessaoAtual(){ return sessaoAtual; }

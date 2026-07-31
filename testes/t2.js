@@ -8,7 +8,7 @@
    não depender da máquina que roda a suíte. */
 process.env.TZ = 'America/Sao_Paulo';
 
-const { ctx, K, store } = require('./harness')();
+const { ctx, K, V, store } = require('./harness')();
 let fails = 0;
 const ok = (n, c, x) => { console.log((c ? 'PASS  ' : 'FALHA ') + n + (c ? '' : '  -> ' + JSON.stringify(x))); if (!c) fails++; };
 
@@ -48,11 +48,14 @@ ok('store.gravar devolve false quando a quota estoura', r === false, r);
 ctx.localStorage.setItem = setItemReal;
 
 // ---------- export ----------
+/* As quatro coleções migradas moram na MEMÓRIA (é ela a fonte de verdade nos
+   dois modos, e no modo banco o localStorage nem as tem). O rascunho e as flags
+   continuam sendo deste navegador, e por isso continuam sendo semeadas no store. */
 store.clear();
-K.store.gravar('cen_v3_budgets', { id1: { snapshot: { id: 'id1', nome: 'Stand Expo', total: 5000 } }, id2: { snapshot: { id: 'id2', nome: 'Portal ACME', total: 900 } } });
-K.store.gravar('cen_v3_itens', [{ nome: 'Trainel', unidade: 'm²' }, { nome: 'Toten', unidade: 'peça' }]);
-K.store.gravar('cen_v3_opcoes', { materiais: ['Madeira', 'MDF'], producao: ['Marceneiro'], impressao: [] });
-K.store.gravar('cen_v3_config', { nome: 'KMF Cenografia', doc: '', tel: '', email: '', cidade: '' });
+V.orcamentos = { id1: { snapshot: { id: 'id1', nome: 'Stand Expo', total: 5000 } }, id2: { snapshot: { id: 'id2', nome: 'Portal ACME', total: 900 } } };
+V.itensCustom = [{ nome: 'Trainel', unidade: 'm²', preco: '' }, { nome: 'Toten', unidade: 'peça', preco: '' }];
+V.opcoesCustom = { materiais: ['Madeira', 'MDF'], producao: ['Marceneiro'], impressao: [] };
+V.config = ctx.normConfig({ nome: 'KMF Cenografia', doc: '', tel: '', email: '', cidade: '' });
 K.store.gravar('cen_v3_auto', { meta: { nome: 'rascunho' } });
 K.store.gravar('cen_v3_seen', true);
 
@@ -96,23 +99,27 @@ ok('aceita backup parcial', ctx.validarBackup({ dados: { cen_v3_budgets: {} } })
 
 // ---------- import substitui TUDO ----------
 store.clear();
-K.store.gravar('cen_v3_budgets', { antigo: { snapshot: { id: 'antigo', nome: 'Some' } } });
-K.store.gravar('cen_v3_config', { nome: 'Empresa Velha' });
+V.orcamentos = { antigo: { snapshot: { id: 'antigo', nome: 'Some' } } };
+V.config = ctx.normConfig({ nome: 'Empresa Velha' });
 K.store.gravar('cen_v3_seen', true);
 let recarregou = false;
 ctx.location = { reload: () => { recarregou = true; } };
 ctx.aplicarBackup(pay);
-ok('orcamentos substituidos', Object.keys(K.store.ler('cen_v3_budgets', {})).join(',') === 'id1,id2', K.store.ler('cen_v3_budgets', {}));
-ok('orcamento antigo sumiu', !K.store.ler('cen_v3_budgets', {}).antigo);
-ok('config substituida', K.store.ler('cen_v3_config', {}).nome === 'KMF Cenografia');
+ok('orcamentos substituidos na memoria', Object.keys(V.orcamentos).join(',') === 'id1,id2', V.orcamentos);
+ok('orcamento antigo sumiu', !V.orcamentos.antigo);
+ok('config substituida', V.config.nome === 'KMF Cenografia', V.config);
+/* no modo local a memoria continua espelhada no localStorage */
+ok('orcamentos persistidos', Object.keys(K.store.ler('cen_v3_budgets', {})).join(',') === 'id1,id2', K.store.ler('cen_v3_budgets', {}));
+ok('config persistida', K.store.ler('cen_v3_config', {}).nome === 'KMF Cenografia');
 
-// chave ausente no backup e REMOVIDA, nao mantida
+// colecao ausente no backup e ZERADA, nao mantida — import nao e merge
 store.clear();
-K.store.gravar('cen_v3_budgets', { x: {} });
-K.store.gravar('cen_v3_config', { nome: 'Deve Sumir' });
+V.orcamentos = { x: {} };
+V.config = ctx.normConfig({ nome: 'Deve Sumir' });
 ctx.aplicarBackup({ app: 'cenografia-pricing', dados: { cen_v3_budgets: { novo: { snapshot: { nome: 'N' } } } } });
-ok('chave ausente no backup e removida', ctx.localStorage.getItem('cen_v3_config') === null, ctx.localStorage.getItem('cen_v3_config'));
-ok('chave presente foi aplicada', !!K.store.ler('cen_v3_budgets', {}).novo);
+ok('colecao ausente no backup e zerada', V.config.nome === '', V.config);
+ok('chave local ausente no backup e removida', ctx.localStorage.getItem('cen_v3_auto') === null, ctx.localStorage.getItem('cen_v3_auto'));
+ok('chave presente foi aplicada', !!V.orcamentos.novo);
 
 setTimeout(() => {
   ok('import dispara reload', recarregou === true);

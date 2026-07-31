@@ -292,6 +292,8 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
   padding:12px 18px;font-size:13px;line-height:1.5;box-shadow:var(--sh-2);
 }
 .aviso-salvar.show{display:flex}
+/* mesma barra, outra causa: gravou no navegador mas não chegou no servidor */
+.aviso-rede{top:auto;bottom:0;border-bottom:0;border-top:2px solid var(--erro)}
 .aviso-salvar .as-txt{flex:1;min-width:220px}
 .aviso-salvar b{font-weight:700}
 .aviso-salvar .btn{flex:none}
@@ -510,6 +512,12 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
 <div id="avisoSalvar" class="aviso-salvar">
   <div class="as-txt"><b>Atenção: os dados NÃO foram salvos.</b> O armazenamento deste navegador está cheio ou bloqueado. Seu trabalho está só na tela — se recarregar a página, ele se perde. Vá em <b>Configurações → Exportar backup</b> agora e depois apague orçamentos antigos para liberar espaço.</div>
   <button class="btn ghost mini" onclick="fecharAvisoSalvar()">Entendi</button>
+</div>
+
+<!-- aviso fixo: a gravação no SERVIDOR falhou. Nunca falhar em silêncio -->
+<div id="avisoRede" class="aviso-salvar aviso-rede">
+  <div class="as-txt ar-txt"></div>
+  <button class="btn mini" onclick="dados.tentarPendentes()">Tentar de novo</button>
 </div>
 
 <!-- Gate de login. Sem sessão o app não mostra NADA: nem card, nem aba, nem dado.
@@ -953,24 +961,20 @@ function normItem(x){
   return { nome:String(x.nome).trim(), unidade:x.unidade==='peça'?'peça':'m²', preco:p };
 }
 let itensCustom = [];
-/* Carrega as três coleções do armazenamento do usuário para a memória. Primeira
-   coisa que init() faz, e o único lugar onde elas são lidas do disco. */
-function hidratarMemoria(){
-  config = normConfig(store.ler(LS.config, {}));
-  const o = store.ler(LS.opcoes, {});
-  opcoesCustom = {
-    materiais: Array.isArray(o.materiais) ? o.materiais : [],
-    producao:  Array.isArray(o.producao)  ? o.producao  : [],
-    impressao: Array.isArray(o.impressao) ? o.impressao : []
-  };
-  const a = store.ler(LS.itens, []);
-  itensCustom = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
-}
+/* orçamentos salvos, id → registro. Coleção em MEMÓRIA: as 13 leituras da UI
+   passam por aqui, síncronas. É o que permite nomeColide() rodar a cada tecla
+   sem encostar em rede. Carregada uma vez, no boot. */
+let orcamentos = {};
+let perfilId = null;   // id da linha em `perfis`, para o upsert saber o alvo
 function opcoesDe(sec){ return opcoesCustom[sec]||[]; }
 function itensProntosAll(){ return itensCustom; }
 /* semeia as opções-base no localStorage uma única vez; a partir daí o usuário
    pode remover/renomear até as opções-base pela aba Configurações que elas ficam. */
+/* SÓ NO MODO LOCAL: no banco quem semeia é o trigger de criação de conta
+   (fase 1), no servidor. Semear de novo aqui ressuscitaria opção que o usuário
+   apagou de propósito, toda vez que a lista voltasse vazia. */
 function migrarOpcoes(){
+  if(usarBanco()) return;
   if(store.ler(LS.opcSeed,false)) return;
   const dedupe=arr=>{ const seen=new Set(), out=[]; (arr||[]).forEach(v=>{ v=String(v||'').trim(); if(!v) return; const k=normNome(v); if(seen.has(k)) return; seen.add(k); out.push(v); }); return out; };
   ['materiais','producao','impressao'].forEach(sec=>{ opcoesCustom[sec]=dedupe((OPC_BASE[sec]||[]).concat(opcoesCustom[sec]||[])); });
@@ -1069,6 +1073,328 @@ function avisoSalvar(mostrar){
   const el=document.getElementById('avisoSalvar');
   if(!el) return;
   if(mostrar) el.classList.add('show'); else el.classList.remove('show');
+}
+
+/* ============================================================
+   NORMALIZAÇÃO DE FRONTEIRA — o contrato de "vazio"
+
+   O app e o banco discordam sobre como se escreve vazio. Para o app é `''`:
+   normConfig, normItem e semPreco trabalham com string vazia, e um <input>
+   vazio devolve `''`. Para o banco é `null`: é o que permite `is null`, índice
+   parcial, e distinguir "não preenchido" de "preenchido com nada".
+
+   Sem uma regra única o mesmo campo grava ora `''` ora `null` conforme o
+   caminho. A regra é uma só, aplicada nas duas pontas:
+
+       Gravando: '' → null.   Lendo: null → ''.
+
+   São puras, sem DOM e sem rede — testáveis no harness sem Supabase nenhum.
+   ============================================================ */
+function paraBanco(v){
+  if(v===undefined || v===null) return null;
+  if(typeof v==='number') return isFinite(v) ? v : null;
+  if(typeof v==='boolean') return v;
+  const s=String(v).trim();
+  return s==='' ? null : s;
+}
+function doBanco(v){ return (v===undefined || v===null) ? '' : v; }
+
+/* preço é o caso perigoso, e por isso tem função própria.
+
+   `semPreco()` trata ''/null como "sem preço": o item sai como `a definir` na
+   proposta e NÃO entra no total. Se um vazio virar `0` na volta do banco,
+   `semPreco()` passa a devolver false, o item vira uma linha de R$ 0,00 num
+   documento que vai para o cliente, e entra no total como zero — o app estaria
+   oferecendo o item de graça, sem ninguém perceber.
+
+   Por isso: vazio vira null, nunca 0. E zero vira null também — o CHECK
+   `itens_catalogo_preco_nunca_zero` (schema.sql) recusa 0 no banco de
+   propósito, e a forma de dizer "não tem preço" neste app é o vazio. Um 0
+   digitado é lido como "sem preço", não rejeitado com erro na cara do usuário. */
+function precoParaBanco(v){
+  if(v===undefined || v===null || v==='') return null;
+  const n=Number(v);
+  if(!isFinite(n) || n<=0) return null;
+  return n;
+}
+function precoDoBanco(v){
+  if(v===undefined || v===null) return '';
+  const n=Number(v);
+  return (isFinite(n) && n>0) ? n : '';
+}
+
+/* ============================================================
+   DADOS — de onde vem e para onde vai cada coleção.
+
+   Duas retaguardas, uma API:
+
+   · BANCO   (produção, com sessão) — perfis, opcoes, itens_catalogo e
+     orcamentos ficam no Supabase. O localStorage guarda só o rascunho.
+   · LOCAL   (harness de teste)     — tudo no localStorage, exatamente como
+     antes. É o que mantém as 455 asserções válidas sem mock de rede.
+
+   O que NÃO muda com o banco: toda LEITURA da UI continua síncrona, sobre a
+   memória. As coleções são carregadas uma vez, antes de o app aparecer.
+   `nomeColide()` roda no `oninput`, a cada tecla — se ele encostasse em rede,
+   teclas rápidas devolveriam respostas fora de ordem e o erro "nome já existe"
+   piscaria errado. Nenhuma leitura vai à rede depois do boot.
+
+   O que muda: ESCRITA DE ORÇAMENTO É POR LINHA. Antes, salvar um orçamento
+   regravava o mapa inteiro; contra o banco isso viraria N UPDATEs por clique.
+   ============================================================ */
+function usarBanco(){ return !MODO_TESTE && !!db; }
+
+/* id de orçamento precisa ser uuid: é o tipo da PK em `orcamentos`. */
+function uuid(){
+  try{ if(typeof crypto!=='undefined' && crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  const h='0123456789abcdef';
+  let s='';
+  for(let i=0;i<36;i++){
+    if(i===8||i===13||i===18||i===23){ s+='-'; continue; }
+    if(i===14){ s+='4'; continue; }
+    const r=Math.floor(Math.random()*16);
+    s += h[i===19 ? (r&0x3|0x8) : r];
+  }
+  return s;
+}
+
+const SETORES_OPC = ['materiais','producao','impressao'];
+
+const dados = (function(){
+  /* ---------- orçamento: linha do banco ⇄ registro do app ---------- */
+  function linhaDeOrcamento(id, rec){
+    const snap=(rec && rec.snapshot) || {};
+    const meta=(rec && rec.meta) || {};
+    const vd=meta.validadeDias;
+    return {
+      id,
+      nome:           paraBanco(snap.nome),
+      nome_projeto:   paraBanco(meta.nome),
+      tipo_item:      paraBanco(meta.tipoItem),
+      numero:         paraBanco(meta.num),
+      cliente_nome:   paraBanco(meta.cliente),
+      data:           paraBanco(meta.data),
+      validade_dias:  (vd===''||vd==null||!isFinite(Number(vd))) ? null : Number(vd),
+      observacoes:    paraBanco(meta.obs),
+      schema_version: Number(rec && rec.schemaVersion) || SCHEMA_VERSION,
+      snapshot_total: (snap.total===''||snap.total==null||!isFinite(Number(snap.total))) ? null : Number(snap.total),
+      /* `dados` é o registro inteiro, no MESMO formato que o app sempre gravou.
+         As colunas soltas existem para listar e buscar sem abrir o jsonb. */
+      dados: rec
+    };
+  }
+  function orcamentoDeLinha(row){
+    const rec=(row.dados && typeof row.dados==='object' && !Array.isArray(row.dados)) ? row.dados : {};
+    const snap=Object.assign({}, rec.snapshot);
+    snap.id       = row.id;
+    snap.nome     = doBanco(row.nome);
+    snap.cliente  = doBanco(row.cliente_nome);
+    snap.tipoItem = doBanco(row.tipo_item);
+    if(row.snapshot_total!=null) snap.total = Number(row.snapshot_total);
+    /* salvoEm era epoch ms gravado pelo app; agora vem de updated_at, que é
+       quem o banco carimba. Toda ordenação por salvoEm (montarLoadSel e
+       montarInicio) passa a ordenar pelo relógio do servidor, não pelo do
+       navegador que salvou — que é o certo com dois dispositivos. */
+    const t=Date.parse(row.updated_at||'');
+    snap.salvoEm = isFinite(t) ? t : (Number(snap.salvoEm)||0);
+    rec.snapshot = snap;
+    return rec;
+  }
+
+  /* ---------- erro de rede: nunca em silêncio ---------- */
+  const pendentes=[];   // operações que falharam e esperam "tentar de novo"
+  function falhou(rotulo, refazer, e){
+    console.error('[cenografia] falha ao gravar no servidor ('+rotulo+'):', e);
+    pendentes.push({rotulo, refazer});
+    avisoRede(pendentes.map(p=>p.rotulo));
+  }
+  function enviar(rotulo, promessa, refazer){
+    return Promise.resolve(promessa)
+      .then(r=>{
+        if(r && r.error) throw r.error;
+        return r;
+      })
+      .catch(e=>falhou(rotulo, refazer, e));
+  }
+  function tentarPendentes(){
+    if(!pendentes.length){ avisoRede(null); return; }
+    const fila=pendentes.splice(0, pendentes.length);
+    avisoRede(null);
+    fila.forEach(p=>p.refazer());
+  }
+
+  return {
+    /* as duas pontas da fronteira, expostas para teste: são o contrato entre o
+       formato do app e o formato do banco, e é nelas que mora o risco de preço */
+    paraLinha: linhaDeOrcamento,
+    deLinha:   orcamentoDeLinha,
+
+    temPendencia(){ return pendentes.length>0; },
+    pendencias(){ return pendentes.map(p=>p.rotulo); },
+    tentarPendentes,
+
+    /* ---------- carga inicial ---------- */
+    carregarLocal(){
+      config       = normConfig(store.ler(LS.config, {}));
+      const o      = store.ler(LS.opcoes, {});
+      opcoesCustom = { materiais:Array.isArray(o.materiais)?o.materiais:[],
+                       producao: Array.isArray(o.producao) ?o.producao :[],
+                       impressao:Array.isArray(o.impressao)?o.impressao:[] };
+      const a      = store.ler(LS.itens, []);
+      itensCustom  = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
+      const b      = store.ler(LS.budgets, {});
+      orcamentos   = (b && typeof b==='object' && !Array.isArray(b)) ? b : {};
+      invalidarHistorico();
+    },
+    async carregarDoBanco(){
+      const [p, o, i, b] = await Promise.all([
+        db.from('perfis').select('*').limit(1),
+        db.from('opcoes').select('*').order('setor').order('ordem'),
+        db.from('itens_catalogo').select('*').order('ordem'),
+        db.from('orcamentos').select('*')
+      ]);
+      [p,o,i,b].forEach(r=>{ if(r.error) throw r.error; });
+
+      const perfil=(p.data && p.data[0]) || null;
+      perfilId = perfil ? perfil.id : null;
+      config = normConfig(perfil ? {
+        nome:        doBanco(perfil.nome_empresa),
+        razaoSocial: doBanco(perfil.razao_social),
+        doc:         doBanco(perfil.doc),
+        tel:         doBanco(perfil.telefone),
+        email:       doBanco(perfil.email),
+        cidade:      doBanco(perfil.cidade)
+      } : {});
+
+      /* opcoes muda de FORMA: 3 arrays na memória, N linhas no banco.
+         A montagem e a desmontagem acontecem aqui, na fronteira — opcoesDe,
+         admAplicar e coletarOpcoes continuam vendo os três arrays de sempre. */
+      const listas={materiais:[], producao:[], impressao:[]};
+      (o.data||[]).forEach(r=>{
+        const sec=doBanco(r.setor), val=doBanco(r.valor);
+        if(listas[sec] && val!=='') listas[sec].push(val);
+      });
+      opcoesCustom=listas;
+
+      itensCustom=(i.data||[])
+        .filter(r=>doBanco(r.nome)!=='')
+        .map(r=>normItem({ nome:doBanco(r.nome), unidade:doBanco(r.unidade), preco:precoDoBanco(r.preco) }));
+
+      const mapa={};
+      (b.data||[]).forEach(r=>{ mapa[r.id]=orcamentoDeLinha(r); });
+      orcamentos=mapa;
+      invalidarHistorico();
+    },
+    carregarTudo(){
+      return usarBanco() ? this.carregarDoBanco() : Promise.resolve(this.carregarLocal());
+    },
+
+    /* ---------- escrita ---------- */
+    salvarConfig(){
+      if(!usarBanco()) return store.gravar(LS.config, config);
+      const linha={
+        nome_empresa: paraBanco(config.nome),
+        razao_social: paraBanco(config.razaoSocial),
+        doc:          paraBanco(config.doc),
+        telefone:     paraBanco(config.tel),
+        email:        paraBanco(config.email),
+        cidade:       paraBanco(config.cidade)
+      };
+      if(perfilId) linha.id=perfilId;
+      enviar('dados da empresa',
+        db.from('perfis').upsert(linha).select('id').then(r=>{
+          if(!r.error && r.data && r.data[0]) perfilId=r.data[0].id;
+          return r;
+        }),
+        ()=>this.salvarConfig());
+      return true;
+    },
+    salvarOpcoes(){
+      if(!usarBanco()) return store.gravar(LS.opcoes, opcoesCustom);
+      const linhas=[];
+      SETORES_OPC.forEach(sec=>{
+        (opcoesCustom[sec]||[]).forEach((v,ordem)=>{
+          const val=paraBanco(v);
+          if(val!==null) linhas.push({setor:sec, valor:val, ordem});
+        });
+      });
+      /* lista inteira de uma vez: apaga as do usuário (o RLS já limita o
+         alcance do delete) e reinsere na ordem da memória. A memória é a
+         referência completa, então um "tentar de novo" reconstrói tudo. */
+      enviar('listas de opções',
+        db.from('opcoes').delete().not('id','is',null)
+          .then(r=>{ if(r.error) throw r.error; return linhas.length ? db.from('opcoes').insert(linhas) : r; }),
+        ()=>this.salvarOpcoes());
+      return true;
+    },
+    salvarItens(){
+      if(!usarBanco()) return store.gravar(LS.itens, itensCustom);
+      const linhas=itensCustom.map((it,ordem)=>({
+        nome:    paraBanco(it.nome),
+        unidade: paraBanco(it.unidade),
+        preco:   precoParaBanco(it.preco),
+        ordem
+      })).filter(l=>l.nome!==null);
+      enviar('catálogo de itens prontos',
+        db.from('itens_catalogo').delete().not('id','is',null)
+          .then(r=>{ if(r.error) throw r.error; return linhas.length ? db.from('itens_catalogo').insert(linhas) : r; }),
+        ()=>this.salvarItens());
+      return true;
+    },
+    /* UMA linha, não o mapa inteiro. É a mudança que evita N UPDATEs por clique. */
+    salvarOrcamento(id, rec){
+      orcamentos[id]=rec;
+      invalidarHistorico();
+      if(!usarBanco()) return store.gravar(LS.budgets, orcamentos);
+      enviar('orçamento "'+((rec.snapshot&&rec.snapshot.nome)||'sem nome')+'"',
+        db.from('orcamentos').upsert(linhaDeOrcamento(id, rec)),
+        ()=>this.salvarOrcamento(id, rec));
+      return true;
+    },
+    excluirOrcamento(id){
+      delete orcamentos[id];
+      invalidarHistorico();
+      if(!usarBanco()) return store.gravar(LS.budgets, orcamentos);
+      enviar('exclusão de orçamento',
+        db.from('orcamentos').delete().eq('id', id),
+        ()=>this.excluirOrcamento(id));
+      return true;
+    },
+    /* só o caminho legado usa isto: migração de dado antigo do localStorage,
+       que por definição só existe no modo local */
+    gravarTodosOrcamentosLocal(){
+      invalidarHistorico();
+      return store.gravar(LS.budgets, orcamentos);
+    },
+    /* import de backup: empurra o arquivo inteiro para onde for a verdade */
+    async substituirTudo(){
+      if(!usarBanco()){
+        store.gravar(LS.config, config);
+        store.gravar(LS.opcoes, opcoesCustom);
+        store.gravar(LS.itens, itensCustom);
+        store.gravar(LS.budgets, orcamentos);
+        return;
+      }
+      this.salvarConfig(); this.salvarOpcoes(); this.salvarItens();
+      const apagar=await db.from('orcamentos').delete().not('id','is',null);
+      if(apagar.error) throw apagar.error;
+      const linhas=Object.keys(orcamentos).map(id=>linhaDeOrcamento(id, orcamentos[id]));
+      if(linhas.length){
+        const r=await db.from('orcamentos').insert(linhas);
+        if(r.error) throw r.error;
+      }
+    }
+  };
+})();
+
+function avisoRede(rotulos){
+  const el=document.getElementById('avisoRede');
+  if(!el) return;
+  if(!rotulos || !rotulos.length){ el.classList.remove('show'); return; }
+  const lista=rotulos.slice(0,4).join(', ') + (rotulos.length>4 ? ` … e mais ${rotulos.length-4}` : '');
+  const txt=el.querySelector('.ar-txt');
+  if(txt) txt.innerHTML = `<b>Não foi salvo no servidor.</b> ${esc(lista)}. A alteração está só nesta tela — se você fechar a página agora, ela se perde. Verifique a conexão e tente de novo.`;
+  el.classList.add('show');
 }
 function fecharAvisoSalvar(){ avisoSalvar(false); }
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._x); t._x=setTimeout(()=>t.classList.remove('show'),2400); }
@@ -1189,7 +1515,7 @@ function reconstruirHistorico(){
     const k=tipo+'|'+n, ant=idx[k];
     if(!ant || quando>=ant.salvoEm) idx[k]={valor:v, salvoEm:quando};
   };
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   Object.keys(b).forEach(id=>{
     const rec=b[id];
     if(!rec || typeof rec!=='object') return;
@@ -1420,8 +1746,15 @@ function aplicarMigracoes(raw){
    fosse aberto — se o catálogo mudasse antes disso, o total mudava junto. Era o
    mesmo bug, adiado. Aqui a varredura roda uma única vez, no boot, com o catálogo
    ainda no estado original, e congela todo mundo de uma vez.
-   A migração lazy continua em migrar(), como rede para o que entrar por import. */
+   A migração lazy continua em migrar(), como rede para o que entrar por import.
+
+   SÓ RODA NO MODO LOCAL. A varredura existe para consertar dado gravado por
+   versões pré-v5.7 do app NESTE navegador, e faz um rollback byte a byte da
+   string crua do localStorage. O Supabase nunca guardou dado desse formato —
+   o app só escreve schema 3 lá — e não há string crua para restaurar. Rodar
+   isto contra o banco seria inventar mecanismo para um caso que não existe. */
 function migrarTudoParaSchema3(){
+  if(usarBanco()) return null;
   if(store.ler(LS_INT.mig3,false)) return null;
 
   // 1) backup byte-exato do original ANTES de tocar em qualquer coisa
@@ -1437,7 +1770,7 @@ function migrarTudoParaSchema3(){
 
   let migrados=0, pulados=0, autoMigrado=false;
   try{
-    const b = store.ler(LS.budgets, {});
+    const b = orcamentos;
     if(b && typeof b==='object' && !Array.isArray(b)){
       Object.keys(b).forEach(id=>{
         const rec=b[id];
@@ -1446,7 +1779,7 @@ function migrarTudoParaSchema3(){
         b[id]=aplicarMigracoes(rec);                    // deep copy: snapshot e _legacy vêm junto
         migrados++;
       });
-      if(migrados && !store.gravar(LS.budgets,b)) throw new Error('falha ao gravar '+LS.budgets);
+      if(migrados && !dados.gravarTodosOrcamentosLocal()) throw new Error('falha ao gravar '+LS.budgets);
     }
     const a = store.ler(LS.auto, null);
     if(ehFormatoNovo(a) && versaoRealDe(a) < SCHEMA_VERSION){
@@ -2012,7 +2345,7 @@ function coletarOpcoes(){
     l.precoRef=preco;      // a linha passa a ter referência de catálogo
     novas=true;
   });
-  if(novas){ store.gravar(LS.opcoes,opcoesCustom); store.gravar(LS.itens,itensCustom); render(); }   // re-render: os nomes agora aparecem no dropdown
+  if(novas){ dados.salvarOpcoes(); dados.salvarItens(); render(); }   // re-render: os nomes agora aparecem no dropdown
 }
 /* ---------- identidade do projeto (salvar por cima sem duplicar) ----------
    Cada orçamento salvo é guardado em LS.budgets com chave = ID único; o nome
@@ -2022,7 +2355,7 @@ function nomeDe(rec){ return (rec && rec.snapshot && rec.snapshot.nome!==undefin
 /* nome colide com OUTRO projeto existente? (ignora o próprio, via exceptId) */
 function nomeColide(nome, exceptId){
   const alvo=normNome(nome);
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   return Object.keys(b).some(id => id!==exceptId && normNome(nomeDe(b[id]))===alvo);
 }
 /* grava o estado atual no projeto de ID informado (cria/atualiza por cima) */
@@ -2032,13 +2365,12 @@ function persistirProjeto(id, nome){
   delete copia._projId; delete copia.snapshot;
   copia.schemaVersion=SCHEMA_VERSION;   // todo orçamento gravado carrega a versão do schema
   copia.snapshot={ id, nome, salvoEm:Date.now(), total:r.preco, cliente:state.meta.cliente||'', tipoItem:state.meta.tipoItem||'', appVersion:APP_VERSION };
-  const b=store.ler(LS.budgets,{}); b[id]=copia; store.gravar(LS.budgets,b);
-  invalidarHistorico();          // o que acabou de ser salvo passa a valer como referência
+  dados.salvarOrcamento(id, copia);   // UMA linha, não o mapa inteiro
   montarLoadSel();
 }
 function salvarOrcamento(){
   coletarOpcoes();
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   if(state._projId && b[state._projId]){          // projeto existente → salva POR CIMA, sem pedir nome
     const nome=nomeDe(b[state._projId]);
     persistirProjeto(state._projId, nome);
@@ -2047,7 +2379,7 @@ function salvarOrcamento(){
   }
   // projeto novo (nunca salvo) → pede nome com validação de unicidade
   pedirNome('Salvar orçamento', state.meta.nome||'Orçamento', null, nome=>{
-    const id=uid();
+    const id=uuid();          // uuid: é o tipo da PK em `orcamentos`
     state._projId=id;
     persistirProjeto(id, nome);
     autosave(); toast('Orçamento salvo: '+nome);
@@ -2055,14 +2387,14 @@ function salvarOrcamento(){
 }
 function carregarOrcamento(id){
   if(!id) return;
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   const rec=b[id];
   if(rec){ state=migrar(rec); delete state.snapshot; state._projId=id; collapsed={}; render(); irPara('orcamento'); toast('Aberto: '+nomeDe(rec)); }
   document.getElementById('loadSel').value='';
 }
 function montarLoadSel(){
   const sel=document.getElementById('loadSel');
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   const ent=Object.entries(b).map(([id,rec])=>({id,nome:nomeDe(rec),salvoEm:rec.snapshot?.salvoEm||0})).sort((a,b)=>b.salvoEm-a.salvoEm);
   sel.innerHTML='<option value="">Abrir…</option>'+ent.map(e=>`<option value="${esc(e.id)}">${esc(e.nome)}</option>`).join('');
 }
@@ -2083,7 +2415,7 @@ function abrirConfig(){
 }
 function salvarConfig(){
   config=normConfig({nome:c_nome.value,razaoSocial:c_razao.value,doc:c_doc.value,tel:c_tel.value,email:c_email.value,cidade:c_cidade.value});
-  store.gravar(LS.config,config); fecharModais(); toast('Dados salvos');
+  dados.salvarConfig(); fecharModais(); toast('Dados salvos');
 }
 function fecharModais(){ document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open')); }
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m)fecharModais(); }));
@@ -2150,7 +2482,7 @@ function montarInicio(){
       <div class="pm">${esc(state.meta.nome||'Sem nome')}${state.meta.cliente?' · '+esc(state.meta.cliente):''}${state.meta.tipoItem?' · '+esc(state.meta.tipoItem):''}</div>
       <div class="pv">${fmt(r.preco)}</div>
     </div>` : '';
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   inicioLista=Object.entries(b).map(([id,st])=>{
     const snap=st.snapshot||{};
     return {
@@ -2204,24 +2536,22 @@ function proximoNomeLivre(nome){
   return base+' ('+n+')';
 }
 function duplicarProjeto(id){
-  const b=store.ler(LS.budgets,{}); const orig=b[id]; if(!orig) return;
+  const orig=orcamentos[id]; if(!orig) return;
   const sugestao=proximoNomeLivre(nomeDe(orig));
   pedirNome('Duplicar orçamento', sugestao, null, nome=>{
-    const novoId=uid();
+    const novoId=uuid();
     const copia=JSON.parse(JSON.stringify(orig));
     const snap=copia.snapshot||{};
     if(copia.meta) copia.meta.nome=nome;
     copia.snapshot={ id:novoId, nome, salvoEm:Date.now(), total:snap.total||0, cliente:snap.cliente||copia.meta?.cliente||'', tipoItem:snap.tipoItem||copia.meta?.tipoItem||'' };
-    const bb=store.ler(LS.budgets,{}); bb[novoId]=copia; store.gravar(LS.budgets,bb);
-    invalidarHistorico();
+    dados.salvarOrcamento(novoId, copia);
     montarLoadSel(); montarInicio(); toast('Cópia criada: '+nome);
   });
 }
 function excluirProjeto(id){
   const p=projPorId(id); if(!p) return;
   confirmar('Excluir orçamento', `Excluir o orçamento "${p.nome}"? Esta ação não pode ser desfeita.`, ()=>{
-    const b=store.ler(LS.budgets,{}); delete b[id]; store.gravar(LS.budgets,b);
-    invalidarHistorico();
+    dados.excluirOrcamento(id);
     if(state._projId===id) state._projId=undefined;
     montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
   }, 'Sim, excluir');
@@ -2302,13 +2632,15 @@ function admCardConferencia(){
 }
 /* card de backup — a única forma de tirar os dados deste navegador */
 function admCardBackup(){
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   const n=Object.keys(b).length;
   return `<div class="card"><div class="card-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
     <h2>Backup dos dados</h2></div>
     <div class="card-body">
-      <p class="fin-nota" style="margin-top:0">Seus <b>${n}</b> orçamento${n===1?'':'s'} ficam gravados <b>só neste navegador</b>. Limpar os dados do navegador, trocar de computador ou formatar a máquina apaga tudo, sem recuperação. Exporte um backup com frequência e guarde o arquivo.</p>
+      <p class="fin-nota" style="margin-top:0">${usarBanco()
+        ? `Seus <b>${n}</b> orçamento${n===1?'':'s'} ficam <b>na sua conta</b>, no servidor: aparecem em qualquer computador onde você entrar com o mesmo login. O backup continua valendo como cópia sua, fora do serviço — exporte de vez em quando e guarde o arquivo.`
+        : `Seus <b>${n}</b> orçamento${n===1?'':'s'} ficam gravados <b>só neste navegador</b>. Limpar os dados do navegador, trocar de computador ou formatar a máquina apaga tudo, sem recuperação. Exporte um backup com frequência e guarde o arquivo.`}</p>
       <div class="backup-acts">
         <button class="btn" onclick="exportarBackup()">Exportar backup</button>
         <button class="btn ghost" onclick="document.getElementById('importFile').click()">Importar backup</button>
@@ -2319,7 +2651,7 @@ function admCardBackup(){
 }
 /* aplica a mudança: salva a lista, atualiza os dropdowns do orçamento aberto (render)
    e redesenha a própria aba. Não toca em orçamentos salvos. */
-function admAplicar(){ store.gravar(LS.opcoes,opcoesCustom); store.gravar(LS.itens,itensCustom); render(); montarConfig(); }
+function admAplicar(){ dados.salvarOpcoes(); dados.salvarItens(); render(); montarConfig(); }
 
 function admAddOpc(sec){
   const inp=document.getElementById('add-'+sec); const v=(inp.value||'').trim();
@@ -2376,20 +2708,31 @@ function admSaveItem(idx,btn){
    nas duas fronteiras — exportarBackup() ao ler e aplicarBackup() ao gravar. */
 const CHAVES_LS = Object.keys(LS).map(k=>LS[k]);
 
+/* chaves que continuam sendo deste NAVEGADOR, não do servidor: o rascunho por
+   decisão (§3.6 do plano) e as duas flags de controle local */
+const CHAVES_LOCAIS = [LS.auto, LS.seen, LS.opcSeed];
+
 function exportarBackup(){
-  const dados={};
-  CHAVES_LS.forEach(ch=>{
+  const dadosBk={};
+  /* As quatro coleções vêm da MEMÓRIA, que é a fonte de verdade nos dois modos.
+     Ler o localStorage aqui exportaria um arquivo vazio agora que o dado mora
+     no banco. O formato do arquivo não muda: as mesmas 7 chaves canônicas. */
+  dadosBk[LS.config]  = config;
+  dadosBk[LS.opcoes]  = opcoesCustom;
+  dadosBk[LS.itens]   = itensCustom;
+  dadosBk[LS.budgets] = orcamentos;
+  CHAVES_LOCAIS.forEach(ch=>{
     const raw=localStorage.getItem(store.chave(ch));   // lê do namespace do usuário…
-    if(raw===null){ dados[ch]=null; return; }          // …e grava no arquivo sem prefixo
-    try{ dados[ch]=JSON.parse(raw); }
-    catch(e){ dados[ch]=raw; console.warn('[cenografia] "'+ch+'" não é JSON válido — exportado como texto.'); }
+    if(raw===null){ dadosBk[ch]=null; return; }        // …e grava no arquivo sem prefixo
+    try{ dadosBk[ch]=JSON.parse(raw); }
+    catch(e){ dadosBk[ch]=raw; console.warn('[cenografia] "'+ch+'" não é JSON válido — exportado como texto.'); }
   });
   const payload={
     app:'cenografia-pricing',
     appVersion:APP_VERSION,
     schemaVersion:SCHEMA_VERSION,
     exportadoEm:agoraLocal(),
-    dados
+    dados:dadosBk
   };
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
   const a=document.createElement('a');
@@ -2492,17 +2835,34 @@ function migrarPayloadImport(d){
   return out;
 }
 
-/* substitui TUDO: chaves ausentes no arquivo são removidas, não mantidas */
+/* Substitui TUDO: coleção ausente no arquivo é ZERADA, não mantida. Import não
+   é merge — o resumo na tela avisa disso antes de o usuário confirmar. */
 function aplicarBackup(pay){
   const d=migrarPayloadImport(pay.dados||{});
   clearTimeout(autoT);                  // impede um autosave pendente de sobrescrever o import
-  let falhou=false;
-  /* o arquivo traz as chaves sem prefixo; store.chave/store.gravar as põem no
-     namespace de quem está logado. Chave ausente no arquivo tem que SUMIR — por
-     isso removeItem direto, e não uma gravação de null que viraria "null". */
-  CHAVES_LS.forEach(ch=>{
+  const doArquivo=ch=>{
     const v=d[ch];
-    if(v===undefined||v===null){ try{ localStorage.removeItem(store.chave(ch)); }catch(e){ falhou=true; } return; }
+    return (v===undefined||v===null) ? null : v;
+  };
+
+  /* 1) as quatro coleções entram na memória, que é a fonte de verdade */
+  config = normConfig(doArquivo(LS.config) || {});
+  const o = doArquivo(LS.opcoes) || {};
+  opcoesCustom = { materiais:Array.isArray(o.materiais)?o.materiais:[],
+                   producao: Array.isArray(o.producao) ?o.producao :[],
+                   impressao:Array.isArray(o.impressao)?o.impressao:[] };
+  const a = doArquivo(LS.itens) || [];
+  itensCustom = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
+  const b = doArquivo(LS.budgets);
+  orcamentos = (b && typeof b==='object' && !Array.isArray(b)) ? b : {};
+  invalidarHistorico();
+
+  /* 2) as chaves que continuam locais. Ausente no arquivo tem que SUMIR — por
+     isso removeItem direto, e não uma gravação de null que viraria "null". */
+  let falhou=false;
+  CHAVES_LOCAIS.forEach(ch=>{
+    const v=doArquivo(ch);
+    if(v===null){ try{ localStorage.removeItem(store.chave(ch)); }catch(e){ falhou=true; } return; }
     if(!store.gravar(ch,v)) falhou=true;
   });
   /* o conteúdo importado já saiu daqui no schema corrente: a varredura eager não
@@ -2510,8 +2870,17 @@ function aplicarBackup(pay){
   store.gravar(LS_INT.mig3,true);
   try{ localStorage.removeItem(store.chave(LS_INT.preMig3)); }catch(e){}
   if(falhou){ toast('Falha ao gravar — veja o aviso no topo da tela.'); return; }
-  toast('Backup importado. Recarregando…');
-  setTimeout(()=>location.reload(),700);
+
+  /* 3) empurra tudo para onde for a verdade (localStorage ou Supabase) */
+  Promise.resolve(dados.substituirTudo())
+    .then(()=>{
+      toast('Backup importado. Recarregando…');
+      setTimeout(()=>location.reload(),700);
+    })
+    .catch(e=>{
+      console.error('[cenografia] falha ao enviar o backup importado:', e);
+      avisoRede(['import de backup ('+((e&&e.message)||e)+')']);
+    });
 }
 
 /* ============================================================
@@ -2539,7 +2908,7 @@ function obsLinhaIP(l){
 }
 
 function conferirIntegridade(){
-  const b=store.ler(LS.budgets,{});
+  const b=orcamentos;
   const linhas=Object.keys(b).map(id=>{
     const rec=b[id];
     const snap=(rec&&rec.snapshot)||{};
@@ -3049,9 +3418,12 @@ function exemplo(){
   document.getElementById('bannerExemplo').classList.add('show');
 }
 
-/* migra LS.budgets do formato antigo (chave = nome) p/ chave = ID único, sem perder nada */
+/* migra os orçamentos do formato antigo (chave = nome) p/ chave = ID único, sem
+   perder nada. Como a varredura eager, só faz sentido sobre dado do
+   localStorage: no banco a chave é a PK e sempre foi um id. */
 function migrarBudgets(){
-  const b=store.ler(LS.budgets,{});
+  if(usarBanco()) return;
+  const b=orcamentos;
   const out={}; let changed=false;
   for(const [k,v] of Object.entries(b)){
     if(!v || typeof v!=='object') continue;
@@ -3061,7 +3433,7 @@ function migrarBudgets(){
     snap.id = uid();
     out[snap.id]=v; changed=true;
   }
-  if(changed) store.gravar(LS.budgets,out);
+  if(changed){ orcamentos=out; dados.gravarTodosOrcamentosLocal(); }
 }
 
 /* ============================================================
@@ -3171,7 +3543,10 @@ function fecharUserMenu(){
   if(box) box.classList.remove('open');
 }
 
-/* há sessão: preenche o menu da conta e sobe o app */
+/* há sessão: preenche o menu da conta, CARREGA OS DADOS e sobe o app.
+   O app só aparece com as quatro coleções em memória — é isso que deixa toda
+   leitura da UI síncrona depois do boot. */
+let hidratando = false;
 function aoEntrar(sessao){
   sessaoAtual = sessao;
   /* Antes de qualquer leitura: o store passa a falar com as chaves DESTE usuário.
@@ -3182,7 +3557,18 @@ function aoEntrar(sessao){
   const a=document.getElementById('userEmail');    if(a) a.textContent=email;
   const b=document.getElementById('userDropMail'); if(b) b.textContent=email;
   const box=document.getElementById('userBox');    if(box) box.style.display='';
-  subirApp();
+
+  if(!usarBanco()){ subirApp(); return; }          // modo local: nada a buscar
+  if(appBootado || hidratando) return;             // getSession e onAuthStateChange podem chamar os dois
+  hidratando = true;
+  gateStatus('Carregando seus orçamentos…');
+  dados.carregarDoBanco()
+    .then(()=>{ hidratando=false; subirApp(); })
+    .catch(e=>{
+      hidratando=false;
+      console.error('[cenografia] falha ao carregar os dados:', e);
+      mostrarErroConexao('não foi possível carregar seus dados ('+((e&&e.message)||e)+')');
+    });
 }
 function subirApp(){
   if(appBootado) return;
@@ -3203,8 +3589,10 @@ function voltandoDoLogin(){
 function init(){
   const rv=document.getElementById('rodapeVersao');
   if(rv) rv.textContent=`KMF Orçamento v${APP_VERSION} · schema v${SCHEMA_VERSION}`;
-  hidratarMemoria();   // config, opções e catálogo saem do disco para a memória
-  migrarBudgets();     // chave = nome → chave = ID
+  /* No modo banco as coleções já vieram de dados.carregarDoBanco(), antes de o
+     app aparecer. No modo local elas saem do localStorage agora, síncronas. */
+  if(!usarBanco()) dados.carregarLocal();
+  migrarBudgets();     // chave = nome → chave = ID (só local)
   migrarOpcoes();      // semeia o catálogo — a migração 2→3 depende dele, então vem antes
   const mig = migrarTudoParaSchema3();   // varredura eager, com o catálogo ainda intacto
   montarLoadSel();
