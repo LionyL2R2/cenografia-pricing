@@ -53,6 +53,10 @@ create table if not exists public.perfis (
   telefone      text,
   email         text,
   cidade        text,
+  -- o orçamento de exemplo é mostrado UMA VEZ POR CONTA, não por navegador.
+  -- Era a chave cen_v3_seen no localStorage, e por isso reaparecia em cada
+  -- máquina nova em que a mesma pessoa entrasse.
+  onboarding_visto boolean not null default false,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -144,6 +148,7 @@ create table if not exists public.orcamentos (
 -- existe para quem já rodou uma versão anterior deste arquivo: acrescenta as
 -- colunas novas sem tocar nos dados. Em projeto novo é no-op.
 -- ============================================================================
+alter table if exists public.perfis         add column if not exists onboarding_visto boolean not null default false;
 alter table if exists public.orcamentos     add column if not exists nome_projeto text;
 alter table if exists public.orcamentos     add column if not exists tipo_item    text;
 alter table if exists public.opcoes         add column if not exists ordem        int not null default 0;

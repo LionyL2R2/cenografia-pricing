@@ -966,6 +966,20 @@ let itensCustom = [];
    sem encostar em rede. Carregada uma vez, no boot. */
 let orcamentos = {};
 let perfilId = null;   // id da linha em `perfis`, para o upsert saber o alvo
+/* o orçamento de exemplo já foi mostrado? No modo banco isto é uma coluna de
+   `perfis`, então vale POR CONTA: quem já viu não vê de novo ao abrir o app em
+   outra máquina. Era cen_v3_seen, e por isso reaparecia em cada navegador. */
+let onboardingVisto = false;
+/* A coluna `onboarding_visto` existe neste banco? Enquanto o `alter table` do
+   schema.sql não for rodado, ela não existe — e o app cai de volta na flag
+   local em vez de encher a tela de erro. É degradação de propósito: o commit
+   pode subir antes da migração, e o comportamento por conta passa a valer
+   sozinho assim que a coluna aparecer. */
+let onboardingNoBanco = true;
+/* banner do orçamento de exemplo. Estado de UI, como `collapsed` — não entra no
+   state, senão viraria campo desconhecido em todo orçamento salvo. Quem liga e
+   desliga é o render(), do mesmo jeito que faz com o banner de migração. */
+let ehExemplo = false;
 function opcoesDe(sec){ return opcoesCustom[sec]||[]; }
 function itensProntosAll(){ return itensCustom; }
 /* semeia as opções-base no localStorage uma única vez; a partir daí o usuário
@@ -1244,6 +1258,7 @@ const dados = (function(){
       itensCustom  = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
       const b      = store.ler(LS.budgets, {});
       orcamentos   = (b && typeof b==='object' && !Array.isArray(b)) ? b : {};
+      onboardingVisto = !!store.ler(LS.seen, false);
       invalidarHistorico();
     },
     async carregarDoBanco(){
@@ -1257,6 +1272,15 @@ const dados = (function(){
 
       const perfil=(p.data && p.data[0]) || null;
       perfilId = perfil ? perfil.id : null;
+      /* a coluna ausente aparece como chave ausente no select('*') — é assim que
+         se distingue "banco sem a migração" de "conta que nunca viu o exemplo" */
+      onboardingNoBanco = !perfil || Object.prototype.hasOwnProperty.call(perfil,'onboarding_visto');
+      if(onboardingNoBanco){
+        onboardingVisto = !!(perfil && perfil.onboarding_visto);
+      }else{
+        console.warn('[cenografia] a coluna perfis.onboarding_visto não existe neste banco — rode o bloco 2.1 do supabase/schema.sql. Até lá o onboarding continua sendo por navegador.');
+        onboardingVisto = !!store.ler(LS.seen, false);
+      }
       config = normConfig(perfil ? {
         nome:        doBanco(perfil.nome_empresa),
         razaoSocial: doBanco(perfil.razao_social),
@@ -1292,21 +1316,35 @@ const dados = (function(){
     /* ---------- escrita ---------- */
     salvarConfig(){
       if(!usarBanco()) return store.gravar(LS.config, config);
-      const linha={
+      return this.gravarPerfil('dados da empresa', {
         nome_empresa: paraBanco(config.nome),
         razao_social: paraBanco(config.razaoSocial),
         doc:          paraBanco(config.doc),
         telefone:     paraBanco(config.tel),
         email:        paraBanco(config.email),
         cidade:       paraBanco(config.cidade)
-      };
+      }, ()=>this.salvarConfig());
+    },
+    /* onboarding: é uma coluna de `perfis`, e por isso vale por CONTA. No modo
+       local continua sendo a chave cen_v3_seen deste navegador. */
+    salvarOnboarding(visto){
+      onboardingVisto = !!visto;
+      if(!usarBanco() || !onboardingNoBanco) return store.gravar(LS.seen, onboardingVisto);
+      return this.gravarPerfil('marca de onboarding',
+        { onboarding_visto: onboardingVisto },
+        ()=>this.salvarOnboarding(onboardingVisto));
+    },
+    /* upsert em `perfis` com o id conhecido — sem ele o upsert criaria uma
+       segunda linha de perfil para o mesmo usuário a cada gravação */
+    gravarPerfil(rotulo, campos, refazer){
+      const linha=Object.assign({}, campos);
       if(perfilId) linha.id=perfilId;
-      enviar('dados da empresa',
+      enviar(rotulo,
         db.from('perfis').upsert(linha).select('id').then(r=>{
           if(!r.error && r.data && r.data[0]) perfilId=r.data[0].id;
           return r;
         }),
-        ()=>this.salvarConfig());
+        refazer);
       return true;
     },
     salvarOpcoes(){
@@ -1373,9 +1411,13 @@ const dados = (function(){
         store.gravar(LS.opcoes, opcoesCustom);
         store.gravar(LS.itens, itensCustom);
         store.gravar(LS.budgets, orcamentos);
+        store.gravar(LS.seen, onboardingVisto);
         return;
       }
       this.salvarConfig(); this.salvarOpcoes(); this.salvarItens();
+      this.salvarOnboarding(onboardingVisto);
+      /* sem a coluna, salvarOnboarding gravou local — mas o perfil ainda precisa
+         do resto; nada a fazer aqui além de seguir com os orçamentos */
       const apagar=await db.from('orcamentos').delete().not('id','is',null);
       if(apagar.error) throw apagar.error;
       const linhas=Object.keys(orcamentos).map(id=>linhaDeOrcamento(id, orcamentos[id]));
@@ -1962,6 +2004,11 @@ function render(){
   renderItensProntos(); renderMateriais(); renderImpressao(); renderEstrutura(); renderProducao(); renderLocacoes();
   renderTribAviso();
   document.getElementById('bannerMigrado').classList.toggle('show', !!state.migrado);
+  /* bug D: o banner de exemplo ficava na tela ao abrir um orçamento salvo.
+     `novoOrcamento` limpava a classe na mão, `carregarOrcamento` não — e todo
+     caminho novo teria que lembrar de limpar. Agora quem manda é o render(),
+     igual ao banner de migração: nenhum caminho pode esquecer. */
+  document.getElementById('bannerExemplo').classList.toggle('show', !!ehExemplo);
   recalc();
 }
 
@@ -2389,7 +2436,7 @@ function carregarOrcamento(id){
   if(!id) return;
   const b=orcamentos;
   const rec=b[id];
-  if(rec){ state=migrar(rec); delete state.snapshot; state._projId=id; collapsed={}; render(); irPara('orcamento'); toast('Aberto: '+nomeDe(rec)); }
+  if(rec){ state=migrar(rec); delete state.snapshot; state._projId=id; collapsed={}; ehExemplo=false; render(); irPara('orcamento'); toast('Aberto: '+nomeDe(rec)); }
   document.getElementById('loadSel').value='';
 }
 function montarLoadSel(){
@@ -2403,7 +2450,7 @@ function novoOrcamento(){
   state=novoEstado();
   state.materiais.push(novoMaterial());
   collapsed={};
-  document.getElementById('bannerExemplo').classList.remove('show');
+  ehExemplo=false;
   render(); irPara('orcamento'); toast('Novo orçamento em branco');
 }
 
@@ -2709,8 +2756,8 @@ function admSaveItem(idx,btn){
 const CHAVES_LS = Object.keys(LS).map(k=>LS[k]);
 
 /* chaves que continuam sendo deste NAVEGADOR, não do servidor: o rascunho por
-   decisão (§3.6 do plano) e as duas flags de controle local */
-const CHAVES_LOCAIS = [LS.auto, LS.seen, LS.opcSeed];
+   decisão (§3.6 do plano) e a flag de semeadura, que só existe no modo local */
+const CHAVES_LOCAIS = [LS.auto, LS.opcSeed];
 
 function exportarBackup(){
   const dadosBk={};
@@ -2721,6 +2768,7 @@ function exportarBackup(){
   dadosBk[LS.opcoes]  = opcoesCustom;
   dadosBk[LS.itens]   = itensCustom;
   dadosBk[LS.budgets] = orcamentos;
+  dadosBk[LS.seen]    = onboardingVisto;
   CHAVES_LOCAIS.forEach(ch=>{
     const raw=localStorage.getItem(store.chave(ch));   // lê do namespace do usuário…
     if(raw===null){ dadosBk[ch]=null; return; }        // …e grava no arquivo sem prefixo
@@ -2855,6 +2903,7 @@ function aplicarBackup(pay){
   itensCustom = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
   const b = doArquivo(LS.budgets);
   orcamentos = (b && typeof b==='object' && !Array.isArray(b)) ? b : {};
+  onboardingVisto = !!doArquivo(LS.seen);
   invalidarHistorico();
 
   /* 2) as chaves que continuam locais. Ausente no arquivo tem que SUMIR — por
@@ -3414,8 +3463,8 @@ function exemplo(){
   state.logistica.locacoes=[ Object.assign(novaLocacao(),{equipamento:'Empilhadeira', qtd:1, dias:2, valorDia:450}) ];
   state.financeiro={ tributacao:'servico', impostoPct:18.33, margemPct:25 };
   collapsed={};
+  ehExemplo=true;      // quem mostra o banner é o render(), a partir daqui
   render();
-  document.getElementById('bannerExemplo').classList.add('show');
 }
 
 /* migra os orçamentos do formato antigo (chave = nome) p/ chave = ID único, sem
@@ -3597,11 +3646,13 @@ function init(){
   const mig = migrarTudoParaSchema3();   // varredura eager, com o catálogo ainda intacto
   montarLoadSel();
   if(mig && mig.migrados) setTimeout(()=>toast(`${mig.migrados} orçamento${mig.migrados===1?'':'s'} atualizado${mig.migrados===1?'':'s'} para o novo formato`),400);
-  const visto=store.ler(LS.seen,false);
+  /* o rascunho continua local por decisão (§3.6 do plano): é estado de UMA
+     sessão neste navegador, e sincronizá-lo a cada 350 ms seria caro e, com dois
+     dispositivos abertos, ativamente nocivo. O onboarding, não: é por conta. */
   const auto=store.ler(LS.auto,null);
-  if(!visto){ store.gravar(LS.seen,true); exemplo(); irPara('orcamento'); }
-  else if(auto){ state=migrar(auto); render(); irPara('inicio'); }
-  else { state=novoEstado(); state.materiais.push(novoMaterial()); render(); irPara('inicio'); }
+  if(!onboardingVisto){ dados.salvarOnboarding(true); exemplo(); irPara('orcamento'); }
+  else if(auto){ state=migrar(auto); ehExemplo=false; render(); irPara('inicio'); }
+  else { state=novoEstado(); state.materiais.push(novoMaterial()); ehExemplo=false; render(); irPara('inicio'); }
 }
 
 /* ---------- boot: harness, erro de conexão, ou gate de login ---------- */

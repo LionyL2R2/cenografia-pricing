@@ -28,8 +28,9 @@ t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
 t8.js     47 PASS   0 FALHA   o app não abre sem login (fase 2)
 t9.js     64 PASS   0 FALHA   mão de obra sem soma dupla e sugestão (v5.12)
 t10.js    73 PASS   0 FALHA   a fronteira com o banco (fase 2)
+t11.js    36 PASS   0 FALHA   onboarding por conta e banner de exemplo (bug D)
 ------------------------------------------------------------
-TOTAL: 531 PASS / 0 FALHA em 10 suítes
+TOTAL: 567 PASS / 0 FALHA em 11 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -295,6 +296,28 @@ linha da tabela. Tudo puro: nenhuma asserção precisa de Supabase.
   registros vindos do banco — é o que garante que o item 4 não quebrou a lista.
 - No harness `usarBanco()` é `false` e nenhuma gravação fica pendente de rede:
   a suíte prova também que ela mesma não está falando com servidor nenhum.
+
+### `t11.js` — onboarding por conta e o banner de exemplo (bug D)
+
+- **O onboarding vale por CONTA, não por navegador.** Era `cen_v3_seen` no
+  `localStorage`, e por isso o orçamento de exemplo reaparecia em cada máquina
+  nova em que a mesma pessoa entrasse. Virou a coluna `perfis.onboarding_visto`.
+  A suíte cobre o primeiro acesso (exemplo montado, marca gravada), o segundo
+  (nada de exemplo) e o rascunho restaurado sem ligar o banner.
+- **A marca saiu das chaves locais e o rascunho ficou** — as duas asserções
+  juntas prendem a decisão do §3.6 do plano: o rascunho é estado de uma sessão
+  neste navegador e não trafega; o onboarding é da conta e trafega.
+- **Bug D**: o banner de exemplo ficava na tela depois de abrir um orçamento
+  salvo. `novoOrcamento` limpava a classe na mão, `carregarOrcamento` não. A
+  correção não foi acrescentar a limpeza no segundo lugar — foi tirar o controle
+  dos chamadores: quem liga e desliga o banner é o `render()`, a partir de uma
+  variável de UI, do mesmo jeito que já fazia com o banner de migração. A suíte
+  testa os dois caminhos **e** o mecanismo, para que um caminho novo não precise
+  lembrar de nada.
+- **Banco sem a migração aplicada degrada, não quebra**: enquanto o `alter
+  table` do `schema.sql` não rodar, a coluna não existe, o app volta a usar a
+  flag do navegador e nada fica pendente de rede. É o que permite este commit
+  subir antes da migração e passar a valer por conta sozinho depois.
 
 ## Como escrever uma suíte nova
 

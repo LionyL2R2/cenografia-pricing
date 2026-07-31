@@ -164,6 +164,9 @@ globalThis.__v = {
   get orcamentos(){ return orcamentos; },     set orcamentos(v){ orcamentos = v; },
   get ultimaConferencia(){ return ultimaConferencia; },
   get inicioLista(){ return inicioLista; },
+  get onboardingVisto(){ return onboardingVisto; }, set onboardingVisto(v){ onboardingVisto = v; },
+  get onboardingNoBanco(){ return onboardingNoBanco; }, set onboardingNoBanco(v){ onboardingNoBanco = v; },
+  get ehExemplo(){ return ehExemplo; },             set ehExemplo(v){ ehExemplo = v; },
   get appBootado(){ return appBootado; },
   get gateEstado(){ return gateEstado; },
   get sessaoAtual(){ return sessaoAtual; }
