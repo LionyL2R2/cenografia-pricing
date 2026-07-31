@@ -27,10 +27,10 @@ t6.js     67 PASS   0 FALHA   dados da empresa no PDF e migração legada de res
 t7.js    110 PASS   0 FALHA   PDF de proposta para o cliente final (v5.11)
 t8.js     47 PASS   0 FALHA   o app não abre sem login (fase 2)
 t9.js     64 PASS   0 FALHA   mão de obra sem soma dupla e sugestão (v5.12)
-t10.js    73 PASS   0 FALHA   a fronteira com o banco (fase 2)
+t10.js    81 PASS   0 FALHA   a fronteira com o banco (fase 2)
 t11.js    36 PASS   0 FALHA   onboarding por conta e banner de exemplo (bug D)
 ------------------------------------------------------------
-TOTAL: 567 PASS / 0 FALHA em 11 suítes
+TOTAL: 575 PASS / 0 FALHA em 11 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -294,6 +294,13 @@ linha da tabela. Tudo puro: nenhuma asserção precisa de Supabase.
 - **`salvoEm` agora vem de `updated_at`**, o relógio do servidor, e não do
   navegador que salvou. A ordenação da tela Início é verificada com três
   registros vindos do banco — é o que garante que o item 4 não quebrou a lista.
+- **Grava antes, apaga depois.** Trocar uma coleção inteira no banco são duas
+  operações, e a ordem entre elas decide o que acontece se a rede cair no meio.
+  Apagando primeiro, a janela é de **perda**: o velho já foi e o novo não
+  chegou. Gravando primeiro, é de **dado a mais** — linha velha que ainda não
+  foi limpa. Dado a mais se conserta com um "tentar de novo"; dado a menos, não.
+  A suíte prende a ordem, prende que uma gravação falha **não apaga nada**, e
+  prende que quando a remoção começa o dado novo já está gravado.
 - No harness `usarBanco()` é `false` e nenhuma gravação fica pendente de rede:
   a suíte prova também que ela mesma não está falando com servidor nenhum.
 

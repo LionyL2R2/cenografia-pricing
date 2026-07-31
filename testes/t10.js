@@ -208,10 +208,63 @@ ok('a data usada na ordenação é a do servidor',
    5 · No harness o modo é LOCAL: nenhuma escrita vai à rede.
    ============================================================ */
 ok('usarBanco() é false sem Supabase', ctx.usarBanco() === false);
-ok('nenhuma gravação ficou pendente de rede', K.dados.temPendencia() === false, K.dados.pendencias());
-ok('uuid tem formato de uuid v4',
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.uuid()), ctx.uuid());
-ok('dois uuid seguidos são diferentes', ctx.uuid() !== ctx.uuid());
 
-console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTodos os testes passaram.');
-process.exit(falhas ? 1 : 0);
+/* ============================================================
+   6 · GRAVA ANTES, APAGA DEPOIS.
+
+   Trocar uma coleção inteira no banco são duas operações, e a ordem entre elas
+   decide o que acontece quando a rede cai no meio. Apagando primeiro, a janela
+   é de PERDA. Gravando primeiro, é de dado a mais — feio, visível, e um "tentar
+   de novo" limpa. Dado a mais se conserta; dado a menos, não.
+   ============================================================ */
+function sequencia(cfg) {
+  const ordem = [];
+  const passos = {
+    gravar: () => { ordem.push('gravar'); return cfg.gravarErro ? { error: cfg.gravarErro } : null; },
+    apagar: () => { ordem.push('apagar'); return cfg.apagarErro ? { error: cfg.apagarErro } : null; }
+  };
+  return ctx.gravarDepoisApagar(passos)
+    .then(() => ({ ordem, erro: null }))
+    .catch(e => ({ ordem, erro: e }));
+}
+
+/* o resto da suíte é assíncrono: gravarDepoisApagar devolve promise */
+(async function () {
+
+  const feliz = await sequencia({});
+  ok('a gravação vem ANTES da remoção', feliz.ordem.join('→') === 'gravar→apagar', feliz.ordem);
+  ok('caminho feliz não levanta erro', feliz.erro === null, feliz.erro);
+
+  const gravouMal = await sequencia({ gravarErro: { message: 'rede caiu' } });
+  ok('se a gravação falha, NADA é apagado', gravouMal.ordem.join('→') === 'gravar', gravouMal.ordem);
+  ok('e o erro sobe para quem chamou', !!gravouMal.erro && gravouMal.erro.message === 'rede caiu', gravouMal.erro);
+
+  const apagouMal = await sequencia({ apagarErro: { message: 'rede caiu na limpeza' } });
+  ok('se só a limpeza falha, a gravação já aconteceu',
+    apagouMal.ordem.join('→') === 'gravar→apagar', apagouMal.ordem);
+  ok('falha na limpeza também sobe — nunca em silêncio',
+    !!apagouMal.erro && apagouMal.erro.message === 'rede caiu na limpeza', apagouMal.erro);
+
+  /* o estado no meio do caminho é o que importa: quando a remoção começa, o dado
+     novo JÁ está gravado. É exatamente isso que a ordem inversa não garantia. */
+  let noMeio = null;
+  const feito = [];
+  await ctx.gravarDepoisApagar({
+    gravar: () => { feito.push('dado novo gravado'); return null; },
+    apagar: () => { noMeio = feito.slice(); feito.push('velho apagado'); return null; }
+  });
+  ok('quando a remoção começa, o dado novo já está gravado',
+    noMeio.join(',') === 'dado novo gravado', noMeio);
+
+  /* etapa ausente (lista vazia dos dois lados) não quebra a sequência */
+  const vazio = await sequencia({});
+  ok('sequência com etapas nulas continua ordenada', vazio.ordem.join('→') === 'gravar→apagar');
+
+  ok('nenhuma gravação ficou pendente de rede', K.dados.temPendencia() === false, K.dados.pendencias());
+  ok('uuid tem formato de uuid v4',
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.uuid()), ctx.uuid());
+  ok('dois uuid seguidos são diferentes', ctx.uuid() !== ctx.uuid());
+
+  console.log(falhas ? `\n${falhas} FALHA(S)` : '\nTodos os testes passaram.');
+  process.exit(falhas ? 1 : 0);
+})();

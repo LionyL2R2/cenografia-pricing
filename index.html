@@ -1158,6 +1158,30 @@ function precoDoBanco(v){
    ============================================================ */
 function usarBanco(){ return !MODO_TESTE && !!db; }
 
+/* ---------- substituir uma coleção inteira: GRAVA ANTES, APAGA DEPOIS ----------
+
+   Trocar uma lista inteira no banco são duas operações, e a ordem entre elas
+   decide o que acontece quando a rede cai no meio.
+
+   Apagando primeiro, a janela entre as duas é uma janela de PERDA: as linhas
+   antigas já não existem e as novas ainda não chegaram. Sem fila persistida,
+   fechar a aba nesse instante apaga o trabalho sem volta.
+
+   Gravando primeiro, a mesma janela deixa dado A MAIS — linhas velhas que ainda
+   não foram limpas. Fica feio (opção repetida no dropdown), aparece na tela, e
+   um "tentar de novo" termina a limpeza. Dado a mais se conserta; dado a menos,
+   não.
+
+   Recebe as duas etapas como funções para poder ser testada sem rede: o que se
+   verifica aqui é a ORDEM, e ela é a correção inteira. */
+async function gravarDepoisApagar(passos){
+  const g = await passos.gravar();
+  if(g && g.error) throw g.error;          // gravação falhou: NÃO apaga nada
+  const a = await passos.apagar();
+  if(a && a.error) throw a.error;
+  return a;
+}
+
 /* id de orçamento precisa ser uuid: é o tipo da PK em `orcamentos`. */
 function uuid(){
   try{ if(typeof crypto!=='undefined' && crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
@@ -1246,6 +1270,10 @@ const dados = (function(){
     temPendencia(){ return pendentes.length>0; },
     pendencias(){ return pendentes.map(p=>p.rotulo); },
     tentarPendentes,
+    /* para quem não passa por enviar() — hoje só o import de backup, que é
+       await-ado por quem chamou. Sem isto a barra aparecia mas o botão "tentar
+       de novo" não tinha o que refazer: limpava o aviso e ia embora. */
+    registrarFalha(rotulo, refazer, e){ falhou(rotulo, refazer, e); },
 
     /* ---------- carga inicial ---------- */
     carregarLocal(){
@@ -1356,12 +1384,19 @@ const dados = (function(){
           if(val!==null) linhas.push({setor:sec, valor:val, ordem});
         });
       });
-      /* lista inteira de uma vez: apaga as do usuário (o RLS já limita o
-         alcance do delete) e reinsere na ordem da memória. A memória é a
-         referência completa, então um "tentar de novo" reconstrói tudo. */
+      /* lista inteira de uma vez. As linhas não têm id estável do lado do app
+         (opção é só uma string numa posição), então: guarda quais existem hoje,
+         insere as novas, e só então apaga as antigas pelo id. Nunca há um
+         instante em que o usuário esteja sem lista. */
       enviar('listas de opções',
-        db.from('opcoes').delete().not('id','is',null)
-          .then(r=>{ if(r.error) throw r.error; return linhas.length ? db.from('opcoes').insert(linhas) : r; }),
+        db.from('opcoes').select('id').then(ant=>{
+          if(ant.error) throw ant.error;
+          const antigos=(ant.data||[]).map(r=>r.id);
+          return gravarDepoisApagar({
+            gravar: ()=> linhas.length  ? db.from('opcoes').insert(linhas)        : null,
+            apagar: ()=> antigos.length ? db.from('opcoes').delete().in('id', antigos) : null
+          });
+        }),
         ()=>this.salvarOpcoes());
       return true;
     },
@@ -1374,8 +1409,14 @@ const dados = (function(){
         ordem
       })).filter(l=>l.nome!==null);
       enviar('catálogo de itens prontos',
-        db.from('itens_catalogo').delete().not('id','is',null)
-          .then(r=>{ if(r.error) throw r.error; return linhas.length ? db.from('itens_catalogo').insert(linhas) : r; }),
+        db.from('itens_catalogo').select('id').then(ant=>{
+          if(ant.error) throw ant.error;
+          const antigos=(ant.data||[]).map(r=>r.id);
+          return gravarDepoisApagar({
+            gravar: ()=> linhas.length  ? db.from('itens_catalogo').insert(linhas)        : null,
+            apagar: ()=> antigos.length ? db.from('itens_catalogo').delete().in('id', antigos) : null
+          });
+        }),
         ()=>this.salvarItens());
       return true;
     },
@@ -1418,13 +1459,18 @@ const dados = (function(){
       this.salvarOnboarding(onboardingVisto);
       /* sem a coluna, salvarOnboarding gravou local — mas o perfil ainda precisa
          do resto; nada a fazer aqui além de seguir com os orçamentos */
-      const apagar=await db.from('orcamentos').delete().not('id','is',null);
-      if(apagar.error) throw apagar.error;
+      /* Orçamento tem id vindo do arquivo, então dá para fazer melhor que as
+         listas: upsert de tudo que veio, e só depois apagar o que NÃO veio.
+         Não há nem o instante de duplicata — no meio do caminho o usuário tem o
+         conteúdo do arquivo mais o que ainda não foi limpo. */
       const linhas=Object.keys(orcamentos).map(id=>linhaDeOrcamento(id, orcamentos[id]));
-      if(linhas.length){
-        const r=await db.from('orcamentos').insert(linhas);
-        if(r.error) throw r.error;
-      }
+      const ids=linhas.map(l=>l.id);
+      await gravarDepoisApagar({
+        gravar: ()=> linhas.length ? db.from('orcamentos').upsert(linhas) : null,
+        apagar: ()=> ids.length
+          ? db.from('orcamentos').delete().not('id','in','('+ids.join(',')+')')
+          : db.from('orcamentos').delete().not('id','is',null)
+      });
     }
   };
 })();
@@ -2927,8 +2973,9 @@ function aplicarBackup(pay){
       setTimeout(()=>location.reload(),700);
     })
     .catch(e=>{
-      console.error('[cenografia] falha ao enviar o backup importado:', e);
-      avisoRede(['import de backup ('+((e&&e.message)||e)+')']);
+      /* refaz o import inteiro: upsert + apagar-o-que-não-veio é idempotente,
+         então repetir é seguro e termina o que ficou pela metade */
+      dados.registrarFalha('import de backup ('+((e&&e.message)||e)+')', ()=>aplicarBackup(pay), e);
     });
 }
 
