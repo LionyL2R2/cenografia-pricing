@@ -137,6 +137,11 @@ create table if not exists public.orcamentos (
   -- coluna seria peso sem uso.
   dados          jsonb not null default '{}'::jsonb,
   snapshot_total numeric,
+  -- LIXEIRA. Excluir um orçamento carimba esta coluna em vez de apagar a linha:
+  -- o trabalho de horas de alguém não some por um clique errado. `null` = ativo.
+  -- Apagar de vez só acontece de dentro da lixeira, com confirmação, e aí sim é
+  -- DELETE de verdade.
+  deleted_at     timestamptz,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
@@ -149,6 +154,7 @@ create table if not exists public.orcamentos (
 -- colunas novas sem tocar nos dados. Em projeto novo é no-op.
 -- ============================================================================
 alter table if exists public.perfis         add column if not exists onboarding_visto boolean not null default false;
+alter table if exists public.orcamentos     add column if not exists deleted_at   timestamptz;
 alter table if exists public.orcamentos     add column if not exists nome_projeto text;
 alter table if exists public.orcamentos     add column if not exists tipo_item    text;
 alter table if exists public.opcoes         add column if not exists ordem        int not null default 0;
@@ -183,6 +189,16 @@ create index if not exists orcamentos_user_id_idx     on public.orcamentos(user_
 create index if not exists orcamentos_cliente_id_idx  on public.orcamentos(cliente_id);
 -- lista da tela Início: mais recentes primeiro, do usuário logado
 create index if not exists orcamentos_user_updated_idx on public.orcamentos(user_id, updated_at desc);
+-- ÍNDICE PARCIAL da listagem normal. A lixeira é minoria e cresce devagar; sem o
+-- `where`, todo SELECT da tela Início percorreria também as linhas apagadas.
+-- Com ele, o índice só contém as ativas e o filtro sai de graça.
+create index if not exists orcamentos_ativos_idx
+  on public.orcamentos(user_id, updated_at desc)
+  where deleted_at is null;
+-- e o inverso, para a própria lixeira: poucas linhas, ordenadas pela exclusão
+create index if not exists orcamentos_lixeira_idx
+  on public.orcamentos(user_id, deleted_at desc)
+  where deleted_at is not null;
 -- as duas leituras que montam os dropdowns já saem ordenadas do banco
 create index if not exists opcoes_user_setor_ordem_idx on public.opcoes(user_id, setor, ordem);
 create index if not exists itens_user_ordem_idx        on public.itens_catalogo(user_id, ordem);

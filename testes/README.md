@@ -29,8 +29,9 @@ t8.js     47 PASS   0 FALHA   o app não abre sem login (fase 2)
 t9.js     64 PASS   0 FALHA   mão de obra sem soma dupla e sugestão (v5.12)
 t10.js    81 PASS   0 FALHA   a fronteira com o banco (fase 2)
 t11.js    36 PASS   0 FALHA   onboarding por conta e banner de exemplo (bug D)
+t12.js    65 PASS   0 FALHA   lixeira de orçamentos (fase 2)
 ------------------------------------------------------------
-TOTAL: 575 PASS / 0 FALHA em 11 suítes
+TOTAL: 640 PASS / 0 FALHA em 12 suítes
 ```
 
 O runner sai com código **1** se qualquer asserção falhar, e imprime as linhas
@@ -325,6 +326,40 @@ linha da tabela. Tudo puro: nenhuma asserção precisa de Supabase.
   table` do `schema.sql` não rodar, a coluna não existe, o app volta a usar a
   flag do navegador e nada fica pendente de rede. É o que permite este commit
   subir antes da migração e passar a valer por conta sozinho depois.
+
+### `t12.js` — lixeira de orçamentos (fase 2)
+
+Excluir passou a ser *soft delete*: a linha continua no banco com `deleted_at`
+carimbado, e o orçamento vai para uma lixeira de onde pode voltar. Apagar de
+verdade só de dentro dela, com confirmação.
+
+- **O apagado some de TODAS as listagens**, e a suíte varre uma por uma: tela
+  Início, select "Abrir…", busca por nome, conferência de integridade, validação
+  de nome único, card de backup e as **quatro fontes do motor de sugestão**
+  (material, mão de obra, locação, transporte). As fixtures usam valores bem
+  diferentes entre o ativo e o apagado, então um vazamento devolve o número
+  errado, não "algum número" — orçamento apagado sugerindo preço numa proposta
+  nova é o tipo de coisa que ninguém nota até cobrar errado.
+- **A defesa de verdade não é o filtro, é o desenho.** Os apagados moram num
+  mapa separado (`orcamentosApagados`), não numa flag dentro de `orcamentos`.
+  Com uma flag, cada listagem precisaria lembrar de filtrar e a que esquecesse
+  vazaria em silêncio; com dois mapas, quem lê `orcamentos` só enxerga ativo por
+  construção. A suíte prende também essa propriedade: os dois mapas são
+  disjuntos.
+- **Restaurar devolve o total intacto** — recalculado e comparado com o de antes
+  da exclusão, não só o `snapshot.total`. E o restaurado volta a aparecer, a
+  colidir por nome e a alimentar a sugestão.
+- **Apagar de vez remove mesmo**, do mapa e do armazenamento, sem voltar para os
+  ativos. Restaurar/excluir/apagar id inexistente não quebra.
+- **Backup**: o export leva a lixeira junto, com o `deletedEm` preservado; o
+  import devolve cada um para o lado certo — ativo para a lista, apagado para a
+  lixeira — e o apagado continua fora das listagens depois do import. O resumo
+  do arquivo conta os dois separado, porque quem vai substituir tudo precisa
+  saber que está entrando lixeira também.
+- **Sem a coluna no banco, degrada para o lado seguro**: `deleted_at` sai do
+  payload (senão derrubaria TODA gravação de orçamento, não só a exclusão) e
+  excluir passa a recusar com aviso. Apagar de verdade "para resolver" seria
+  destruir o orçamento justamente para compensar a falta da rede de proteção.
 
 ## Como escrever uma suíte nova
 

@@ -298,6 +298,22 @@ table.itab .in-valor[readonly]:hover{border-color:var(--line)}
 .aviso-salvar b{font-weight:700}
 .aviso-salvar .btn{flex:none}
 
+/* ---------- lixeira de orçamentos ---------- */
+.lixeira-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:26px 0 12px;padding-top:18px;border-top:1px solid var(--line)}
+.lixeira-nota{font-size:12.5px;color:var(--ink-3);flex:1;min-width:220px;line-height:1.5}
+.lixeira-qtd{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--ink-2)}
+.lix-row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:11px 14px;margin-bottom:8px;
+}
+.lix-info{flex:1;min-width:200px;line-height:1.45}
+.lix-nome{font-weight:600;font-size:13.5px;color:var(--ink-2)}
+.lix-meta{font-size:12px;color:var(--ink-3)}
+.lix-val{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.lix-acts{display:flex;gap:7px;flex:none}
+.lix-vazia{font-size:13px;color:var(--ink-3);padding:8px 0 14px}
+
 /* ---------- gate de login (fase 2) ---------- */
 .gate{
   position:fixed;inset:0;z-index:80;
@@ -581,6 +597,18 @@ input.erro:focus{border-color:var(--erro);box-shadow:0 0 0 3px #FEE2E2}
     <input id="projBusca" type="search" placeholder="Buscar orçamento por nome…" oninput="renderProjGrid()" aria-label="Buscar orçamento">
   </div>
   <div class="proj-grid" id="projGrid"></div>
+
+  <!-- LIXEIRA: só aparece quando há algo apagado -->
+  <div id="secaoApagados" style="display:none">
+    <div class="lixeira-head">
+      <button class="btn ghost mini" id="btnLixeira" onclick="toggleLixeira()" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        Apagados <span id="lixeiraQtd" class="lixeira-qtd">0</span>
+      </button>
+      <span class="lixeira-nota">Orçamentos excluídos ficam aqui e podem ser restaurados. Nada é removido de verdade até você mandar.</span>
+    </div>
+    <div id="lixeiraLista" style="display:none"></div>
+  </div>
 </div>
 
 <!-- Tela Orçamento atual -->
@@ -965,6 +993,30 @@ let itensCustom = [];
    passam por aqui, síncronas. É o que permite nomeColide() rodar a cada tecla
    sem encostar em rede. Carregada uma vez, no boot. */
 let orcamentos = {};
+/* ---------- LIXEIRA ----------
+   Os apagados moram num MAPA SEPARADO, não numa flag dentro de `orcamentos`.
+
+   A diferença importa: com uma flag, cada listagem — tela Início, select
+   "Abrir…", busca, conferência de integridade, motor de sugestão de preço —
+   precisaria lembrar de filtrar, e a que esquecesse vazaria em silêncio. Um
+   orçamento apagado sugerindo preço numa proposta nova é o tipo de vazamento
+   que ninguém nota até cobrar errado.
+
+   Com dois mapas, esquecer é impossível: quem lê `orcamentos` só enxerga ativo,
+   por construção. A lixeira é lida em UM lugar só, a aba "Apagados". */
+let orcamentosApagados = {};
+/* separa um mapa vindo do disco/banco nos dois lados */
+function separarApagados(mapa){
+  const ativos={}, apagados={};
+  Object.keys(mapa||{}).forEach(id=>{
+    const rec=mapa[id];
+    if(!rec || typeof rec!=='object') return;
+    if(rec.snapshot && rec.snapshot.deletedEm) apagados[id]=rec; else ativos[id]=rec;
+  });
+  return {ativos, apagados};
+}
+/* junta os dois de volta — para gravar no localStorage e para o backup */
+function todosOsOrcamentos(){ return Object.assign({}, orcamentos, orcamentosApagados); }
 let perfilId = null;   // id da linha em `perfis`, para o upsert saber o alvo
 /* o orçamento de exemplo já foi mostrado? No modo banco isto é uma coluna de
    `perfis`, então vale POR CONTA: quem já viu não vê de novo ao abrir o app em
@@ -976,6 +1028,11 @@ let onboardingVisto = false;
    pode subir antes da migração, e o comportamento por conta passa a valer
    sozinho assim que a coluna aparecer. */
 let onboardingNoBanco = true;
+/* A coluna `orcamentos.deleted_at` existe neste banco? Sem ela a lixeira não
+   funciona — e, pior, um payload com `deleted_at` derruba TODA gravação de
+   orçamento, não só a exclusão. Enquanto o `alter table` não rodar, o campo sai
+   do payload e a exclusão avisa em vez de apagar. Nada se perde no caminho. */
+let lixeiraNoBanco = true;
 /* banner do orçamento de exemplo. Estado de UI, como `collapsed` — não entra no
    state, senão viraria campo desconhecido em todo orçamento salvo. Quem liga e
    desliga é o render(), do mesmo jeito que faz com o banner de migração. */
@@ -1216,6 +1273,9 @@ const dados = (function(){
       observacoes:    paraBanco(meta.obs),
       schema_version: Number(rec && rec.schemaVersion) || SCHEMA_VERSION,
       snapshot_total: (snap.total===''||snap.total==null||!isFinite(Number(snap.total))) ? null : Number(snap.total),
+      /* lixeira: epoch ms no app, timestamptz no banco. null = ativo. Some do
+         payload se a coluna não existir, senão TODO upsert falharia. */
+      ...(lixeiraNoBanco ? {deleted_at: snap.deletedEm ? new Date(Number(snap.deletedEm)).toISOString() : null} : {}),
       /* `dados` é o registro inteiro, no MESMO formato que o app sempre gravou.
          As colunas soltas existem para listar e buscar sem abrir o jsonb. */
       dados: rec
@@ -1235,6 +1295,10 @@ const dados = (function(){
        navegador que salvou — que é o certo com dois dispositivos. */
     const t=Date.parse(row.updated_at||'');
     snap.salvoEm = isFinite(t) ? t : (Number(snap.salvoEm)||0);
+    const d=Date.parse(row.deleted_at||'');
+    /* a coluna manda: se a linha está ativa no banco, o registro está ativo,
+       mesmo que o jsonb tenha um deletedEm velho de um import antigo */
+    if(isFinite(d)) snap.deletedEm = d; else delete snap.deletedEm;
     rec.snapshot = snap;
     return rec;
   }
@@ -1285,18 +1349,26 @@ const dados = (function(){
       const a      = store.ler(LS.itens, []);
       itensCustom  = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
       const b      = store.ler(LS.budgets, {});
-      orcamentos   = (b && typeof b==='object' && !Array.isArray(b)) ? b : {};
+      const sep    = separarApagados((b && typeof b==='object' && !Array.isArray(b)) ? b : {});
+      orcamentos   = sep.ativos;
+      orcamentosApagados = sep.apagados;
       onboardingVisto = !!store.ler(LS.seen, false);
       invalidarHistorico();
     },
     async carregarDoBanco(){
-      const [p, o, i, b] = await Promise.all([
+      const [p, o, i, b, lx] = await Promise.all([
         db.from('perfis').select('*').limit(1),
         db.from('opcoes').select('*').order('setor').order('ordem'),
         db.from('itens_catalogo').select('*').order('ordem'),
-        db.from('orcamentos').select('*')
+        db.from('orcamentos').select('*'),
+        /* sonda: a coluna da lixeira existe? Erro aqui NÃO derruba o boot — é
+           informação, não falha. Uma linha basta, e sem linha nenhuma o erro
+           (ou a ausência dele) já responde. */
+        db.from('orcamentos').select('deleted_at').limit(1)
       ]);
       [p,o,i,b].forEach(r=>{ if(r.error) throw r.error; });
+      lixeiraNoBanco = !lx.error;
+      if(!lixeiraNoBanco) console.warn('[cenografia] a coluna orcamentos.deleted_at não existe neste banco — rode o bloco 2.1 do supabase/schema.sql. Até lá a lixeira fica indisponível e excluir avisa em vez de apagar.');
 
       const perfil=(p.data && p.data[0]) || null;
       perfilId = perfil ? perfil.id : null;
@@ -1334,7 +1406,9 @@ const dados = (function(){
 
       const mapa={};
       (b.data||[]).forEach(r=>{ mapa[r.id]=orcamentoDeLinha(r); });
-      orcamentos=mapa;
+      const sep=separarApagados(mapa);
+      orcamentos=sep.ativos;
+      orcamentosApagados=sep.apagados;
       invalidarHistorico();
     },
     carregarTudo(){
@@ -1424,26 +1498,67 @@ const dados = (function(){
     salvarOrcamento(id, rec){
       orcamentos[id]=rec;
       invalidarHistorico();
-      if(!usarBanco()) return store.gravar(LS.budgets, orcamentos);
+      if(!usarBanco()) return store.gravar(LS.budgets, todosOsOrcamentos());
       enviar('orçamento "'+((rec.snapshot&&rec.snapshot.nome)||'sem nome')+'"',
         db.from('orcamentos').upsert(linhaDeOrcamento(id, rec)),
         ()=>this.salvarOrcamento(id, rec));
       return true;
     },
+    /* SOFT DELETE: a linha continua no banco, com deleted_at carimbado. O
+       trabalho de horas de alguém não pode sumir por um clique errado. */
     excluirOrcamento(id){
+      const rec=orcamentos[id];
+      if(!rec) return true;
+      /* sem a coluna, não há onde registrar a exclusão. Apagar de verdade seria
+         resolver a falta de lixeira destruindo o orçamento — exatamente o que
+         esta funcionalidade existe para impedir. Recusa e explica. */
+      if(usarBanco() && !lixeiraNoBanco){
+        avisoRede(['lixeira indisponível'],
+          `<b>Nada foi apagado.</b> A lixeira precisa de uma atualização do banco — falta a coluna <code>deleted_at</code> em <code>orcamentos</code>. Enquanto ela não existir, excluir fica bloqueado: o orçamento "${esc((rec.snapshot&&rec.snapshot.nome)||'sem nome')}" continua na sua lista, intacto.`);
+        return false;
+      }
+      rec.snapshot = rec.snapshot || {};
+      rec.snapshot.deletedEm = Date.now();
       delete orcamentos[id];
+      orcamentosApagados[id]=rec;
       invalidarHistorico();
-      if(!usarBanco()) return store.gravar(LS.budgets, orcamentos);
-      enviar('exclusão de orçamento',
-        db.from('orcamentos').delete().eq('id', id),
+      if(!usarBanco()) return store.gravar(LS.budgets, todosOsOrcamentos());
+      enviar('exclusão de "'+(rec.snapshot.nome||'sem nome')+'"',
+        db.from('orcamentos').update({deleted_at: new Date(Number(rec.snapshot.deletedEm)).toISOString()}).eq('id', id),
         ()=>this.excluirOrcamento(id));
+      return true;
+    },
+    restaurarOrcamento(id){
+      const rec=orcamentosApagados[id];
+      if(!rec) return true;
+      if(rec.snapshot) delete rec.snapshot.deletedEm;
+      delete orcamentosApagados[id];
+      orcamentos[id]=rec;
+      invalidarHistorico();
+      if(!usarBanco()) return store.gravar(LS.budgets, todosOsOrcamentos());
+      enviar('restauração de "'+((rec.snapshot&&rec.snapshot.nome)||'sem nome')+'"',
+        db.from('orcamentos').update({deleted_at:null}).eq('id', id),
+        ()=>this.restaurarOrcamento(id));
+      return true;
+    },
+    /* APAGAR DE VEZ — só de dentro da lixeira, com confirmação. Aqui sim é
+       DELETE de verdade, e não há volta. */
+    apagarDeVez(id){
+      const rec=orcamentosApagados[id];
+      if(!rec) return true;
+      delete orcamentosApagados[id];
+      invalidarHistorico();
+      if(!usarBanco()) return store.gravar(LS.budgets, todosOsOrcamentos());
+      enviar('exclusão definitiva',
+        db.from('orcamentos').delete().eq('id', id),
+        ()=>this.apagarDeVez(id));
       return true;
     },
     /* só o caminho legado usa isto: migração de dado antigo do localStorage,
        que por definição só existe no modo local */
     gravarTodosOrcamentosLocal(){
       invalidarHistorico();
-      return store.gravar(LS.budgets, orcamentos);
+      return store.gravar(LS.budgets, todosOsOrcamentos());
     },
     /* import de backup: empurra o arquivo inteiro para onde for a verdade */
     async substituirTudo(){
@@ -1451,7 +1566,7 @@ const dados = (function(){
         store.gravar(LS.config, config);
         store.gravar(LS.opcoes, opcoesCustom);
         store.gravar(LS.itens, itensCustom);
-        store.gravar(LS.budgets, orcamentos);
+        store.gravar(LS.budgets, todosOsOrcamentos());
         store.gravar(LS.seen, onboardingVisto);
         return;
       }
@@ -1463,7 +1578,11 @@ const dados = (function(){
          listas: upsert de tudo que veio, e só depois apagar o que NÃO veio.
          Não há nem o instante de duplicata — no meio do caminho o usuário tem o
          conteúdo do arquivo mais o que ainda não foi limpo. */
-      const linhas=Object.keys(orcamentos).map(id=>linhaDeOrcamento(id, orcamentos[id]));
+      /* a lixeira vai junto: o backup guarda o estado como estava, e restaurar
+         um backup tem que devolver também o que estava apagado — com a data de
+         exclusão preservada */
+      const todos=todosOsOrcamentos();
+      const linhas=Object.keys(todos).map(id=>linhaDeOrcamento(id, todos[id]));
       const ids=linhas.map(l=>l.id);
       await gravarDepoisApagar({
         gravar: ()=> linhas.length ? db.from('orcamentos').upsert(linhas) : null,
@@ -1475,13 +1594,21 @@ const dados = (function(){
   };
 })();
 
-function avisoRede(rotulos){
+/* `frase` substitui o texto padrão quando a causa não é queda de rede — hoje só
+   o caso da coluna que falta, onde "não foi salvo" seria enganoso: nada chegou a
+   ser tentado, e nada foi perdido. */
+function avisoRede(rotulos, frase){
   const el=document.getElementById('avisoRede');
   if(!el) return;
   if(!rotulos || !rotulos.length){ el.classList.remove('show'); return; }
-  const lista=rotulos.slice(0,4).join(', ') + (rotulos.length>4 ? ` … e mais ${rotulos.length-4}` : '');
   const txt=el.querySelector('.ar-txt');
-  if(txt) txt.innerHTML = `<b>Não foi salvo no servidor.</b> ${esc(lista)}. A alteração está só nesta tela — se você fechar a página agora, ela se perde. Verifique a conexão e tente de novo.`;
+  if(txt){
+    if(frase){ txt.innerHTML = frase; }
+    else {
+      const lista=rotulos.slice(0,4).join(', ') + (rotulos.length>4 ? ` … e mais ${rotulos.length-4}` : '');
+      txt.innerHTML = `<b>Não foi salvo no servidor.</b> ${esc(lista)}. A alteração está só nesta tela — se você fechar a página agora, ela se perde. Verifique a conexão e tente de novo.`;
+    }
+  }
   el.classList.add('show');
 }
 function fecharAvisoSalvar(){ avisoSalvar(false); }
@@ -2592,6 +2719,79 @@ function montarInicio(){
   if(busca) busca.style.display = inicioLista.length ? '' : 'none';
   const bi=document.getElementById('projBusca'); if(bi) bi.value='';
   renderProjGrid();
+  renderLixeira();
+}
+
+/* ---------- lixeira ----------
+   Lê `orcamentosApagados`, o único lugar do app que lê. Nenhuma outra listagem
+   precisa filtrar nada, porque nenhuma outra enxerga o que está aqui. */
+let lixeiraAberta=false;
+function toggleLixeira(){
+  lixeiraAberta=!lixeiraAberta;
+  const l=document.getElementById('lixeiraLista');
+  if(l) l.style.display = lixeiraAberta ? '' : 'none';
+  const b=document.getElementById('btnLixeira');
+  if(b) b.setAttribute('aria-expanded', lixeiraAberta ? 'true' : 'false');
+  if(lixeiraAberta) renderLixeira();
+}
+function listaApagados(){
+  return Object.entries(orcamentosApagados).map(([id,st])=>{
+    const snap=st.snapshot||{};
+    return {
+      id,
+      nome:    snap.nome!==undefined    ? snap.nome    : (st.meta?.nome||'(sem nome)'),
+      cliente: snap.cliente!==undefined ? snap.cliente : (st.meta?.cliente||''),
+      total:   snap.total!==undefined   ? snap.total   : totalDe(st),
+      apagadoEm: Number(snap.deletedEm)||0
+    };
+  }).sort((a,b)=>b.apagadoEm-a.apagadoEm);
+}
+function dataHoraBr(ms){
+  if(!ms) return '—';
+  const d=new Date(Number(ms));
+  if(!isFinite(d.getTime())) return '—';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function renderLixeira(){
+  const lista=listaApagados();
+  const sec=document.getElementById('secaoApagados');
+  if(sec) sec.style.display = lista.length ? '' : 'none';
+  const qtd=document.getElementById('lixeiraQtd');
+  if(qtd) qtd.textContent = String(lista.length);
+  if(!lista.length){ lixeiraAberta=false; }
+  const c=document.getElementById('lixeiraLista');
+  if(!c) return;
+  c.style.display = (lixeiraAberta && lista.length) ? '' : 'none';
+  if(!lista.length){ c.innerHTML=''; return; }
+  c.innerHTML=lista.map(p=>`
+    <div class="lix-row">
+      <div class="lix-info">
+        <div class="lix-nome">${esc(p.nome)}</div>
+        <div class="lix-meta">${esc(p.cliente||'sem cliente')} · apagado em ${esc(dataHoraBr(p.apagadoEm))}</div>
+      </div>
+      <div class="lix-val">${fmt(p.total)}</div>
+      <div class="lix-acts">
+        <button class="btn ghost mini" onclick="restaurarProjeto('${p.id}')">Restaurar</button>
+        <button class="btn danger mini" onclick="apagarDeVezProjeto('${p.id}')">Excluir de vez</button>
+      </div>
+    </div>`).join('');
+}
+function restaurarProjeto(id){
+  const p=listaApagados().find(x=>x.id===id); if(!p) return;
+  dados.restaurarOrcamento(id);
+  montarLoadSel(); montarInicio();
+  toast('Restaurado: '+p.nome);
+}
+/* o único caminho para o DELETE de verdade, e ele pede confirmação */
+function apagarDeVezProjeto(id){
+  const p=listaApagados().find(x=>x.id===id); if(!p) return;
+  confirmar('Excluir de vez',
+    `Apagar "${p.nome}" definitivamente? Este é o único ponto sem volta: o orçamento sai do servidor e não pode mais ser restaurado.`,
+    ()=>{
+      dados.apagarDeVez(id);
+      montarInicio();
+      toast('Apagado de vez: '+p.nome);
+    }, 'Sim, apagar de vez');
 }
 /* filtra a lista de projetos pelo termo de busca (nome/cliente) */
 function renderProjGrid(){
@@ -2641,13 +2841,18 @@ function duplicarProjeto(id){
     montarLoadSel(); montarInicio(); toast('Cópia criada: '+nome);
   });
 }
+/* Excluir manda para a LIXEIRA, não apaga. Por isso o texto mudou: prometer
+   "não pode ser desfeita" quando dá para desfazer treina o usuário a ignorar o
+   aviso — e aí ele ignora também o da exclusão definitiva, que é o de verdade. */
 function excluirProjeto(id){
   const p=projPorId(id); if(!p) return;
-  confirmar('Excluir orçamento', `Excluir o orçamento "${p.nome}"? Esta ação não pode ser desfeita.`, ()=>{
-    dados.excluirOrcamento(id);
-    if(state._projId===id) state._projId=undefined;
-    montarLoadSel(); montarInicio(); toast('Excluído: '+p.nome);
-  }, 'Sim, excluir');
+  confirmar('Excluir orçamento',
+    `Mandar "${p.nome}" para a lixeira? Ele sai da lista e para de aparecer em buscas e sugestões de preço, mas continua guardado — você pode restaurar em <b>Apagados</b>, no fim da tela Início.`.replace(/<\/?b>/g,''),
+    ()=>{
+      if(!dados.excluirOrcamento(id)) return;      // recusou: o aviso já está na tela
+      if(state._projId===id) state._projId=undefined;
+      montarLoadSel(); montarInicio(); toast('Movido para a lixeira: '+p.nome);
+    }, 'Sim, mandar para a lixeira');
 }
 
 /* ============================================================
@@ -2813,7 +3018,9 @@ function exportarBackup(){
   dadosBk[LS.config]  = config;
   dadosBk[LS.opcoes]  = opcoesCustom;
   dadosBk[LS.itens]   = itensCustom;
-  dadosBk[LS.budgets] = orcamentos;
+  /* os apagados vão junto, com o deletedEm preservado: o backup guarda o
+     estado como estava, e importar devolve a lixeira do jeito que ela estava */
+  dadosBk[LS.budgets] = todosOsOrcamentos();
   dadosBk[LS.seen]    = onboardingVisto;
   CHAVES_LOCAIS.forEach(ch=>{
     const raw=localStorage.getItem(store.chave(ch));   // lê do namespace do usuário…
@@ -2841,12 +3048,18 @@ function exportarBackup(){
 function resumoBackup(pay){
   const d=(pay&&pay.dados)||{};
   const bud=d[LS.budgets];
-  const orcObj=(bud&&typeof bud==='object'&&!Array.isArray(bud))?bud:{};
+  const todos=(bud&&typeof bud==='object'&&!Array.isArray(bud))?bud:{};
+  /* o arquivo carrega a lixeira junto; contar os dois separado, porque quem vai
+     substituir tudo precisa saber o que está entrando, inclusive o que entra já
+     apagado */
+  const sepBk=separarApagados(todos);
+  const orcObj=sepBk.ativos;
   const nomes=Object.keys(orcObj).map(id=>nomeDe(orcObj[id])||'(sem nome)');
   const opc=d[LS.opcoes]||{};
   const cfg=d[LS.config]||{};
   return {
     orc:nomes.length,
+    orcApagados:Object.keys(sepBk.apagados).length,
     nomes,
     itens:Array.isArray(d[LS.itens])?d[LS.itens].length:0,
     opcoes:['materiais','producao','impressao'].reduce((a,k)=>a+(Array.isArray(opc[k])?opc[k].length:0),0),
@@ -2895,6 +3108,7 @@ function abrirModalImport(pay, erro){
     corpo.innerHTML=`
       <div class="imp-resumo">
         <div><span class="k">Orçamentos salvos</span><b>${r.orc}</b></div>
+        ${r.orcApagados?`<div><span class="k">Na lixeira</span><b>${r.orcApagados}</b></div>`:''}
         <div><span class="k">Itens prontos</span><b>${r.itens}</b></div>
         <div><span class="k">Opções de dropdown</span><b>${r.opcoes}</b></div>
         <div><span class="k">Rascunho em aberto</span><b>${r.rascunho?'sim':'não'}</b></div>
@@ -2948,7 +3162,9 @@ function aplicarBackup(pay){
   const a = doArquivo(LS.itens) || [];
   itensCustom = Array.isArray(a) ? a.filter(x=>x && x.nome).map(normItem) : [];
   const b = doArquivo(LS.budgets);
-  orcamentos = (b && typeof b==='object' && !Array.isArray(b)) ? b : {};
+  const sep = separarApagados((b && typeof b==='object' && !Array.isArray(b)) ? b : {});
+  orcamentos = sep.ativos;
+  orcamentosApagados = sep.apagados;
   onboardingVisto = !!doArquivo(LS.seen);
   invalidarHistorico();
 
